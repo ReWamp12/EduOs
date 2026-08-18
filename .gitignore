@@ -1,12 +1,12 @@
+# Global EduOS Monorepo GitIgnore
 node_modules/
-.next/
-dist/
-build/
-.turbo/
-.env
-.env.local
-.env.*.local
+backend/node_modules/
+backend/dist/
+frontend/node_modules/
+frontend/.next/
+frontend/build/
 *.log
-.DS_Store
-Thumbs.db
 *.md
+.env.local
+frontend/.env.local
+backend/.env
