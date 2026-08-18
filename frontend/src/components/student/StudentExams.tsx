@@ -1,10 +1,30 @@
 'use client';
 
-import React from 'react';
-import { mockExamResults } from '@/lib/mockData';
-import { Trophy, Award, Sparkles, AlertCircle, CheckCircle2, TrendingUp, Download } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { dataService } from '@/lib/dataService';
+import { Trophy, Sparkles, AlertCircle, TrendingUp, Download } from 'lucide-react';
 
 export const StudentExams: React.FC = () => {
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      const data = await dataService.getExamResults('s-1');
+      setResults(data);
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+        Retrieving diagnostic scorecards...
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -19,15 +39,15 @@ export const StudentExams: React.FC = () => {
         </button>
       </div>
 
-      {mockExamResults.map((exam) => (
+      {results.map((exam) => (
         <div key={exam.id} className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <span className="badge badge-primary">{exam.subject}</span>
+              <span className="badge badge-primary">{exam.examType || 'Mock Test'}</span>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '6px' }}>{exam.examTitle}</h3>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Conducted on: {exam.examDate} &bull; CBT Examination Mode
+                Conducted on: {new Date(exam.examDate).toLocaleDateString()} &bull; CBT Examination Mode
               </div>
             </div>
 
@@ -65,29 +85,31 @@ export const StudentExams: React.FC = () => {
           </div>
 
           {/* Weak Topics Tagging */}
-          <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-              Detected Revision Areas:
+          {exam.weakTopics && exam.weakTopics.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Detected Revision Areas:
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {exam.weakTopics.map((topic: string, index: number) => (
+                  <span key={index} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#F87171',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                  }}>
+                    <AlertCircle size={14} /> {topic}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-              {exam.weakTopics.map((topic, index) => (
-                <span key={index} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#F87171',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                }}>
-                  <AlertCircle size={14} /> {topic}
-                </span>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       ))}
     </div>

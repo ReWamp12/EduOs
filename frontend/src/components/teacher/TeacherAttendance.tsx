@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { mockStudentsInBatch } from '@/lib/mockData';
+import { dataService } from '@/lib/dataService';
 import { Check, X, Clock, Send, Users, Sparkles, CheckCheck } from 'lucide-react';
 
 export const TeacherAttendance: React.FC = () => {
@@ -31,7 +32,13 @@ export const TeacherAttendance: React.FC = () => {
   const absentCount = Object.values(attendance).filter((s) => s === 'absent').length;
   const lateCount = Object.values(attendance).filter((s) => s === 'late').length;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    const records = mockStudentsInBatch.map((s) => ({
+      studentId: s.id,
+      status: attendance[s.id] || 'present',
+      remarks: 'Period 1 marked',
+    }));
+    await dataService.markAttendance('b-1', records);
     setIsSubmitted(true);
     setTimeout(() => setIsSubmitted(false), 4000);
   };

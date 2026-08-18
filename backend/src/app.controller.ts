@@ -212,4 +212,249 @@ export class AppController {
     }
     return mock.mockLeaveRequests;
   }
+
+  // --- Attendance ---
+  @Post('attendance/mark')
+  async markAttendance(@Body() body: any) {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data, error } = await client
+          .from('attendances')
+          .insert(
+            body.records.map((rec: any) => ({
+              student_id: rec.studentId,
+              batch_id: body.batchId,
+              status: rec.status,
+              remarks: rec.remarks || '',
+            })),
+          )
+          .select();
+
+        if (!error) return { success: true, count: data?.length || 0 };
+      } catch (err) {
+        this.logger.error('Failed to mark attendance in Supabase.', err);
+      }
+    }
+    return { success: true, count: body.records.length, sandbox: true };
+  }
+
+  @Get('attendance/student/:id')
+  async getStudentAttendance(@Param('id') studentId: string) {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data, error } = await client
+          .from('attendances')
+          .select('*')
+          .eq('student_id', studentId);
+
+        if (!error && data) {
+          return data.map((att: any) => ({
+            id: att.id,
+            date: att.date,
+            status: att.status,
+            remarks: att.remarks,
+          }));
+        }
+      } catch (err) {
+        this.logger.error('Failed to query student attendance.', err);
+      }
+    }
+    return [
+      { id: 'att-1', date: '2026-08-17', status: 'present', remarks: 'On time' },
+      { id: 'att-2', date: '2026-08-18', status: 'present', remarks: 'On time' },
+    ];
+  }
+
+  // --- Assignments & Homework ---
+  @Get('assignments/batch/:id')
+  async getAssignments(@Param('id') batchId: string) {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data, error } = await client
+          .from('assignments')
+          .select('*')
+          .eq('batch_id', batchId);
+
+        if (!error && data) {
+          return data;
+        }
+      } catch (err) {
+        this.logger.error('Failed to fetch assignments.', err);
+      }
+    }
+    return [
+      {
+        id: 'asg-1',
+        title: 'Rotational Dynamics Problem Sheet',
+        description: 'Solve problems 1 to 15. Show step-by-step vector products.',
+        dueDate: '2026-08-22T23:59:00Z',
+        maxMarks: 50,
+        subjectName: 'Physics',
+      },
+    ];
+  }
+
+  @Post('assignments')
+  async createAssignment(@Body() body: any) {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data, error } = await client
+          .from('assignments')
+          .insert({
+            batch_id: body.batchId,
+            subject_id: body.subjectId,
+            teacher_id: body.teacherId,
+            title: body.title,
+            description: body.description,
+            due_date: body.dueDate,
+            max_marks: body.maxMarks,
+          })
+          .select()
+          .single();
+
+        if (!error && data) return data;
+      } catch (err) {
+        this.logger.error('Failed to create assignment.', err);
+      }
+    }
+    return { id: `asg-${Date.now()}`, ...body };
+  }
+
+  @Post('submissions')
+  async submitAssignment(@Body() body: any) {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data, error } = await client
+          .from('assignment_submissions')
+          .insert({
+            assignment_id: body.assignmentId,
+            student_id: body.studentId,
+            submission_url: body.submissionUrl,
+            status: 'submitted',
+          })
+          .select()
+          .single();
+
+        if (!error && data) return data;
+      } catch (err) {
+        this.logger.error('Failed to upload submission.', err);
+      }
+    }
+    return { id: `sub-${Date.now()}`, ...body, status: 'submitted' };
+  }
+
+  @Put('submissions/:id/grade')
+  async gradeSubmission(@Param('id') submissionId: string, @Body() body: any) {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { error } = await client
+          .from('assignment_submissions')
+          .update({
+            marks_obtained: body.marksObtained,
+            feedback: body.feedback,
+            status: 'graded',
+          })
+          .eq('id', submissionId);
+
+        return { success: !error };
+      } catch (err) {
+        this.logger.error('Failed to grade submission.', err);
+      }
+    }
+    return { success: true };
+  }
+
+  // --- Exams & Results ---
+  @Get('exams/student/:id')
+  async getExamResults(@Param('id') studentId: string) {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data, error } = await client
+          .from('exam_results')
+          .select(`
+            id,
+            marks_obtained,
+            percentile,
+            rank_in_batch,
+            weak_topics,
+            mistake_summary,
+            exams (
+              title,
+              exam_type,
+              total_marks,
+              exam_date
+            )
+          `)
+          .eq('student_id', studentId);
+
+        if (!error && data) {
+          return data.map((res: any) => ({
+            id: res.id,
+            examTitle: res.exams.title,
+            examType: res.exams.exam_type,
+            totalMarks: res.exams.total_marks,
+            examDate: res.exams.exam_date,
+            marksObtained: res.marks_obtained,
+            percentile: res.percentile,
+            rankInBatch: res.rank_in_batch,
+            weakTopics: res.weak_topics,
+            mistakeSummary: res.mistake_summary,
+          }));
+        }
+      } catch (err) {
+        this.logger.error('Failed to fetch exam results.', err);
+      }
+    }
+    return [
+      {
+        id: 'er-1',
+        examTitle: 'JEE Advanced Mock Test 02',
+        examType: 'mock_test',
+        totalMarks: 300,
+        examDate: '2026-08-10',
+        marksObtained: 245,
+        percentile: 98.4,
+        rankInBatch: 3,
+        weakTopics: ['Rotational Mechanics', 'Ionic Equilibrium'],
+        mistakeSummary: '2 silly errors in physics calculation.',
+      },
+    ];
+  }
+
+  // --- Notices ---
+  @Get('notices')
+  async getNotices() {
+    if (this.supabaseService.isConfigured()) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data, error } = await client
+          .from('notices')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          return data;
+        }
+      } catch (err) {
+        this.logger.error('Failed to query notices.', err);
+      }
+    }
+    return [
+      {
+        id: 'n-1',
+        title: 'Independence Day Celebrations',
+        content: 'Flag hoisting ceremony will commence at 8:00 AM in the central courtyard. Attendance is mandatory.',
+        category: 'event',
+        priority: 'normal',
+        createdAt: '2026-08-14T09:00:00Z',
+      },
+    ];
+  }
 }
