@@ -52,7 +52,9 @@ export const ParentPTM: React.FC = () => {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {mockPTMSlots.map((ptm) => {
           const chosen = selected[ptm.id];
-          const activeBooking = ptm.availableSlots
+          const slots = ptm.availableSlots || ['10:00 AM', '10:30 AM', '11:00 AM'];
+          const ptmMode = ptm.mode || 'In-Person';
+          const activeBooking = slots
             .map((s) => bookingFor(ptm.id, s))
             .find(Boolean);
 
@@ -63,12 +65,12 @@ export const ParentPTM: React.FC = () => {
                   <Badge tone="primary">{ptm.subject}</Badge>
                   <h3 className="mt-2 text-section text-foreground">{ptm.teacherName}</h3>
                   <div className="mt-1 inline-flex items-center gap-1.5 text-meta text-text-secondary">
-                    {isVideo(ptm.mode) ? (
+                    {isVideo(ptmMode) ? (
                       <Video size={14} className="text-text-tertiary" />
                     ) : (
                       <MapPin size={14} className="text-text-tertiary" />
                     )}
-                    {ptm.mode}
+                    {ptmMode}
                   </div>
                 </div>
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
@@ -79,7 +81,7 @@ export const ParentPTM: React.FC = () => {
               <div className="mt-4">
                 <div className="eyebrow mb-2">Available Saturday slots</div>
                 <div className="flex flex-wrap gap-2">
-                  {ptm.availableSlots.map((slot) => {
+                  {slots.map((slot) => {
                     const isBooked = !!bookingFor(ptm.id, slot);
                     const isChosen = chosen === slot;
                     return (

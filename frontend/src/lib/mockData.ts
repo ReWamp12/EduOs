@@ -508,8 +508,10 @@ export const mockPTMSlots = [
     subject: 'Mathematics Standard (Class 10)',
     date: '2026-08-23',
     time: '10:15 AM – 10:30 AM',
+    mode: 'Google Meet Video Call',
     status: 'confirmed',
     room: 'Room 101 / Google Meet',
+    availableSlots: ['10:00 AM', '10:15 AM', '10:30 AM', '10:45 AM', '11:00 AM'],
   },
   {
     id: 'ptm-2',
@@ -517,8 +519,10 @@ export const mockPTMSlots = [
     subject: 'Science & Class Conduct (Class 10-A)',
     date: '2026-08-23',
     time: '10:45 AM – 11:00 AM',
+    mode: 'In-Person (Science Lab 1)',
     status: 'pending',
     room: 'Science Lab 1',
+    availableSlots: ['10:15 AM', '10:45 AM', '11:15 AM', '11:45 AM', '12:15 PM'],
   },
 ];
 
