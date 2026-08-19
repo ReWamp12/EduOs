@@ -543,11 +543,18 @@ export const mockBusLiveTracking = {
   driverPhone: '+91 98999 12345',
   attendantName: 'Mrs. Shanti Devi',
   currentSpeedKmph: 32,
-  nextStop: 'Janakpuri District Centre',
+  speedKmH: 32,
+  currentStop: 'Janakpuri District Centre',
+  nextStop: 'Modern Public School Main Gate',
   etaMinutes: 8,
   latitude: 28.6289,
   longitude: 77.0815,
   status: 'en_route',
+  rfidLogs: [
+    { event: 'Boarded bus at morning stop', location: 'Janakpuri Gate 2', time: '07:22 AM', verified: true },
+    { event: 'Passed GPS Geo-fence #3', location: 'Ring Road Crossing', time: '07:38 AM', verified: true },
+    { event: 'De-boarded at school gate', location: 'Main Senior Wing Gate', time: '07:50 AM', verified: true },
+  ],
 };
 
 export const mockConsentForms = [
