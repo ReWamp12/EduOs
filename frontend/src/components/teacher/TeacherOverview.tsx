@@ -1,216 +1,163 @@
 'use client';
 
 import React from 'react';
-import { mockProfiles, mockBatches, mockTimetable } from '@/lib/mockData';
-import { 
-  Users, 
-  CalendarCheck2, 
-  Sparkles, 
-  ClipboardList, 
-  Clock, 
-  ChevronRight, 
-  AlertCircle,
-  GraduationCap
+import { mockProfiles } from '@/lib/mockData';
+import { useTeacherBatch } from '@/lib/teacherContext';
+import { timetableForBatch } from '@/lib/batchData';
+import { StatCard, SectionCard, Badge, EmptyState } from '@/components/ui';
+import { TeacherInbox } from './TeacherInbox';
+import {
+  CalendarCheck2,
+  Sparkles,
+  ClipboardList,
+  Clock,
+  ChevronRight,
+  GraduationCap,
+  Users,
+  CalendarOff,
 } from 'lucide-react';
 
 export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const teacher = mockProfiles.teacher;
+  const { batch, students, batches } = useTeacherBatch();
+  const slots = timetableForBatch(batch.id);
+  const avgAttendance = students.length
+    ? (students.reduce((a, s) => a + s.attendancePct, 0) / students.length).toFixed(1)
+    : '—';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Welcome Banner */}
-      <div className="glass-card" style={{
-        padding: '24px 28px',
-        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(79, 70, 229, 0.15))',
-        border: '1px solid rgba(6, 182, 212, 0.3)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <img
-            src={teacher.avatarUrl}
-            alt={teacher.firstName}
-            style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '16px',
-              objectFit: 'cover',
-              border: '3px solid #06B6D4',
-              boxShadow: '0 8px 20px rgba(0, 0, 0, 0.4)',
-            }}
-          />
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Welcome, {teacher.firstName} {teacher.lastName}!</h2>
-              <span className="badge badge-primary">Senior Physics Faculty</span>
-            </div>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.9rem' }}>
-              Mentor &bull; <strong style={{ color: '#fff' }}>Class 11 - JEE Advanced Alpha</strong> &bull; Department of Physical Sciences
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => onNavigate('ai_question_studio')}
-          className="btn-primary"
-          style={{ background: 'linear-gradient(135deg, #06B6D4, #4F46E5)', fontSize: '0.85rem' }}
+    <div className="flex flex-col gap-6">
+      {/* Welcome banner */}
+      <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+        <div
+          className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+          style={{ background: 'linear-gradient(120deg, var(--secondary-soft), var(--surface) 62%)' }}
         >
-          <Sparkles size={16} /> Open AI Question Studio
-        </button>
-      </div>
-
-      {/* Metrics Row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '16px',
-      }}>
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ASSIGNED BATCHES</span>
-            <GraduationCap size={18} color="#06B6D4" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#06B6D4' }}>
-            2 <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-muted)' }}>Batches</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            80 Total Enrolled Aspirants
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>TODAY&apos;S LECTURES</span>
-            <Clock size={18} color="#4F46E5" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#818CF8' }}>
-            3 <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-muted)' }}>Periods</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Period 1 (08:30 AM) in Hall 101
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ATTENDANCE STATUS</span>
-            <CalendarCheck2 size={18} color="#F59E0B" />
-          </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '12px', color: '#F59E0B' }}>
-            Pending Check
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            JEE-11A Period 1 not submitted
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>BATCH AVG SCORE</span>
-            <ClipboardList size={18} color="#10B981" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#10B981' }}>
-            68.4%
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            +3.2% vs previous unit test
-          </div>
-        </div>
-      </div>
-
-      {/* Main Sections: Quick Actions + AI Assistant Alert */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px' }}>
-        {/* Today's Teaching Schedule */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Today&apos;s Assigned Classes</h3>
-            <span className="badge badge-primary">Monday</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 16px',
-              background: 'rgba(79, 70, 229, 0.12)',
-              border: '1px solid rgba(79, 70, 229, 0.4)',
-              borderRadius: 'var(--radius-sm)',
-            }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>
-                  Class 11 - JEE Advanced Alpha (P1)
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Physics: Rotational Dynamics &bull; Hall 101 &bull; 08:30 AM - 10:00 AM
-                </div>
+          <div className="flex items-center gap-4">
+            <img
+              src={teacher.avatarUrl}
+              alt={teacher.firstName}
+              className="h-16 w-16 rounded-lg object-cover ring-2 ring-surface shadow-sm"
+            />
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="text-title text-foreground">
+                  Welcome, {teacher.firstName} {teacher.lastName}
+                </h2>
+                <Badge tone="primary">{batch.name.split(' - ')[0]}</Badge>
               </div>
-              <button 
-                onClick={() => onNavigate('attendance')}
-                className="btn-primary" 
-                style={{ fontSize: '0.8rem', padding: '8px 14px' }}
-              >
-                Mark Attendance
-              </button>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 16px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-            }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                  Class 11 - JEE Advanced Alpha (P4)
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Problem Solving Clinic &bull; Lab 2 &bull; 02:15 PM - 03:45 PM
-                </div>
-              </div>
-              <span className="badge badge-primary">Scheduled</span>
+              <p className="mt-1 text-body text-text-secondary">
+                Mentor · <span className="font-semibold text-foreground">{batch.name}</span> · {batch.targetExam}
+              </p>
             </div>
           </div>
-        </div>
-
-        {/* AI Teacher Assistant Insight Box */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={20} color="#06B6D4" />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>AI Classroom Diagnostic</h3>
-          </div>
-
-          <div style={{
-            background: 'rgba(6, 182, 212, 0.08)',
-            border: '1px solid rgba(6, 182, 212, 0.25)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '16px',
-            lineHeight: 1.5,
-          }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#06B6D4', marginBottom: '6px' }}>
-              Attention Flag: JEE Batch 11A
-            </div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              &ldquo;23 students scored below 50% on Moment of Inertia integration problems in Test 03. 14 students show calculation slips rather than conceptual failure.&rdquo;
-            </div>
-          </div>
-
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            <strong>Recommendation:</strong> Allocate 15 mins in Period 1 for step-by-step perpendicular axis theorem derivation before starting Rolling Friction.
-          </div>
-
-          <button
-            onClick={() => onNavigate('ai_question_studio')}
-            className="btn-secondary"
-            style={{ width: '100%', marginTop: 'auto', fontSize: '0.85rem' }}
-          >
-            Generate Practice Worksheet <ChevronRight size={16} />
+          <button onClick={() => onNavigate('ai_question_studio')} className="btn-primary shrink-0 self-start sm:self-auto">
+            <Sparkles size={16} /> AI Question Studio
           </button>
         </div>
+      </div>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Students in Class"
+          value={students.length}
+          tone="info"
+          icon={<Users size={16} />}
+          hint={batch.name}
+        />
+        <StatCard
+          label="Today's Lectures"
+          value={<>{slots.length}<span className="text-base font-medium text-text-tertiary"> periods</span></>}
+          tone="primary"
+          icon={<Clock size={16} />}
+          hint={slots[0] ? `${slots[0].startTime} · ${slots[0].roomNumber}` : 'No lectures today'}
+        />
+        <StatCard
+          label="Avg Attendance"
+          value={<>{avgAttendance}<span className="text-base font-medium text-text-tertiary">%</span></>}
+          tone="success"
+          icon={<CalendarCheck2 size={16} />}
+          hint="Class average this term"
+          onClick={() => onNavigate('attendance')}
+        />
+        <StatCard
+          label="My Classes"
+          value={batches.length}
+          tone="warning"
+          icon={<GraduationCap size={16} />}
+          hint="Batches you teach"
+        />
+      </div>
+
+      {/* Cross-role inbox — parent PTM requests + student submissions (this batch) */}
+      <TeacherInbox />
+
+      {/* Main grid */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
+        {/* Today's classes */}
+        <SectionCard
+          title="Today's Assigned Classes"
+          icon={<Clock size={18} />}
+          action={<Badge tone="primary">Monday</Badge>}
+          bodyClassName="flex flex-col gap-2.5"
+        >
+          {slots.length === 0 ? (
+            <EmptyState
+              icon={<CalendarOff size={22} />}
+              title="No lectures scheduled"
+              description="This class has no periods today. Enjoy the prep time."
+            />
+          ) : (
+            slots.map((slot, i) => (
+              <div
+                key={slot.id}
+                className={[
+                  'flex items-center justify-between gap-3 rounded-md border px-4 py-3.5',
+                  i === 0 ? 'border-primary/25 bg-primary-soft' : 'border-border bg-surface-muted',
+                ].join(' ')}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-micro font-bold text-white"
+                    style={{ background: slot.subjectColor }}
+                  >
+                    P{slot.periodNumber}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-meta font-semibold text-foreground">{slot.subjectName}</div>
+                    <div className="mt-0.5 truncate text-micro text-text-tertiary">
+                      {slot.roomNumber} · {slot.startTime}–{slot.endTime}
+                    </div>
+                  </div>
+                </div>
+                {i === 0 ? (
+                  <button onClick={() => onNavigate('attendance')} className="btn-primary shrink-0 px-3 py-2 text-micro">
+                    Mark attendance
+                  </button>
+                ) : (
+                  <Badge tone="neutral" className="shrink-0">Scheduled</Badge>
+                )}
+              </div>
+            ))
+          )}
+        </SectionCard>
+
+        {/* AI diagnostic */}
+        <SectionCard title="AI Classroom Diagnostic" icon={<Sparkles size={18} />} bodyClassName="flex flex-col gap-4">
+          <div className="rounded-md border border-info/20 bg-info-soft p-4">
+            <div className="text-micro font-semibold uppercase tracking-wide text-info">Attention flag · {batch.name.split(' - ')[0]}</div>
+            <p className="mt-1.5 text-meta leading-relaxed text-text-secondary">
+              &ldquo;Several students show calculation slips rather than conceptual gaps in the latest test. Consider a focused revision session.&rdquo;
+            </p>
+          </div>
+          <p className="text-meta leading-relaxed text-text-secondary">
+            <span className="font-semibold text-foreground">Recommendation:</span> Allocate 15 min at the start of the next period for a targeted derivation before new content.
+          </p>
+          <button onClick={() => onNavigate('ai_question_studio')} className="btn-secondary mt-auto w-full">
+            Generate practice worksheet <ChevronRight size={16} />
+          </button>
+        </SectionCard>
       </div>
     </div>
   );

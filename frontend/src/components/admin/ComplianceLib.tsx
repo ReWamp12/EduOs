@@ -1,367 +1,350 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Scale, Plus, Check, ShieldCheck, FileText, Globe, Layers, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  Scale,
+  Plus,
+  ChevronDown,
+  ShieldCheck,
+  Building2,
+} from 'lucide-react';
+import { Card, PageHeader, Badge, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import { dataService } from '@/lib/dataService';
+import { Tenant } from '@/lib/types';
 
-interface ComplianceRule {
+type Requirement = 'mandatory' | 'optional';
+type Category = 'Safety' | 'Affiliation' | 'Child Protection' | 'Labor & Tax';
+
+interface ComplianceItem {
+  id: string;
+  title: string;
+  requirement: Requirement;
+}
+
+interface Ruleset {
   id: string;
   code: string;
   name: string;
   authority: string;
-  jurisdiction: string;
-  frequency: 'Annual' | 'One-Time' | 'Quarterly' | 'Continuous';
-  category: 'Safety' | 'Affiliation' | 'Child Protection' | 'Labor & Tax';
-  mandatoryFor: string[];
+  jurisdiction: 'National' | 'State' | 'Board';
+  category: Category;
+  enabled: boolean;
+  items: ComplianceItem[];
 }
 
-export const ComplianceLib: React.FC = () => {
-  const [selectedJurisdiction, setSelectedJurisdiction] = useState<'All' | 'National' | 'State' | 'Board'>('All');
-  const [rules, setRules] = useState<ComplianceRule[]>([
-    {
-      id: 'rule-1',
-      code: 'CBSE-BYE-01',
-      name: 'Admission & Withdrawal Master Register Digital Lock',
-      authority: 'CBSE Affiliation Bye-Laws 2025/2026',
-      jurisdiction: 'National',
-      frequency: 'Continuous',
-      category: 'Affiliation',
-      mandatoryFor: ['K-12 School', 'Higher Secondary'],
-    },
-    {
-      id: 'rule-2',
-      code: 'SAF-NOC-01',
-      name: 'Annual Fire Safety NOC & Equipment Inspection Audit',
-      authority: 'State Disaster Management & Fire Authority',
-      jurisdiction: 'State',
-      frequency: 'Annual',
-      category: 'Safety',
-      mandatoryFor: ['Coaching Institute', 'K-12 School', 'College', 'University'],
-    },
-    {
-      id: 'rule-3',
-      code: 'POCSO-SEC-19',
-      name: 'Mandatory Child Protection / POSH Internal Committee Composition',
-      authority: 'POCSO Act 2012 / POSH Act 2013',
-      jurisdiction: 'National',
-      frequency: 'Annual',
-      category: 'Child Protection',
-      mandatoryFor: ['K-12 School', 'Coaching Institute'],
-    },
-    {
-      id: 'rule-4',
-      code: 'RTE-SEC-12',
-      name: 'RTE Act 25% Reserved Quota Admission & Fee Reimbursement Claim',
-      authority: 'Department of School Education (RTE 2009)',
-      jurisdiction: 'State',
-      frequency: 'Annual',
-      category: 'Affiliation',
-      mandatoryFor: ['K-12 School'],
-    },
-    {
-      id: 'rule-5',
-      code: 'UDISE-PLUS-26',
-      name: 'UDISE+ Annual Digital Return & APAAR ID Synchronizer',
-      authority: 'Ministry of Education (Govt. of India)',
-      jurisdiction: 'National',
-      frequency: 'Annual',
-      category: 'Affiliation',
-      mandatoryFor: ['K-12 School'],
-    },
-    {
-      id: 'rule-6',
-      code: 'LABOR-PF-01',
-      name: 'Statutory Provident Fund (PF) & ESI Remittance Ledger',
-      authority: 'Ministry of Labour & Employment',
-      jurisdiction: 'National',
-      frequency: 'Quarterly',
-      category: 'Labor & Tax',
-      mandatoryFor: ['Coaching Institute', 'K-12 School', 'College', 'University'],
-    },
-  ]);
+const categoryTone: Record<Category, 'danger' | 'primary' | 'warning' | 'success'> = {
+  Safety: 'danger',
+  Affiliation: 'primary',
+  'Child Protection': 'warning',
+  'Labor & Tax': 'success',
+};
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newRule, setNewRule] = useState({
-    code: '',
-    name: '',
-    authority: '',
+const INITIAL_RULESETS: Ruleset[] = [
+  {
+    id: 'rs-cbse',
+    code: 'CBSE-BYE-2026',
+    name: 'CBSE Affiliation Bye-Laws',
+    authority: 'Central Board of Secondary Education',
+    jurisdiction: 'Board',
+    category: 'Affiliation',
+    enabled: true,
+    items: [
+      { id: 'ci-cbse-1', title: 'Admission & Withdrawal Master Register digital lock', requirement: 'mandatory' },
+      { id: 'ci-cbse-2', title: 'Qualified teacher-pupil ratio declaration', requirement: 'mandatory' },
+      { id: 'ci-cbse-3', title: 'Annual mandatory disclosure on public portal', requirement: 'optional' },
+    ],
+  },
+  {
+    id: 'rs-rte',
+    code: 'RTE-2009',
+    name: 'RTE Act 2009',
+    authority: 'Department of School Education',
+    jurisdiction: 'State',
+    category: 'Affiliation',
+    enabled: true,
+    items: [
+      { id: 'ci-rte-1', title: '25% reserved quota admission register', requirement: 'mandatory' },
+      { id: 'ci-rte-2', title: 'Fee reimbursement claim filing', requirement: 'mandatory' },
+    ],
+  },
+  {
+    id: 'rs-udise',
+    code: 'UDISE-PLUS',
+    name: 'UDISE+ Annual Return',
+    authority: 'Ministry of Education (Govt. of India)',
     jurisdiction: 'National',
-    frequency: 'Annual' as const,
-    category: 'Safety' as const,
-  });
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    category: 'Affiliation',
+    enabled: true,
+    items: [
+      { id: 'ci-udise-1', title: 'Annual digital data return submission', requirement: 'mandatory' },
+      { id: 'ci-udise-2', title: 'APAAR / student ID synchronization', requirement: 'optional' },
+    ],
+  },
+  {
+    id: 'rs-pocso',
+    code: 'POCSO-2012',
+    name: 'POCSO Compliance',
+    authority: 'Protection of Children from Sexual Offences Act',
+    jurisdiction: 'National',
+    category: 'Child Protection',
+    enabled: true,
+    items: [
+      { id: 'ci-pocso-1', title: 'Child protection policy & display boards', requirement: 'mandatory' },
+      { id: 'ci-pocso-2', title: 'Staff background verification vault', requirement: 'mandatory' },
+    ],
+  },
+  {
+    id: 'rs-posh',
+    code: 'POSH-2013',
+    name: 'POSH Internal Committee',
+    authority: 'Prevention of Sexual Harassment Act',
+    jurisdiction: 'National',
+    category: 'Child Protection',
+    enabled: false,
+    items: [
+      { id: 'ci-posh-1', title: 'Internal Complaints Committee composition', requirement: 'mandatory' },
+      { id: 'ci-posh-2', title: 'Annual awareness workshop log', requirement: 'optional' },
+    ],
+  },
+  {
+    id: 'rs-ragging',
+    code: 'ANTI-RAG-09',
+    name: 'Anti-Ragging Regulations',
+    authority: 'UGC / AICTE Anti-Ragging Cell',
+    jurisdiction: 'National',
+    category: 'Safety',
+    enabled: true,
+    items: [
+      { id: 'ci-rag-1', title: 'Online anti-ragging undertaking collection', requirement: 'mandatory' },
+      { id: 'ci-rag-2', title: 'Anti-ragging squad & helpline notice', requirement: 'mandatory' },
+    ],
+  },
+  {
+    id: 'rs-safety',
+    code: 'STATE-SAF-01',
+    name: 'State Safety Audit',
+    authority: 'State Disaster Management & Fire Authority',
+    jurisdiction: 'State',
+    category: 'Safety',
+    enabled: true,
+    items: [
+      { id: 'ci-saf-1', title: 'Annual fire safety NOC & equipment inspection', requirement: 'mandatory' },
+      { id: 'ci-saf-2', title: 'Building structural stability certificate', requirement: 'mandatory' },
+    ],
+  },
+];
 
-  const handleAddRule = (e: React.FormEvent) => {
+const ItemForm: React.FC<{ onAdd: (title: string, requirement: Requirement) => void }> = ({ onAdd }) => {
+  const [title, setTitle] = useState('');
+  const [requirement, setRequirement] = useState<Requirement>('mandatory');
+
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRule.code || !newRule.name) return;
-
-    const created: ComplianceRule = {
-      id: `rule-${Date.now()}`,
-      code: newRule.code,
-      name: newRule.name,
-      authority: newRule.authority || 'Regulatory Body',
-      jurisdiction: newRule.jurisdiction,
-      frequency: newRule.frequency,
-      category: newRule.category,
-      mandatoryFor: ['Coaching Institute', 'K-12 School'],
-    };
-
-    setRules([created, ...rules]);
-    setShowAddModal(false);
-    setNewRule({
-      code: '',
-      name: '',
-      authority: '',
-      jurisdiction: 'National',
-      frequency: 'Annual',
-      category: 'Safety',
-    });
-    setSuccessMessage(`Statutory Rule "${created.code}" registered into Master Library.`);
-    setTimeout(() => setSuccessMessage(null), 3500);
+    if (!title.trim()) return;
+    onAdd(title.trim(), requirement);
+    setTitle('');
+    setRequirement('mandatory');
   };
 
-  const filteredRules = rules.filter((r) => {
-    if (selectedJurisdiction === 'All') return true;
-    return r.jurisdiction === selectedJurisdiction;
-  });
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <input
+        className="input flex-1"
+        placeholder="New compliance item — e.g. Water hygiene certificate"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        aria-label="Compliance item title"
+      />
+      <select
+        className="input sm:w-40"
+        value={requirement}
+        onChange={(e) => setRequirement(e.target.value as Requirement)}
+        aria-label="Requirement level"
+      >
+        <option value="mandatory">Mandatory</option>
+        <option value="optional">Optional</option>
+      </select>
+      <button type="submit" className="btn-secondary shrink-0 px-3 py-2 text-micro" disabled={!title.trim()}>
+        <Plus size={14} /> Add item
+      </button>
+    </form>
+  );
+};
+
+export const ComplianceLib: React.FC = () => {
+  const [rulesets, setRulesets] = useState<Ruleset[]>(INITIAL_RULESETS);
+  const [expanded, setExpanded] = useState<string | null>('rs-cbse');
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    dataService
+      .getTenants()
+      .then((rows) => {
+        if (active) setTenants(rows);
+      })
+      .catch((e) => console.error(e));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const toggleEnabled = (id: string) => {
+    setRulesets((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const enabled = !r.enabled;
+        toast(
+          enabled ? 'Ruleset activated' : 'Ruleset disabled',
+          enabled ? 'success' : 'warning',
+          r.name,
+        );
+        return { ...r, enabled };
+      }),
+    );
+  };
+
+  const assignToTenant = (rulesetId: string, tenantId: string) => {
+    const tenant = tenants.find((t) => t.id === tenantId);
+    const ruleset = rulesets.find((r) => r.id === rulesetId);
+    if (!tenant || !ruleset) return;
+    toast('Ruleset assigned', 'success', `${ruleset.name} → ${tenant.name}`);
+  };
+
+  const addItem = (rulesetId: string, title: string, requirement: Requirement) => {
+    setRulesets((prev) =>
+      prev.map((r) =>
+        r.id === rulesetId
+          ? {
+              ...r,
+              items: [{ id: `ci-${Date.now()}`, title, requirement }, ...r.items],
+            }
+          : r,
+      ),
+    );
+    toast('Compliance item added', 'success', title);
+  };
+
+  const activeCount = rulesets.filter((r) => r.enabled).length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Scale size={26} color="#F59E0B" /> Global Statutory Compliance Ruleset Library
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Central repository of legal checklists, statutory filings, and board affiliation standards assigned to tenants
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Global Compliance Ruleset Library"
+        subtitle="Central repository of statutory checklists and board affiliation standards assignable to tenants."
+        actions={
+          <Badge tone="primary">
+            <ShieldCheck size={12} /> {activeCount} / {rulesets.length} active
+          </Badge>
+        }
+      />
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary"
-          style={{ background: 'linear-gradient(135deg, #F59E0B, #4F46E5)', fontSize: '0.85rem' }}
-        >
-          <Plus size={16} /> Add Compliance Rule
-        </button>
-      </div>
-
-      {successMessage && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontWeight: 600,
-        }}>
-          <Check size={18} /> {successMessage}
-        </div>
-      )}
-
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {(['All', 'National', 'State'] as const).map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setSelectedJurisdiction(filter)}
-            className={selectedJurisdiction === filter ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.82rem', padding: '8px 16px' }}
-          >
-            {filter === 'All' ? 'All Jurisdictions' : `${filter} Regulatory Standards`}
-          </button>
-        ))}
-      </div>
-
-      {/* Rules Grid / Table */}
-      <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-          <thead>
-            <tr style={{ background: 'rgba(255, 255, 255, 0.04)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <th style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--text-muted)' }}>RULE CODE &amp; STANDARD</th>
-              <th style={{ padding: '16px', fontWeight: 700, color: 'var(--text-muted)' }}>MANDATING AUTHORITY</th>
-              <th style={{ padding: '16px', fontWeight: 700, color: 'var(--text-muted)' }}>CATEGORY</th>
-              <th style={{ padding: '16px', fontWeight: 700, color: 'var(--text-muted)' }}>AUDIT FREQUENCY</th>
-              <th style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--text-muted)' }}>APPLICABILITY</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRules.map((rule) => (
-              <tr key={rule.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <td style={{ padding: '16px 20px' }}>
-                  <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.95rem' }}>{rule.name}</div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
-                    <code style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>{rule.code}</code>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>&bull; {rule.jurisdiction} Scope</span>
-                  </div>
-                </td>
-                <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>{rule.authority}</td>
-                <td style={{ padding: '16px' }}>
-                  <span className={`badge ${
-                    rule.category === 'Safety' ? 'badge-danger' :
-                    rule.category === 'Child Protection' ? 'badge-warning' :
-                    rule.category === 'Affiliation' ? 'badge-primary' : 'badge-success'
-                  }`} style={{ fontSize: '0.75rem' }}>
-                    {rule.category}
-                  </span>
-                </td>
-                <td style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {rule.frequency}
-                </td>
-                <td style={{ padding: '16px 20px' }}>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {rule.mandatoryFor.map((item, idx) => (
-                      <span key={idx} style={{
-                        fontSize: '0.72rem',
-                        padding: '2px 8px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: '4px',
-                        color: 'var(--text-secondary)',
-                      }}>
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Add Rule Modal */}
-      {showAddModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div className="glass-card" style={{ width: '560px', padding: '28px' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '18px' }}>
-              Define Statutory Compliance Requirement
-            </h3>
-
-            <form onSubmit={handleAddRule} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>RULE IDENTIFIER CODE</label>
-                <input
-                  type="text"
-                  placeholder="e.g. CBSE-AFF-2026"
-                  value={newRule.code}
-                  onChange={(e) => setNewRule({ ...newRule, code: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    marginTop: '4px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.9rem',
-                  }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>STATUTORY RULE / REGISTER NAME</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Mandatory Student Water & Health Hygiene Certificate"
-                  value={newRule.name}
-                  onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    marginTop: '4px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.9rem',
-                  }}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>MANDATING BODY</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Municipal Health Dept"
-                    value={newRule.authority}
-                    onChange={(e) => setNewRule({ ...newRule, authority: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      marginTop: '4px',
-                      background: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>CATEGORY</label>
-                  <select
-                    value={newRule.category}
-                    onChange={(e) => setNewRule({ ...newRule, category: e.target.value as any })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      marginTop: '4px',
-                      background: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                    }}
+      <div className="flex flex-col gap-3">
+        {rulesets.map((r) => {
+          const isOpen = expanded === r.id;
+          return (
+            <Card key={r.id} className="overflow-hidden">
+              {/* Ruleset header */}
+              <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+                <button
+                  onClick={() => setExpanded(isOpen ? null : r.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  aria-expanded={isOpen}
+                >
+                  <span
+                    className={cn(
+                      'grid h-9 w-9 shrink-0 place-items-center rounded-md',
+                      r.enabled ? 'bg-primary-soft text-primary' : 'bg-muted text-text-tertiary',
+                    )}
                   >
-                    <option value="Safety">Safety &amp; Infrastructure</option>
-                    <option value="Affiliation">Board Affiliation / UDISE+</option>
-                    <option value="Child Protection">Child Safeguarding / POCSO</option>
-                    <option value="Labor & Tax">Labor Law, PF &amp; Tax</option>
-                  </select>
-                </div>
-              </div>
+                    <Scale size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-foreground">{r.name}</span>
+                      <Badge tone={categoryTone[r.category]}>{r.category}</Badge>
+                      <Badge tone={r.enabled ? 'success' : 'neutral'}>
+                        {r.enabled ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-2 text-micro text-text-tertiary">
+                      <code className="text-primary">{r.code}</code> · {r.authority} · {r.jurisdiction}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    className={cn(
+                      'ml-auto shrink-0 text-text-tertiary transition-transform',
+                      isOpen && 'rotate-180',
+                    )}
+                  />
+                </button>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                {/* Enable/disable toggle */}
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="btn-secondary"
-                  style={{ fontSize: '0.85rem' }}
+                  role="switch"
+                  aria-checked={r.enabled}
+                  aria-label={`Toggle ${r.name}`}
+                  onClick={() => toggleEnabled(r.id)}
+                  className={cn(
+                    'flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors',
+                    r.enabled ? 'justify-end bg-primary' : 'justify-start bg-muted',
+                  )}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  style={{ fontSize: '0.85rem' }}
-                >
-                  Save to Ruleset Library
+                  <span className="h-4 w-4 rounded-full bg-white shadow-sm" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              {/* Expanded body */}
+              {isOpen && (
+                <div className="border-t border-border bg-surface-muted px-5 py-4">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="eyebrow">Compliance items ({r.items.length})</span>
+                    <label className="flex items-center gap-2 text-meta text-text-secondary">
+                      <Building2 size={14} className="text-text-tertiary" /> Assign to tenant:
+                      <select
+                        className="input h-8 w-auto py-1 text-micro"
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            assignToTenant(r.id, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                        aria-label={`Assign ${r.name} to tenant`}
+                      >
+                        <option value="" disabled>
+                          Select tenant…
+                        </option>
+                        {tenants.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <ul className="mb-4 flex flex-col divide-y divide-border rounded-md border border-border bg-surface">
+                    {r.items.map((item) => (
+                      <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <span className="text-meta text-foreground">{item.title}</span>
+                        <Badge tone={item.requirement === 'mandatory' ? 'danger' : 'neutral'}>
+                          {item.requirement === 'mandatory' ? 'Mandatory' : 'Optional'}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <ItemForm onAdd={(title, req) => addItem(r.id, title, req)} />
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 };

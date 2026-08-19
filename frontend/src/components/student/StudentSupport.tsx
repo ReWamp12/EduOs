@@ -1,16 +1,34 @@
 'use client';
 
 import React, { useState } from 'react';
-import { HelpCircle, Send, CheckCircle2, Compass, BookOpen, UserCheck, MessageSquare, Clock } from 'lucide-react';
+import { PageHeader, SectionCard, Card, Badge, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import { Send, Compass, UserCheck, MessageSquare, Clock } from 'lucide-react';
+
+type TicketCategory = 'Academic Query' | 'Fee / Administrative' | 'LMS & Technical' | 'Counseling';
+type TicketStatus = 'In Review' | 'Resolved' | 'Open';
 
 interface Ticket {
   id: string;
-  category: 'Academic Query' | 'Fee / Administrative' | 'LMS & Technical' | 'Counseling';
+  category: TicketCategory;
   subject: string;
-  status: 'In Review' | 'Resolved' | 'Open';
+  status: TicketStatus;
   createdAt: string;
   reply?: string;
 }
+
+const CATEGORIES: { value: TicketCategory; label: string }[] = [
+  { value: 'Academic Query', label: 'Academic Subject Query' },
+  { value: 'Fee / Administrative', label: 'Fee / Document Request' },
+  { value: 'LMS & Technical', label: 'LMS & App Support' },
+  { value: 'Counseling', label: 'Career Counseling Request' },
+];
+
+const statusTone: Record<TicketStatus, 'success' | 'warning' | 'primary'> = {
+  Resolved: 'success',
+  'In Review': 'warning',
+  Open: 'primary',
+};
 
 export const StudentSupport: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([
@@ -32,241 +50,170 @@ export const StudentSupport: React.FC = () => {
     },
   ]);
 
-  const [newSubject, setNewSubject] = useState('');
-  const [newCategory, setNewCategory] = useState<'Academic Query' | 'Fee / Administrative' | 'LMS & Technical' | 'Counseling'>('Academic Query');
-  const [newDescription, setNewDescription] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [category, setCategory] = useState<TicketCategory>('Academic Query');
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSubject.trim()) return;
+    if (!subject.trim()) {
+      toast('Subject required', 'warning', 'Please add a brief subject before submitting.');
+      return;
+    }
+    setSubmitting(true);
+    await new Promise((r) => setTimeout(r, 600));
 
     const createdTicket: Ticket = {
       id: `TCK-${Math.floor(1000 + Math.random() * 9000)}`,
-      category: newCategory,
-      subject: newSubject,
+      category,
+      subject: subject.trim(),
       status: 'Open',
       createdAt: 'Just now',
     };
 
-    setTickets([createdTicket, ...tickets]);
-    setNewSubject('');
-    setNewDescription('');
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3500);
+    setTickets((prev) => [createdTicket, ...prev]);
+    setSubject('');
+    setDescription('');
+    setCategory('Academic Query');
+    setSubmitting(false);
+    toast('Support ticket raised', 'success', `${createdTicket.id} sent to the academic mentors.`);
+  };
+
+  const handleMentorship = () => {
+    toast('Mentorship slot requested', 'success', 'Dr. Meera from student advisory will contact you shortly.');
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <HelpCircle size={26} color="#818CF8" /> Student Helpdesk &amp; Career Counseling Hub
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Direct support ticketing &bull; College guidance &bull; Academic mentoring requests
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Student Helpdesk & Counseling Hub"
+        subtitle="Direct support ticketing · College guidance · Academic mentoring requests"
+        actions={<Badge tone="primary">{tickets.length} tickets</Badge>}
+      />
 
-      {submitted && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontWeight: 600,
-        }}>
-          <CheckCircle2 size={18} /> Your support ticket has been submitted to the academic mentors!
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
-        {/* Support Tickets & New Ticket Form */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* New Ticket Card */}
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MessageSquare size={18} color="var(--primary)" /> Raise a Support Query
-            </h3>
-
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>CATEGORY</label>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_1fr]">
+        <div className="flex flex-col gap-5">
+          {/* New ticket form */}
+          <SectionCard title="Raise a Support Query" icon={<MessageSquare size={18} />}>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="label" htmlFor="ticket-category">
+                    Category
+                  </label>
                   <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value as any)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      marginTop: '4px',
-                      background: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '0.88rem',
-                    }}
+                    id="ticket-category"
+                    className="input"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as TicketCategory)}
                   >
-                    <option value="Academic Query">Academic Subject Query</option>
-                    <option value="Fee / Administrative">Fee / Document Request</option>
-                    <option value="LMS & Technical">LMS &amp; App Support</option>
-                    <option value="Counseling">Career Counseling Request</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>BRIEF SUBJECT</label>
+                <div className="flex flex-col gap-1.5">
+                  <label className="label" htmlFor="ticket-subject">
+                    Brief subject
+                  </label>
                   <input
+                    id="ticket-subject"
+                    className="input"
                     type="text"
                     placeholder="e.g. Need extra practice problems"
-                    value={newSubject}
-                    onChange={(e) => setNewSubject(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      marginTop: '4px',
-                      background: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '0.88rem',
-                    }}
-                    required
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
                   />
                 </div>
               </div>
 
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>DETAILS / EXPLANATION</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="label" htmlFor="ticket-description">
+                  Details / explanation
+                </label>
                 <textarea
+                  id="ticket-description"
+                  className="input resize-none"
                   rows={3}
-                  placeholder="Describe your doubt or request..."
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    marginTop: '4px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.88rem',
-                    resize: 'none',
-                  }}
+                  placeholder="Describe your doubt or request…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
 
-              <button
-                type="submit"
-                className="btn-primary"
-                style={{ alignSelf: 'flex-start', fontSize: '0.85rem' }}
-              >
-                <Send size={15} /> Submit Query
+              <button type="submit" className="btn-primary self-start" disabled={submitting}>
+                <Send size={15} /> {submitting ? 'Submitting…' : 'Submit Query'}
               </button>
             </form>
-          </div>
+          </SectionCard>
 
-          {/* Ticket History */}
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '14px' }}>Recent Tickets &amp; Responses</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {tickets.map((t) => (
-                <div
-                  key={t.id}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>{t.subject}</span>
-                    <span className={`badge ${t.status === 'Resolved' ? 'badge-success' : t.status === 'In Review' ? 'badge-warning' : 'badge-primary'}`} style={{ fontSize: '0.7rem' }}>
-                      {t.status}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span>ID: {t.id}</span>
-                    <span>&bull;</span>
-                    <span>{t.category}</span>
-                    <span>&bull;</span>
-                    <span>{t.createdAt}</span>
-                  </div>
-
-                  {t.reply && (
-                    <div style={{
-                      marginTop: '10px',
-                      padding: '10px 12px',
-                      background: 'rgba(79, 70, 229, 0.1)',
-                      borderLeft: '3px solid var(--primary)',
-                      borderRadius: '4px',
-                      fontSize: '0.82rem',
-                      color: 'var(--text-secondary)',
-                    }}>
-                      <strong style={{ color: '#fff' }}>Mentor Response:</strong> {t.reply}
-                    </div>
-                  )}
+          {/* Ticket history */}
+          <SectionCard title="Recent Tickets & Responses" icon={<Clock size={18} />} bodyClassName="flex flex-col gap-3">
+            {tickets.map((t) => (
+              <Card key={t.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-meta font-semibold text-foreground">{t.subject}</span>
+                  <Badge tone={statusTone[t.status]}>{t.status}</Badge>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-text-tertiary">
+                  <span>ID: {t.id}</span>
+                  <span>·</span>
+                  <span>{t.category}</span>
+                  <span>·</span>
+                  <span>{t.createdAt}</span>
+                </div>
+                {t.reply && (
+                  <div className="mt-3 rounded-md border-l-2 border-primary bg-primary-soft px-3.5 py-2.5">
+                    <p className="text-micro text-text-secondary">
+                      <span className="font-semibold text-foreground">Mentor response: </span>
+                      {t.reply}
+                    </p>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </SectionCard>
         </div>
 
-        {/* Career & Counseling Hub Box */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Compass size={22} color="#F59E0B" />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Career &amp; College Advisory Hub</h3>
-            </div>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              Explore stream roadmaps, cutoff benchmarks for Top Tier Engineering &amp; Medical colleges, and mentorship sessions.
-            </p>
+        {/* Career hub */}
+        <SectionCard title="Career & College Advisory" icon={<Compass size={18} />} bodyClassName="flex flex-col gap-4">
+          <p className="text-meta text-text-secondary">
+            Explore stream roadmaps, cutoff benchmarks for top-tier engineering & medical colleges, and mentorship
+            sessions.
+          </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{
-                padding: '12px',
-                background: 'rgba(245, 158, 11, 0.08)',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
-                borderRadius: '8px',
-              }}>
-                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff' }}>JEE Advanced 2026 Strategy Guide</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Target Rank: Under 1,000 for IIT Bombay/Delhi CS &amp; Electrical
-                </div>
-              </div>
-
-              <div style={{
-                padding: '12px',
-                background: 'rgba(6, 182, 212, 0.08)',
-                border: '1px solid rgba(6, 182, 212, 0.25)',
-                borderRadius: '8px',
-              }}>
-                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff' }}>NEET 2026 AIIMS Cutoff Matrix</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Physics &amp; Biology score threshold analysis
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => alert('Counseling request submitted. Dr. Meera from student advisory will contact you.')}
-              className="btn-secondary"
-              style={{ width: '100%', fontSize: '0.85rem', marginTop: '6px' }}
+          {[
+            {
+              tone: 'warning' as const,
+              title: 'JEE Advanced 2026 Strategy Guide',
+              desc: 'Target rank under 1,000 for IIT Bombay/Delhi CS & Electrical',
+            },
+            {
+              tone: 'info' as const,
+              title: 'NEET 2026 AIIMS Cutoff Matrix',
+              desc: 'Physics & Biology score threshold analysis',
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              className={cn(
+                'rounded-md border p-3.5',
+                item.tone === 'warning' ? 'border-warning/20 bg-warning-soft' : 'border-info/20 bg-info-soft',
+              )}
             >
-              <UserCheck size={16} /> Request 1-on-1 Mentorship Slot
-            </button>
-          </div>
-        </div>
+              <div className="text-meta font-semibold text-foreground">{item.title}</div>
+              <div className="mt-1 text-micro text-text-secondary">{item.desc}</div>
+            </div>
+          ))}
+
+          <button className="btn-secondary mt-auto w-full" onClick={handleMentorship}>
+            <UserCheck size={16} /> Request 1-on-1 Mentorship Slot
+          </button>
+        </SectionCard>
       </div>
     </div>
   );

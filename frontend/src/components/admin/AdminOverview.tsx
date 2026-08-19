@@ -1,192 +1,91 @@
 'use client';
 
 import React from 'react';
-import { 
-  Building2, 
-  Users, 
-  CreditCard, 
-  Activity, 
-  ExternalLink, 
-  ShieldCheck, 
-  Sliders,
-  Plus
-} from 'lucide-react';
+import { Card, StatCard, SectionCard, Badge } from '@/components/ui';
+import { Building2, Users, CreditCard, Activity, ShieldCheck, Sliders, Plus } from 'lucide-react';
 
 export const AdminOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const tenantsList = [
-    {
-      id: 't-1',
-      name: 'Apex Institute of Science',
-      subdomain: 'apex.eduos.app',
-      type: 'Coaching Institute',
-      plan: 'Pro Tier (AI Intelligence)',
-      students: 1200,
-      status: 'Active',
-      mrr: '₹45,000/mo',
-      branches: 2,
-    },
-    {
-      id: 't-2',
-      name: 'Greenwood World School',
-      subdomain: 'greenwood.eduos.app',
-      type: 'K-12 School (CBSE)',
-      plan: 'Enterprise (Compliance + Transport)',
-      students: 2400,
-      status: 'Active',
-      mrr: '₹85,000/mo',
-      branches: 3,
-    },
-    {
-      id: 't-3',
-      name: 'Target Medical Academy',
-      subdomain: 'targetmedical.eduos.app',
-      type: 'Coaching (NEET)',
-      plan: 'Pro Tier',
-      students: 850,
-      status: 'Active',
-      mrr: '₹35,000/mo',
-      branches: 1,
-    },
+    { id: 't-1', name: 'Apex Institute of Science', subdomain: 'apex.eduos.app', type: 'Coaching Institute', students: 1200, status: 'Active', mrr: '₹45,000/mo', branches: 2 },
+    { id: 't-2', name: 'Greenwood World School', subdomain: 'greenwood.eduos.app', type: 'K-12 School (CBSE)', students: 2400, status: 'Active', mrr: '₹85,000/mo', branches: 3 },
+    { id: 't-3', name: 'Target Medical Academy', subdomain: 'targetmedical.eduos.app', type: 'Coaching (NEET)', students: 850, status: 'Active', mrr: '₹35,000/mo', branches: 1 },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header Banner */}
-      <div className="glass-card" style={{
-        padding: '24px 28px',
-        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(79, 70, 229, 0.15))',
-        border: '1px solid rgba(245, 158, 11, 0.3)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Developer &amp; Super Admin Control Tower</h2>
-            <span className="badge badge-warning">Master Platform View</span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-title text-foreground">Super Admin Control Tower</h2>
+            <Badge tone="warning">Master Platform View</Badge>
           </div>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.9rem' }}>
-            Global Multi-Tenant Registry &bull; PostgreSQL RLS Kernel Isolation &bull; EduOS v1.0
+          <p className="mt-1 text-body text-text-secondary">
+            Global multi-tenant registry · PostgreSQL RLS isolation · EduOS v1.0
           </p>
         </div>
-
-        <button
-          onClick={() => onNavigate('tenants')}
-          className="btn-primary"
-          style={{ background: 'linear-gradient(135deg, #F59E0B, #4F46E5)', fontSize: '0.85rem' }}
-        >
-          <Plus size={16} /> Onboard New Tenant
+        <button onClick={() => onNavigate('tenants')} className="btn-primary shrink-0">
+          <Plus size={16} /> Onboard tenant
         </button>
       </div>
 
-      {/* Metrics Row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '16px',
-      }}>
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>TOTAL INSTITUTIONS</span>
-            <Building2 size={18} color="#F59E0B" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#F59E0B' }}>
-            12 <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-muted)' }}>Tenants</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            100% PostgreSQL RLS Isolated
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ACTIVE STUDENTS</span>
-            <Users size={18} color="#4F46E5" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#818CF8' }}>
-            8,420
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Across all tenant databases
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>MONTHLY PLATFORM MRR</span>
-            <CreditCard size={18} color="#10B981" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#10B981' }}>
-            ₹8,40,000
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            SaaS subscription billing
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>SYSTEM HEALTH</span>
-            <Activity size={18} color="#06B6D4" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#06B6D4' }}>
-            99.98%
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            All Redis event queues healthy
-          </div>
-        </div>
+      {/* KPI row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total Institutions" value={<>12<span className="text-base font-medium text-text-tertiary"> tenants</span></>} tone="warning" icon={<Building2 size={16} />} hint="100% RLS isolated" />
+        <StatCard label="Active Students" value="8,420" tone="primary" icon={<Users size={16} />} trend={{ value: '+4.2%', direction: 'up' }} hint="Across all tenant databases" />
+        <StatCard label="Platform MRR" value="₹8.40L" tone="success" icon={<CreditCard size={16} />} trend={{ value: '+6.1%', direction: 'up' }} hint="SaaS subscription billing" />
+        <StatCard label="System Health" value="99.98%" tone="info" icon={<Activity size={16} />} hint="All Redis event queues healthy" />
       </div>
 
-      {/* Tenant Directory */}
-      <div className="glass-card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Provisioned Tenant Directory</h3>
-          <span className="badge badge-primary">Shared DB &bull; Schema Isolated</span>
+      {/* Tenant directory */}
+      <SectionCard
+        title="Provisioned Tenant Directory"
+        action={
+          <Badge tone="primary">
+            <ShieldCheck size={12} /> Shared DB · Schema isolated
+          </Badge>
+        }
+        bodyClassName="p-0"
+      >
+        <div className="overflow-x-auto">
+          <table className="data-table min-w-[720px]">
+            <thead>
+              <tr>
+                <th>Institution</th>
+                <th>Type</th>
+                <th className="text-right">Students</th>
+                <th className="text-right">MRR</th>
+                <th>Status</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tenantsList.map((t) => (
+                <tr key={t.id}>
+                  <td>
+                    <div className="font-semibold text-foreground">{t.name}</div>
+                    <div className="mt-0.5 text-micro text-text-tertiary">
+                      <code className="text-primary">{t.subdomain}</code> · {t.branches} branches
+                    </div>
+                  </td>
+                  <td className="text-text-secondary">{t.type}</td>
+                  <td className="text-right font-medium text-foreground">{t.students.toLocaleString()}</td>
+                  <td className="text-right font-semibold text-success">{t.mrr}</td>
+                  <td><Badge tone="success">{t.status}</Badge></td>
+                  <td className="text-right">
+                    <button
+                      onClick={() => onNavigate('branding_studio')}
+                      className="btn-secondary ml-auto px-3 py-1.5 text-micro"
+                    >
+                      <Sliders size={13} /> Configure
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {tenantsList.map((t) => (
-            <div
-              key={t.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '16px 20px',
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>{t.name}</div>
-                  <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>{t.status}</span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Subdomain: <code style={{ color: 'var(--primary)' }}>{t.subdomain}</code> &bull; Type: {t.type} &bull; {t.branches} Branches
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{t.students} Students</div>
-                  <div style={{ fontSize: '0.75rem', color: '#10B981', fontWeight: 600 }}>{t.mrr}</div>
-                </div>
-
-                <button
-                  onClick={() => onNavigate('branding_studio')}
-                  className="btn-secondary"
-                  style={{ fontSize: '0.8rem', padding: '8px 14px' }}
-                >
-                  <Sliders size={14} /> Configure
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      </SectionCard>
     </div>
   );
 };

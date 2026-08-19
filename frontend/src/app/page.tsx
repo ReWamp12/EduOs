@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import { UserRole } from '@/lib/types';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { Toaster } from '@/components/ui/toast';
+import { NoticeBoard } from '@/components/common/NoticeBoard';
+import { TeacherWorkspace } from '@/components/teacher/TeacherWorkspace';
 
 // Student Components
 import { StudentOverview } from '@/components/student/StudentOverview';
@@ -23,6 +26,7 @@ import { ParentPTM } from '@/components/parent/ParentPTM';
 import { ParentBusTracking } from '@/components/parent/ParentBusTracking';
 import { ParentAIReport } from '@/components/parent/ParentAIReport';
 import { ParentFeedback } from '@/components/parent/ParentFeedback';
+import { ParentExamHistory } from '@/components/parent/ParentExamHistory';
 
 // Teacher Components
 import { TeacherOverview } from '@/components/teacher/TeacherOverview';
@@ -30,6 +34,7 @@ import { TeacherAttendance } from '@/components/teacher/TeacherAttendance';
 import { TeacherGradebook } from '@/components/teacher/TeacherGradebook';
 import { TeacherAIQuestions } from '@/components/teacher/TeacherAIQuestions';
 import { TeacherTimetable } from '@/components/teacher/TeacherTimetable';
+import { TeacherExams } from '@/components/teacher/TeacherExams';
 
 // Principal Components
 import { PrincipalOverview } from '@/components/principal/PrincipalOverview';
@@ -46,10 +51,14 @@ import { ComplianceLib } from '@/components/admin/ComplianceLib';
 export default function Home() {
   const [activeRole, setActiveRole] = useState<UserRole>('student');
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Teacher workspace is scoped to a selected batch; kept for the whole session.
+  const [teacherBatchId, setTeacherBatchId] = useState<string | null>(null);
 
   const handleRoleChange = (role: UserRole) => {
     setActiveRole(role);
     setActiveTab('overview');
+    setMobileNavOpen(false);
   };
 
   const renderContent = () => {
@@ -71,7 +80,7 @@ export default function Home() {
           case 'support':
             return <StudentSupport />;
           case 'notices':
-            return <StudentNotices />;
+            return <NoticeBoard role={activeRole} />;
           default:
             return <StudentOverview onNavigate={setActiveTab} />;
         }
@@ -90,10 +99,12 @@ export default function Home() {
             return <ParentBusTracking />;
           case 'ai_report':
             return <ParentAIReport />;
+          case 'exam_history':
+            return <ParentExamHistory />;
           case 'feedback':
             return <ParentFeedback />;
           case 'notices':
-            return <StudentNotices />;
+            return <NoticeBoard role={activeRole} />;
           default:
             return <ParentOverview onNavigate={setActiveTab} />;
         }
@@ -112,8 +123,10 @@ export default function Home() {
             return <TeacherAIQuestions />;
           case 'timetable':
             return <TeacherTimetable />;
+          case 'exams':
+            return <TeacherExams />;
           case 'notices':
-            return <StudentNotices />;
+            return <NoticeBoard role={activeRole} />;
           default:
             return <TeacherOverview onNavigate={setActiveTab} />;
         }
@@ -129,7 +142,7 @@ export default function Home() {
           case 'inspection_mode':
             return <PrincipalInspection />;
           case 'notices':
-            return <StudentNotices />;
+            return <NoticeBoard role={activeRole} />;
           default:
             return <PrincipalOverview onNavigate={setActiveTab} />;
         }
@@ -153,20 +166,38 @@ export default function Home() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)' }}>
-      {/* Top Navbar with Bottom-Up Live Role Switcher */}
-      <Navbar activeRole={activeRole} setActiveRole={handleRoleChange} activeTab={activeTab} />
+    <div className="flex min-h-screen bg-background">
+      {/* Role-aware sidebar (sticky on desktop, drawer on mobile) */}
+      <Sidebar
+        activeRole={activeRole}
+        setActiveRole={handleRoleChange}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
+      />
 
-      {/* Main App Layout */}
-      <div style={{ display: 'flex', flex: 1 }}>
-        {/* Role-Aware Sidebar */}
-        <Sidebar activeRole={activeRole} activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Main column */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Navbar activeRole={activeRole} activeTab={activeTab} onOpenMobile={() => setMobileNavOpen(true)} />
 
-        {/* Dynamic Main Stage */}
-        <main style={{ flex: 1, padding: '28px 36px', overflowY: 'auto', maxHeight: 'calc(100vh - 63px)' }}>
-          <div className="animate-fade-in">{renderContent()}</div>
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div key={`${activeRole}-${activeTab}`} className="mx-auto max-w-[1360px] animate-fade-in">
+            {activeRole === 'teacher' ? (
+              <TeacherWorkspace
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                batchId={teacherBatchId}
+                setBatchId={setTeacherBatchId}
+              />
+            ) : (
+              renderContent()
+            )}
+          </div>
         </main>
       </div>
+
+      <Toaster />
     </div>
   );
 }

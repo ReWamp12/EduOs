@@ -1,132 +1,139 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { dataService } from '@/lib/dataService';
-import { FileText, Clock, CheckCircle2, Upload, AlertCircle, Check } from 'lucide-react';
+import { mockAssignments, mockCurrentStudent } from '@/lib/mockData';
+import { Assignment } from '@/lib/types';
+import { useAppStore, addSubmission } from '@/lib/store';
+import { PageHeader, SectionCard, Card, Badge, EmptyState, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import { Clock, CheckCircle2, Upload, Award, MessageSquareText, ClipboardCheck, Inbox } from 'lucide-react';
+
+const statusBadge: Record<Assignment['status'], { tone: 'warning' | 'info' | 'success'; label: string; icon: React.ReactNode }> = {
+  pending: { tone: 'warning', label: 'Pending', icon: <Clock size={12} /> },
+  submitted: { tone: 'info', label: 'Under Review', icon: <ClipboardCheck size={12} /> },
+  graded: { tone: 'success', label: 'Graded', icon: <CheckCircle2 size={12} /> },
+};
 
 export const StudentAssignments: React.FC = () => {
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitSuccessId, setSubmitSuccessId] = useState<string | null>(null);
+  const { submissions } = useAppStore();
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      const data = await dataService.getAssignments('b-1');
-      setAssignments(data);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
-
-  const handleUpload = async (assignmentId: string) => {
-    // Send simulated homework upload parameters to NestJS backend
-    await dataService.submitAssignment({
-      assignmentId,
-      studentId: 's-1',
-      submissionUrl: `https://supabase-storage.co/submissions/std-1-asg-${assignmentId}.pdf`,
-    });
-
-    // Update frontend state
-    setAssignments((prev) =>
-      prev.map((a) => (a.id === assignmentId ? { ...a, status: 'submitted' } : a)),
+  // Display status is the shared store's truth (a teacher grading it flows back
+  // here); fall back to the assignment's own mock status if not yet in the store.
+  const assignments: Assignment[] = mockAssignments.map((a) => {
+    const sub = submissions.find(
+      (s) => s.assignmentId === a.id && s.studentName === mockCurrentStudent.name,
     );
+    if (!sub) return { ...a };
+    return {
+      ...a,
+      status: sub.status,
+      obtainedMarks: sub.obtainedMarks ?? a.obtainedMarks,
+      feedback: sub.feedback ?? a.feedback,
+    };
+  });
 
-    setSubmitSuccessId(assignmentId);
-    setTimeout(() => setSubmitSuccessId(null), 3000);
+  const handleSubmit = async (assignment: Assignment) => {
+    setSubmittingId(assignment.id);
+    try {
+      await dataService.submitAssignment({
+        assignmentId: assignment.id,
+        studentId: 's-1',
+        submissionUrl: `https://storage.eduos.app/submissions/std-1-${assignment.id}.pdf`,
+      });
+      // Write to the shared store so it lands in the teacher's grading queue.
+      addSubmission({
+        assignmentId: assignment.id,
+        title: assignment.title,
+        subject: assignment.subject,
+        batchName: assignment.batchName,
+        studentName: mockCurrentStudent.name,
+        maxMarks: assignment.maxMarks,
+      });
+      toast('Assignment submitted', 'success', `${assignment.title} sent for review.`);
+    } catch {
+      toast('Submission failed', 'error', 'Please try again in a moment.');
+    } finally {
+      setSubmittingId(null);
+    }
   };
 
-  if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-        Loading assignment sheets...
-      </div>
-    );
-  }
+  const pendingCount = assignments.filter((a) => a.status === 'pending').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Daily Practice Problems (DPP) &amp; Assignments</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Class 11 - JEE Advanced Alpha Problem Sets
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Daily Practice Problems & Assignments"
+        subtitle="Class 11 - JEE Advanced Alpha problem sets"
+        actions={<Badge tone={pendingCount ? 'warning' : 'success'}>{pendingCount} pending</Badge>}
+      />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {pendingCount === 0 && (
+        <SectionCard title="Pending Work" icon={<Inbox size={18} />} bodyClassName="p-0">
+          <EmptyState
+            icon={<CheckCircle2 size={22} />}
+            title="You're all caught up"
+            description="No pending assignments right now. New DPPs will appear here as your faculty publishes them."
+          />
+        </SectionCard>
+      )}
+
+      <div className="flex flex-col gap-4">
         {assignments.map((a) => {
-          const status = a.status || 'pending';
+          const badge = statusBadge[a.status];
+          const isSubmitting = submittingId === a.id;
           return (
-            <div
-              key={a.id}
-              className="glass-card"
-              style={{
-                padding: '20px 24px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className="badge badge-primary">{a.subjectName || 'General'}</span>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{a.title}</h3>
+            <Card key={a.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Badge tone="primary">{a.subject}</Badge>
+                  <Badge tone={badge.tone}>
+                    {badge.icon} {badge.label}
+                  </Badge>
                 </div>
+                <h3 className="mt-2 text-section text-foreground">{a.title}</h3>
 
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '6px' }}>
-                  {a.description}
-                </p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={14} /> Due: <strong style={{ color: status === 'pending' ? '#F59E0B' : 'var(--text-primary)' }}>{new Date(a.dueDate).toLocaleDateString()}</strong>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-micro text-text-tertiary">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock size={13} /> Due{' '}
+                    <strong className={cn(a.status === 'pending' ? 'text-warning' : 'text-foreground')}>{a.dueDate}</strong>
                   </span>
-                  <span>Max Marks: {a.maxMarks}</span>
-                  {a.obtainedMarks !== undefined && (
-                    <span style={{ color: '#10B981', fontWeight: 700 }}>
-                      Score: {a.obtainedMarks}/{a.maxMarks}
+                  <span>Max marks: {a.maxMarks}</span>
+                  {a.status === 'graded' && a.obtainedMarks !== undefined && (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-success">
+                      <Award size={13} /> Score {a.obtainedMarks}/{a.maxMarks}
                     </span>
                   )}
                 </div>
 
-                {a.feedback && (
-                  <div style={{
-                    marginTop: '8px',
-                    padding: '6px 12px',
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    borderLeft: '2px solid #10B981',
-                    borderRadius: '4px',
-                    fontSize: '0.78rem',
-                    color: 'var(--text-secondary)',
-                  }}>
-                    <strong>Faculty Feedback:</strong> {a.feedback}
-                  </div>
-                )}
-
-                {submitSuccessId === a.id && (
-                  <div style={{ color: '#34D399', fontSize: '0.8rem', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Check size={14} /> Assignment submission uploaded successfully to Supabase storage buckets!
+                {a.status === 'graded' && a.feedback && (
+                  <div className="mt-3 flex items-start gap-2 rounded-md border border-success/20 bg-success-soft px-3.5 py-2.5">
+                    <MessageSquareText size={15} className="mt-0.5 shrink-0 text-success" />
+                    <p className="text-micro text-text-secondary">
+                      <span className="font-semibold text-foreground">Faculty feedback: </span>
+                      {a.feedback}
+                    </p>
                   </div>
                 )}
               </div>
 
-              <div style={{ marginLeft: '20px' }}>
-                {status === 'pending' ? (
-                  <button onClick={() => handleUpload(a.id)} className="btn-primary" style={{ fontSize: '0.85rem' }}>
-                    <Upload size={16} /> Submit Solution
+              <div className="shrink-0 lg:pt-1">
+                {a.status === 'pending' ? (
+                  <button className="btn-primary w-full lg:w-auto" onClick={() => handleSubmit(a)} disabled={isSubmitting}>
+                    <Upload size={16} /> {isSubmitting ? 'Submitting…' : 'Submit Solution'}
                   </button>
-                ) : status === 'submitted' ? (
-                  <span className="badge badge-warning" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-                    <Clock size={14} /> Under Review
-                  </span>
+                ) : a.status === 'submitted' ? (
+                  <Badge tone="info">
+                    <ClipboardCheck size={13} /> Awaiting grade
+                  </Badge>
                 ) : (
-                  <span className="badge badge-success" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-                    <CheckCircle2 size={14} /> Graded
-                  </span>
+                  <Badge tone="success">
+                    <CheckCircle2 size={13} /> Graded
+                  </Badge>
                 )}
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>

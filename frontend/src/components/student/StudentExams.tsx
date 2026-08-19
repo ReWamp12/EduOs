@@ -1,117 +1,192 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { dataService } from '@/lib/dataService';
-import { Trophy, Sparkles, AlertCircle, TrendingUp, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { mockExamResults, mockCurrentStudent } from '@/lib/mockData';
+import { ExamResult } from '@/lib/types';
+import { useAppStore } from '@/lib/store';
+import { PageHeader, SectionCard, Card, Badge, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import {
+  Trophy,
+  Sparkles,
+  AlertCircle,
+  TrendingUp,
+  Download,
+  ChevronDown,
+  Target,
+  CalendarDays,
+  CalendarClock,
+} from 'lucide-react';
 
 export const StudentExams: React.FC = () => {
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { exams } = useAppStore();
+  const upcoming = exams.filter(
+    (e) => e.status === 'scheduled' && e.batchName === mockCurrentStudent.batchName,
+  );
+  const [results] = useState<ExamResult[]>(() => mockExamResults.map((e) => ({ ...e })));
+  const [expandedId, setExpandedId] = useState<string | null>(results[0]?.id ?? null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      const data = await dataService.getExamResults('s-1');
-      setResults(data);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+  const handleDownloadScorecard = async (exam: ExamResult) => {
+    setDownloadingId(exam.id);
+    await new Promise((r) => setTimeout(r, 700));
+    setDownloadingId(null);
+    toast('Scorecard downloaded', 'success', `${exam.examTitle} scorecard exported as PDF.`);
+  };
 
-  if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-        Retrieving diagnostic scorecards...
-      </div>
-    );
-  }
+  const handleDownloadTranscript = async () => {
+    setDownloadingAll(true);
+    await new Promise((r) => setTimeout(r, 900));
+    setDownloadingAll(false);
+    toast('Transcript downloaded', 'success', 'Cumulative performance transcript exported as PDF.');
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Exams &amp; AI Diagnostic Scorecards</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            All-India Mock Test Performance, Percentiles &amp; Mistake Classifications
-          </p>
-        </div>
-        <button className="btn-primary" style={{ fontSize: '0.85rem' }}>
-          <Download size={16} /> Cumulative Transcript PDF
-        </button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Exams & AI Diagnostic Scorecards"
+        subtitle="All-India mock test performance, percentiles & mistake classifications"
+        actions={
+          <button className="btn-primary" onClick={handleDownloadTranscript} disabled={downloadingAll}>
+            <Download size={16} /> {downloadingAll ? 'Preparing…' : 'Cumulative Transcript'}
+          </button>
+        }
+      />
 
-      {results.map((exam) => (
-        <div key={exam.id} className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <span className="badge badge-primary">{exam.examType || 'Mock Test'}</span>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '6px' }}>{exam.examTitle}</h3>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Conducted on: {new Date(exam.examDate).toLocaleDateString()} &bull; CBT Examination Mode
+      {upcoming.length > 0 && (
+        <SectionCard title="Upcoming exams" icon={<CalendarClock size={18} />} bodyClassName="flex flex-col gap-2.5">
+          {upcoming.map((e) => (
+            <div
+              key={e.id}
+              className="flex items-center justify-between gap-3 rounded-md border border-warning/20 bg-warning-soft px-4 py-3"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-meta font-semibold text-foreground">{e.title}</div>
+                <div className="mt-0.5 truncate text-micro text-text-tertiary">
+                  {e.subject} · {e.examType} · max {e.maxMarks} marks
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <Badge tone="warning">Scheduled</Badge>
+                <div className="mt-1 text-micro text-text-tertiary">{e.examDate}</div>
               </div>
             </div>
+          ))}
+        </SectionCard>
+      )}
 
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent)' }}>
-                {exam.marksObtained} <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>/ {exam.totalMarks}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                <span className="badge badge-success">
-                  <TrendingUp size={12} /> {exam.percentile}%ile
-                </span>
-                <span className="badge badge-warning">
-                  <Trophy size={12} /> Batch Rank #{exam.rankInBatch}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Diagnostic Insight Box */}
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(245, 158, 11, 0.08))',
-            border: '1px solid rgba(79, 70, 229, 0.3)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FBBF24', fontWeight: 700, fontSize: '0.9rem' }}>
-              <Sparkles size={18} /> AI Test Analysis &amp; Mistake Pattern Detection:
-            </div>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-              {exam.mistakeSummary}
-            </p>
-          </div>
-
-          {/* Weak Topics Tagging */}
-          {exam.weakTopics && exam.weakTopics.length > 0 && (
-            <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Detected Revision Areas:
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                {exam.weakTopics.map((topic: string, index: number) => (
-                  <span key={index} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#F87171',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                  }}>
-                    <AlertCircle size={14} /> {topic}
+      <div className="flex flex-col gap-4">
+        {results.map((exam) => {
+          const pct = Math.round((exam.marksObtained / exam.totalMarks) * 100);
+          const isOpen = expandedId === exam.id;
+          return (
+            <SectionCard
+              key={exam.id}
+              title={exam.examTitle}
+              icon={<Trophy size={18} />}
+              action={
+                <div className="flex items-center gap-2">
+                  <Badge tone="success">
+                    <TrendingUp size={12} /> {exam.percentile}%ile
+                  </Badge>
+                  <Badge tone="warning">
+                    <Trophy size={12} /> Rank #{exam.rankInBatch}
+                  </Badge>
+                </div>
+              }
+              bodyClassName="flex flex-col gap-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-micro text-text-tertiary">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays size={13} /> {exam.examDate}
                   </span>
-                ))}
+                  <span>·</span>
+                  <span>{exam.subject}</span>
+                  <span>·</span>
+                  <span>CBT Examination Mode</span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[1.75rem] font-semibold leading-none tracking-tight text-foreground">
+                    {exam.marksObtained}
+                  </span>
+                  <span className="text-body text-text-tertiary">/ {exam.totalMarks}</span>
+                  <span
+                    className={cn(
+                      'ml-1 badge',
+                      pct >= 75 ? 'badge-success' : pct >= 50 ? 'badge-warning' : 'badge-danger',
+                    )}
+                  >
+                    {pct}%
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      ))}
+
+              {/* AI diagnostic */}
+              <div className="rounded-md border border-primary/15 bg-primary-soft p-4">
+                <div className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wide text-primary">
+                  <Sparkles size={15} /> AI Test Analysis & Mistake Pattern Detection
+                </div>
+                <p className="mt-1.5 text-meta leading-relaxed text-text-secondary">{exam.mistakeSummary}</p>
+              </div>
+
+              <button
+                className="btn-tertiary self-start"
+                onClick={() => setExpandedId(isOpen ? null : exam.id)}
+                aria-expanded={isOpen}
+              >
+                <ChevronDown size={15} className={cn('transition-transform', isOpen && 'rotate-180')} />
+                {isOpen ? 'Hide details' : 'View weak topics & scorecard'}
+              </button>
+
+              {isOpen && (
+                <div className="flex flex-col gap-4 border-t border-border pt-4">
+                  {exam.weakTopics.length > 0 && (
+                    <div>
+                      <div className="eyebrow mb-2 flex items-center gap-1.5">
+                        <Target size={13} /> Detected revision areas
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {exam.weakTopics.map((topic, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-destructive/20 bg-destructive-soft px-3 py-1.5 text-micro font-semibold text-destructive"
+                          >
+                            <AlertCircle size={13} /> {topic}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Card className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
+                    {[
+                      { label: 'Marks', value: `${exam.marksObtained}/${exam.totalMarks}` },
+                      { label: 'Percentage', value: `${pct}%` },
+                      { label: 'Percentile', value: `${exam.percentile}` },
+                      { label: 'Batch Rank', value: `#${exam.rankInBatch}` },
+                    ].map((s) => (
+                      <div key={s.label}>
+                        <div className="eyebrow">{s.label}</div>
+                        <div className="mt-1 text-lg font-semibold text-foreground">{s.value}</div>
+                      </div>
+                    ))}
+                  </Card>
+
+                  <button
+                    className="btn-secondary self-start"
+                    onClick={() => handleDownloadScorecard(exam)}
+                    disabled={downloadingId === exam.id}
+                  >
+                    <Download size={16} /> {downloadingId === exam.id ? 'Preparing…' : 'Download scorecard'}
+                  </button>
+                </div>
+              )}
+            </SectionCard>
+          );
+        })}
+      </div>
     </div>
   );
 };

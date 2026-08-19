@@ -1,221 +1,187 @@
 'use client';
 
-import React, { useState } from 'react';
-import { mockStudentsInBatch } from '@/lib/mockData';
+import React, { useState, useMemo } from 'react';
 import { dataService } from '@/lib/dataService';
-import { Check, X, Clock, Send, Users, Sparkles, CheckCheck } from 'lucide-react';
+import { recordAttendance } from '@/lib/store';
+import { useTeacherBatch } from '@/lib/teacherContext';
+import { Send, Users, CheckCheck, CalendarCheck2 } from 'lucide-react';
+import { PageHeader, SectionCard, StatCard, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+
+type Status = 'present' | 'absent' | 'late';
+
+const STATUS_OPTIONS: { value: Status; label: string; active: string }[] = [
+  { value: 'present', label: 'Present', active: 'bg-success text-white' },
+  { value: 'absent', label: 'Absent', active: 'bg-destructive text-white' },
+  { value: 'late', label: 'Late', active: 'bg-warning text-white' },
+];
 
 export const TeacherAttendance: React.FC = () => {
-  const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent' | 'late'>>({
-    'std-aarav-01': 'present',
-    'std-02': 'present',
-    'std-03': 'present',
-    'std-04': 'absent',
-    'std-05': 'present',
-  });
+  const { batch, students } = useTeacherBatch();
+  const buildDefault = () => {
+    const map: Record<string, Status> = {};
+    students.forEach((s) => {
+      map[s.id] = 'present';
+    });
+    return map;
+  };
+  const [attendance, setAttendance] = useState<Record<string, Status>>(buildDefault);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [isSubmitted, setIsSubmitted] = useState(false);
-
-  const toggleStatus = (id: string, status: 'present' | 'absent' | 'late') => {
+  const setStatus = (id: string, status: Status) => {
     setAttendance((prev) => ({ ...prev, [id]: status }));
   };
 
   const markAllPresent = () => {
-    const updated: Record<string, 'present' | 'absent' | 'late'> = {};
-    mockStudentsInBatch.forEach((s) => {
-      updated[s.id] = 'present';
-    });
-    setAttendance(updated);
+    setAttendance(buildDefault());
+    toast('Marked all present', 'info', `${students.length} students set to present`);
   };
 
-  const presentCount = Object.values(attendance).filter((s) => s === 'present').length;
-  const absentCount = Object.values(attendance).filter((s) => s === 'absent').length;
-  const lateCount = Object.values(attendance).filter((s) => s === 'late').length;
+  const { presentCount, absentCount, lateCount } = useMemo(() => {
+    const values = students.map((s) => attendance[s.id] || 'present');
+    return {
+      presentCount: values.filter((v) => v === 'present').length,
+      absentCount: values.filter((v) => v === 'absent').length,
+      lateCount: values.filter((v) => v === 'late').length,
+    };
+  }, [attendance, students]);
 
   const handleSubmit = async () => {
-    const records = mockStudentsInBatch.map((s) => ({
+    setSubmitting(true);
+    const records = students.map((s) => ({
       studentId: s.id,
       status: attendance[s.id] || 'present',
       remarks: 'Period 1 marked',
     }));
-    await dataService.markAttendance('b-1', records);
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 4000);
+    try {
+      await dataService.markAttendance(batch.id, records);
+      // Notify parents: push a real-time attendance alert per student to the store.
+      const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      recordAttendance({
+        batchName: batch.name,
+        markedBy: 'Prof. Amit Verma',
+        period: 'Period 1',
+        date: today,
+        records: students.map((s) => ({
+          studentName: s.name,
+          status: attendance[s.id] || 'present',
+        })),
+      });
+      const notified = absentCount + lateCount;
+      toast(
+        'Attendance submitted',
+        'success',
+        `${presentCount} present · ${absentCount} absent · parents notified${notified ? ` (${notified} alert${notified > 1 ? 's' : ''})` : ''}`,
+      );
+    } catch {
+      toast('Submission failed', 'error', 'Could not record attendance. Try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Period Attendance Marking</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Class 11 - JEE Advanced Alpha &bull; Period 1 (Physics Mechanics) &bull; Hall 101
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Period Attendance"
+        subtitle={`${batch.name} · Period 1 · ${batch.roomNumber}`}
+        actions={
+          <>
+            <button onClick={markAllPresent} className="btn-secondary">
+              <CheckCheck size={16} /> Mark all present
+            </button>
+            <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+              <Send size={16} /> {submitting ? 'Submitting…' : 'Submit attendance'}
+            </button>
+          </>
+        }
+      />
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={markAllPresent} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-            <CheckCheck size={16} /> Mark All Present
-          </button>
-          <button onClick={handleSubmit} className="btn-primary" style={{ fontSize: '0.85rem' }}>
-            <Send size={16} /> Submit &amp; Alert Parents
-          </button>
-        </div>
+      {/* Live summary */}
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <StatCard label="Enrolled" value={students.length} tone="info" icon={<Users size={16} />} />
+        <StatCard label="Present" value={presentCount} tone="success" icon={<CalendarCheck2 size={16} />} />
+        <StatCard label="Absent" value={absentCount} tone="destructive" icon={<CalendarCheck2 size={16} />} />
+        <StatCard label="Late" value={lateCount} tone="warning" icon={<CalendarCheck2 size={16} />} />
       </div>
 
-      {/* Submission Success Toast */}
-      {isSubmitted && (
-        <div style={{
-          padding: '16px 20px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          fontWeight: 600,
-          animation: 'fadeIn 0.3s ease',
-        }}>
-          <Check size={20} />
-          Attendance marked successfully! Domain event <code>attendance.marked</code> emitted &bull; {absentCount} WhatsApp parent absence notifications dispatched.
-        </div>
-      )}
-
-      {/* Live Counter Badges */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        <div className="glass-card" style={{ padding: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>TOTAL ENROLLED</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-            {mockStudentsInBatch.length}
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '16px', textAlign: 'center', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#34D399' }}>PRESENT TODAY</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#10B981', marginTop: '4px' }}>
-            {presentCount}
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '16px', textAlign: 'center', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#F87171' }}>ABSENT (ALERTS FIRED)</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#EF4444', marginTop: '4px' }}>
-            {absentCount}
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '16px', textAlign: 'center', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#FBBF24' }}>LATE CHECK-IN</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#F59E0B', marginTop: '4px' }}>
-            {lateCount}
-          </div>
-        </div>
-      </div>
-
-      {/* Student Roster Table */}
-      <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-          <thead>
-            <tr style={{ background: 'rgba(255, 255, 255, 0.04)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <th style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--text-muted)' }}>STUDENT</th>
-              <th style={{ padding: '16px', fontWeight: 700, color: 'var(--text-muted)' }}>ROLL NUMBER</th>
-              <th style={{ padding: '16px', fontWeight: 700, color: 'var(--text-muted)' }}>HISTORICAL ATTENDANCE</th>
-              <th style={{ padding: '16px', fontWeight: 700, color: 'var(--text-muted)' }}>PARENT CONTACT</th>
-              <th style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'right' }}>STATUS TOGGLE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockStudentsInBatch.map((student) => {
-              const currentStatus = attendance[student.id] || 'present';
-              return (
-                <tr
-                  key={student.id}
-                  style={{
-                    borderBottom: '1px solid var(--border-subtle)',
-                    background: currentStatus === 'absent' ? 'rgba(239, 68, 68, 0.05)' : 'transparent',
-                    transition: 'background 0.15s ease',
-                  }}
-                >
-                  <td style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img
-                      src={student.avatarUrl}
-                      alt={student.name}
-                      style={{ width: '36px', height: '36px', borderRadius: '10px', objectFit: 'cover' }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{student.name}</div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Rank #{student.rankInBatch}</div>
-                    </div>
-                  </td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{student.rollNumber}</td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span style={{
-                      fontWeight: 700,
-                      color: student.attendancePct >= 90 ? '#10B981' : student.attendancePct >= 75 ? '#F59E0B' : '#EF4444',
-                    }}>
-                      {student.attendancePct}%
-                    </span>
-                  </td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    {student.parentPhone}
-                  </td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', background: 'rgba(0, 0, 0, 0.4)', borderRadius: '8px', padding: '3px', gap: '4px' }}>
-                      <button
-                        onClick={() => toggleStatus(student.id, 'present')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          background: currentStatus === 'present' ? '#10B981' : 'transparent',
-                          color: currentStatus === 'present' ? '#fff' : 'var(--text-muted)',
-                        }}
+      {/* Roster */}
+      <SectionCard title="Class Roster" icon={<Users size={18} />} bodyClassName="p-0">
+        <div className="overflow-x-auto">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Roll number</th>
+                <th>Attendance</th>
+                <th className="text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((student) => {
+                const current = attendance[student.id] || 'present';
+                return (
+                  <tr
+                    key={student.id}
+                    className={cn(current === 'absent' && 'bg-destructive-soft/40')}
+                  >
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={student.avatarUrl}
+                          alt={student.name}
+                          className="h-9 w-9 rounded-md object-cover"
+                        />
+                        <div>
+                          <div className="font-semibold text-foreground">{student.name}</div>
+                          <div className="text-micro text-text-tertiary">Rank #{student.rankInBatch}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="text-text-secondary">{student.rollNumber}</td>
+                    <td>
+                      <span
+                        className={cn(
+                          'font-semibold',
+                          student.attendancePct >= 90
+                            ? 'text-success'
+                            : student.attendancePct >= 75
+                            ? 'text-warning'
+                            : 'text-destructive',
+                        )}
                       >
-                        Present
-                      </button>
-                      <button
-                        onClick={() => toggleStatus(student.id, 'absent')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          background: currentStatus === 'absent' ? '#EF4444' : 'transparent',
-                          color: currentStatus === 'absent' ? '#fff' : 'var(--text-muted)',
-                        }}
-                      >
-                        Absent
-                      </button>
-                      <button
-                        onClick={() => toggleStatus(student.id, 'late')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          background: currentStatus === 'late' ? '#F59E0B' : 'transparent',
-                          color: currentStatus === 'late' ? '#fff' : 'var(--text-muted)',
-                        }}
-                      >
-                        Late
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                        {student.attendancePct}%
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex justify-end">
+                        <div className="inline-flex gap-1 rounded-md border border-border bg-surface-muted p-1">
+                          {STATUS_OPTIONS.map((opt) => {
+                            const isActive = current === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                onClick={() => setStatus(student.id, opt.value)}
+                                aria-pressed={isActive}
+                                className={cn(
+                                  'rounded px-3 py-1 text-micro font-semibold transition-colors',
+                                  isActive ? opt.active : 'text-text-secondary hover:bg-muted',
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
     </div>
   );
 };

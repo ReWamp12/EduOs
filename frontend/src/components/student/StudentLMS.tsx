@@ -1,133 +1,162 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { mockLMSLessons } from '@/lib/mockData';
-import { PlayCircle, FileText, CheckCircle2, Download, BookOpen, Clock, Sparkles } from 'lucide-react';
+import { LMSLesson } from '@/lib/types';
+import { PageHeader, SectionCard, Badge, ProgressBar, Card, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import {
+  PlayCircle,
+  FileText,
+  StickyNote,
+  HelpCircle,
+  CheckCircle2,
+  BookOpen,
+  Clock,
+  RotateCcw,
+  Check,
+} from 'lucide-react';
+
+type ContentType = LMSLesson['contentType'];
+
+const contentMeta: Record<ContentType, { icon: React.ReactNode; label: string; tone: 'primary' | 'info' | 'warning' | 'neutral' }> = {
+  video: { icon: <PlayCircle size={16} />, label: 'Video', tone: 'primary' },
+  pdf: { icon: <FileText size={16} />, label: 'PDF', tone: 'info' },
+  notes: { icon: <StickyNote size={16} />, label: 'Notes', tone: 'warning' },
+  quiz: { icon: <HelpCircle size={16} />, label: 'Quiz', tone: 'neutral' },
+};
 
 export const StudentLMS: React.FC = () => {
-  const [selectedLesson, setSelectedLesson] = useState(mockLMSLessons[0]);
+  const [lessons, setLessons] = useState<LMSLesson[]>(() => mockLMSLessons.map((l) => ({ ...l })));
+
+  const courses = useMemo(() => {
+    const map = new Map<string, LMSLesson[]>();
+    lessons.forEach((l) => {
+      const list = map.get(l.courseTitle) ?? [];
+      list.push(l);
+      map.set(l.courseTitle, list);
+    });
+    return Array.from(map.entries());
+  }, [lessons]);
+
+  const totalCompleted = lessons.filter((l) => l.completed).length;
+
+  const toggleComplete = (lesson: LMSLesson) => {
+    const nowComplete = !lesson.completed;
+    setLessons((prev) => prev.map((l) => (l.id === lesson.id ? { ...l, completed: nowComplete } : l)));
+    if (nowComplete) {
+      toast('Lesson completed', 'success', lesson.title);
+    } else {
+      toast('Marked as pending', 'info', lesson.title);
+    }
+  };
+
+  const openLesson = (lesson: LMSLesson) => {
+    const verb = lesson.contentType === 'video' ? 'Playing' : 'Opening';
+    toast(`${verb} lesson`, 'info', lesson.title);
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>LMS Digital Classroom</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Curriculum Lectures, Daily Practice Problems (DPP) &amp; Chapter Notes
-          </p>
-        </div>
-        <span className="badge badge-primary">
-          <BookOpen size={14} /> JEE Advanced Masterclass
-        </span>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="LMS Digital Classroom"
+        subtitle="Curriculum lectures, Daily Practice Problems (DPP) & chapter notes"
+        actions={
+          <Badge tone="primary">
+            <BookOpen size={14} /> {totalCompleted}/{lessons.length} completed
+          </Badge>
+        }
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '24px' }}>
-        {/* Main Content Player / Viewer */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Simulated Video Player Screen */}
-          <div style={{
-            width: '100%',
-            height: '320px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'linear-gradient(135deg, #1e1b4b, #0f172a)',
-            border: '1px solid rgba(79, 70, 229, 0.4)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.5)',
-          }}>
-            <PlayCircle size={64} color="#818CF8" style={{ cursor: 'pointer', filter: 'drop-shadow(0 4px 12px rgba(79,70,229,0.6))' }} />
-            <div style={{ marginTop: '14px', fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>
-              {selectedLesson.title}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Duration: {selectedLesson.durationMinutes} Mins &bull; Faculty: Prof. Amit Verma
-            </div>
-          </div>
+      <div className="flex flex-col gap-5">
+        {courses.map(([courseTitle, courseLessons]) => {
+          const done = courseLessons.filter((l) => l.completed).length;
+          const pct = Math.round((done / courseLessons.length) * 100);
+          return (
+            <SectionCard
+              key={courseTitle}
+              title={courseTitle}
+              icon={<BookOpen size={18} />}
+              action={<Badge tone={pct === 100 ? 'success' : 'neutral'}>{pct}% complete</Badge>}
+              bodyClassName="flex flex-col gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <ProgressBar value={pct} tone={pct === 100 ? 'success' : 'primary'} className="flex-1" />
+                <span className="shrink-0 text-micro font-semibold text-text-secondary">
+                  {done}/{courseLessons.length} lessons
+                </span>
+              </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-            <div>
-              <span className="badge badge-primary">{selectedLesson.chapter}</span>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginTop: '8px' }}>
-                {selectedLesson.title}
-              </h3>
-            </div>
-            <button className="btn-primary" style={{ fontSize: '0.85rem' }}>
-              <Download size={15} /> Download DPP PDF
-            </button>
-          </div>
-
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '16px',
-            fontSize: '0.88rem',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.6,
-          }}>
-            <strong style={{ color: '#fff' }}>Lecture Objectives:</strong>
-            <ul style={{ paddingLeft: '20px', marginTop: '6px' }}>
-              <li>Calculate torque about an instantaneous axis of rotation.</li>
-              <li>Analyze pure rolling conditions with variable external friction.</li>
-              <li>Conservation of angular momentum in inelastic rotational collisions.</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Playlist & Modules */}
-        <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Course Modules &amp; DPPs</h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {mockLMSLessons.map((lesson) => {
-              const isSelected = selectedLesson.id === lesson.id;
-              return (
-                <div
-                  key={lesson.id}
-                  onClick={() => setSelectedLesson(lesson)}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: isSelected ? 'rgba(79, 70, 229, 0.2)' : 'rgba(255, 255, 255, 0.02)',
-                    border: isSelected ? '1px solid #4F46E5' : '1px solid var(--border-subtle)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {lesson.contentType === 'video' ? (
-                      <PlayCircle size={18} color="#818CF8" />
-                    ) : (
-                      <FileText size={18} color="#06B6D4" />
-                    )}
-                    <div>
-                      <div style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {lesson.title.length > 34 ? lesson.title.substring(0, 34) + '...' : lesson.title}
+              <div className="flex flex-col gap-2.5">
+                {courseLessons.map((lesson) => {
+                  const meta = contentMeta[lesson.contentType];
+                  return (
+                    <Card
+                      key={lesson.id}
+                      className={cn(
+                        'flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between',
+                        lesson.completed && 'bg-surface-muted',
+                      )}
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span
+                          className={cn(
+                            'grid h-9 w-9 shrink-0 place-items-center rounded-md',
+                            meta.tone === 'primary' && 'bg-primary-soft text-primary',
+                            meta.tone === 'info' && 'bg-info-soft text-info',
+                            meta.tone === 'warning' && 'bg-warning-soft text-warning',
+                            meta.tone === 'neutral' && 'bg-muted text-text-secondary',
+                          )}
+                        >
+                          {meta.icon}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-meta font-semibold text-foreground">{lesson.title}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-micro text-text-tertiary">
+                            <Badge tone={meta.tone}>{meta.label}</Badge>
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={12} /> {lesson.durationMinutes} mins
+                            </span>
+                            <span className="truncate">· {lesson.chapter}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={12} /> {lesson.durationMinutes} mins &bull; {lesson.contentType.toUpperCase()}
-                      </div>
-                    </div>
-                  </div>
 
-                  {lesson.completed ? (
-                    <CheckCircle2 size={18} color="#10B981" />
-                  ) : (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                      Pending
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                      <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+                        <button className="btn-tertiary" onClick={() => openLesson(lesson)}>
+                          {lesson.contentType === 'video' ? (
+                            <>
+                              <PlayCircle size={15} /> {lesson.completed ? 'Rewatch' : 'Play'}
+                            </>
+                          ) : (
+                            <>
+                              <FileText size={15} /> Open
+                            </>
+                          )}
+                        </button>
+                        <button
+                          className={lesson.completed ? 'btn-secondary' : 'btn-primary'}
+                          onClick={() => toggleComplete(lesson)}
+                        >
+                          {lesson.completed ? (
+                            <>
+                              <RotateCcw size={15} /> Undo
+                            </>
+                          ) : (
+                            <>
+                              <Check size={15} /> Mark complete
+                            </>
+                          )}
+                        </button>
+                        {lesson.completed && <CheckCircle2 size={18} className="text-success" />}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          );
+        })}
       </div>
     </div>
   );

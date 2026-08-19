@@ -2,7 +2,17 @@
 
 import React, { useState } from 'react';
 import { mockConsentForms } from '@/lib/mockData';
-import { FileCheck2, ShieldCheck, Check, Clock, AlertCircle, Sparkles } from 'lucide-react';
+import { Card, StatCard, Badge, PageHeader, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import {
+  FileCheck2,
+  ShieldCheck,
+  Clock,
+  Check,
+  X,
+  CalendarClock,
+  FileSignature,
+} from 'lucide-react';
 
 interface ConsentFormItem {
   id: string;
@@ -15,114 +25,155 @@ interface ConsentFormItem {
   signedOn?: string;
 }
 
+const CONSENT_VERSION = 'v2.4';
+
 export const ParentConsentForms: React.FC = () => {
   const [forms, setForms] = useState<ConsentFormItem[]>(mockConsentForms);
-  const [signedMessage, setSignedMessage] = useState<string | null>(null);
 
-  const handleSign = (id: string) => {
+  const pendingCount = forms.filter((f) => f.status === 'pending').length;
+  const signedCount = forms.filter((f) => f.status === 'signed').length;
+  const declinedCount = forms.filter((f) => f.status === 'declined').length;
+
+  const stamp = () => 'Today, 03:32 PM';
+
+  const handleSign = (form: ConsentFormItem) => {
     setForms((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status: 'signed', signedOn: 'Today, 03:32 PM' } : f))
+      prev.map((f) => (f.id === form.id ? { ...f, status: 'signed', signedOn: stamp() } : f)),
     );
-    setSignedMessage('Digital consent signed with cryptographic timestamp and logged in legal audit registry.');
-    setTimeout(() => setSignedMessage(null), 4000);
+    toast('Consent recorded', 'success', `${form.title} · signed ${CONSENT_VERSION} with audit timestamp`);
+  };
+
+  const handleDecline = (form: ConsentFormItem) => {
+    setForms((prev) =>
+      prev.map((f) => (f.id === form.id ? { ...f, status: 'declined', signedOn: stamp() } : f)),
+    );
+    toast('Consent declined', 'warning', `${form.title} · your decision was logged ${CONSENT_VERSION}`);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Legally Versioned Digital Consent Forms</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Field Trips, Emergency Medical Care &amp; Social Media Photo Authorizations
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Digital consent forms"
+        subtitle="Legally versioned e-consent for field trips, medical care & media authorizations"
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Awaiting your action"
+          value={pendingCount}
+          icon={<Clock size={16} />}
+          tone={pendingCount > 0 ? 'destructive' : 'success'}
+          hint={pendingCount > 0 ? 'Please review before deadline' : 'All caught up'}
+        />
+        <StatCard label="Signed" value={signedCount} icon={<ShieldCheck size={16} />} tone="success" hint="Consent on record" />
+        <StatCard
+          label="Declined"
+          value={declinedCount}
+          icon={<X size={16} />}
+          tone="neutral"
+          hint="Recorded objections"
+        />
       </div>
 
-      {signedMessage && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontWeight: 600,
-        }}>
-          <Check size={18} /> {signedMessage}
-        </div>
-      )}
+      <div className="flex flex-col gap-4">
+        {forms.map((form) => {
+          const isSigned = form.status === 'signed';
+          const isDeclined = form.status === 'declined';
+          const isPending = form.status === 'pending';
+          const rail = isSigned ? 'bg-success' : isDeclined ? 'bg-text-tertiary' : 'bg-destructive';
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {forms.map((form) => (
-          <div
-            key={form.id}
-            className="glass-card"
-            style={{
-              padding: '24px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px',
-              borderLeft: form.status === 'signed' ? '4px solid #10B981' : '4px solid #EF4444',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className="badge badge-primary">{form.category}</span>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{form.title}</h3>
-                </div>
-                {form.date && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Scheduled Date: {form.date} &bull; Deadline to Sign: <strong style={{ color: '#F59E0B' }}>{form.deadline}</strong>
+          return (
+            <Card key={form.id} className="overflow-hidden">
+              <div className="flex">
+                <span className={cn('w-1 shrink-0', rail)} />
+                <div className="flex-1 p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone="primary">{form.category}</Badge>
+                        <h3 className="text-section text-foreground">{form.title}</h3>
+                      </div>
+                      {(form.date || form.deadline) && (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 text-meta text-text-secondary">
+                          <CalendarClock size={14} className="text-text-tertiary" />
+                          {form.date && (
+                            <>
+                              Scheduled <span className="font-semibold text-foreground">{form.date}</span>
+                            </>
+                          )}
+                          {form.deadline && (
+                            <>
+                              {' '}· sign by <span className="font-semibold text-warning">{form.deadline}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      {isSigned && (
+                        <Badge tone="success">
+                          <ShieldCheck size={13} /> Signed {form.signedOn}
+                        </Badge>
+                      )}
+                      {isDeclined && (
+                        <Badge tone="neutral">
+                          <X size={13} /> Declined {form.signedOn}
+                        </Badge>
+                      )}
+                      {isPending && (
+                        <Badge tone="danger">
+                          <Clock size={13} /> Action required
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                )}
+
+                  <p className="mt-3 text-body leading-relaxed text-text-secondary">{form.description}</p>
+
+                  {/* Legally significant confirmation block */}
+                  {(isSigned || isDeclined) && (
+                    <div
+                      className={cn(
+                        'mt-4 flex items-start gap-2.5 rounded-md border p-3.5 text-meta',
+                        isSigned
+                          ? 'border-success/20 bg-success-soft text-success-foreground'
+                          : 'border-border bg-surface-muted text-text-secondary',
+                      )}
+                    >
+                      <FileSignature size={16} className="mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-semibold">
+                          {isSigned ? 'Digitally consented' : 'Consent declined'} · form {CONSENT_VERSION}
+                        </div>
+                        <div className="mt-0.5">
+                          Recorded {form.signedOn} against parent account and stored in the legal audit registry. A
+                          timestamped copy has been dispatched to your email.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {isPending && (
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      <button onClick={() => handleDecline(form)} className="btn-secondary">
+                        <X size={16} /> Decline
+                      </button>
+                      <button onClick={() => handleSign(form)} className="btn-primary">
+                        <Check size={16} /> Sign & consent
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+            </Card>
+          );
+        })}
+      </div>
 
-              <div>
-                {form.status === 'signed' ? (
-                  <span className="badge badge-success" style={{ padding: '6px 12px' }}>
-                    <ShieldCheck size={14} /> Signed on {form.signedOn}
-                  </span>
-                ) : (
-                  <span className="badge badge-danger" style={{ padding: '6px 12px' }}>
-                    <Clock size={14} /> Action Required
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              {form.description}
-            </p>
-
-            {form.category === 'Child Safety & Photo Consent' && (
-              <div style={{
-                background: 'rgba(79, 70, 229, 0.08)',
-                border: '1px solid rgba(79, 70, 229, 0.25)',
-                borderRadius: '6px',
-                padding: '10px 14px',
-                fontSize: '0.8rem',
-                color: 'var(--text-secondary)',
-              }}>
-                <strong style={{ color: '#818CF8' }}>System Guardrail Note:</strong> This consent directly controls whether the institute&apos;s marketing and social media teams are permitted to publish photographs featuring your child.
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-              {form.status === 'pending' && (
-                <button
-                  onClick={() => handleSign(form.id)}
-                  className="btn-primary"
-                  style={{ fontSize: '0.85rem', background: '#10B981' }}
-                >
-                  <Check size={16} /> I Authorize &amp; Digitally Sign
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center gap-2 text-micro text-text-tertiary">
+        <FileCheck2 size={13} />
+        Consent decisions are cryptographically timestamped ({CONSENT_VERSION}) and legally binding under the institute
+        digital-consent policy.
       </div>
     </div>
   );

@@ -1,296 +1,232 @@
 'use client';
 
 import React, { useState } from 'react';
-import { HeartPulse, MessageSquareQuote, Check, AlertTriangle, Send, PhoneCall, ShieldAlert, FileText } from 'lucide-react';
+import { mockProfiles } from '@/lib/mockData';
+import { Card, SectionCard, Badge, PageHeader, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import { MessageSquareQuote, Send, Star, Mail, Phone, User, Ticket } from 'lucide-react';
+
+type Category = 'Academic' | 'Transport' | 'Infrastructure' | 'Staff / Administration';
+
+interface FeedbackEntry {
+  id: string;
+  category: string;
+  subject: string;
+  message: string;
+  rating: number;
+  status: string;
+  statusTone: 'success' | 'warning' | 'info' | 'primary' | 'neutral';
+  date: string;
+}
+
+const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
+  { value: 'Academic', label: 'Academic pacing & homework' },
+  { value: 'Transport', label: 'Bus route & transportation' },
+  { value: 'Infrastructure', label: 'Classroom & canteen infrastructure' },
+  { value: 'Staff / Administration', label: 'Staff & administrative services' },
+];
 
 export const ParentFeedback: React.FC = () => {
-  const [medicalInfo, setMedicalInfo] = useState({
-    bloodGroup: 'B+',
-    allergies: 'Peanuts, Dust (Mild Asthma)',
-    emergencyContactName: 'Rajesh Sharma (Father)',
-    emergencyPhone: '+91 98765 43210',
-    doctorName: 'Dr. K. Patel (Pediatrician)',
-    doctorPhone: '+91 98222 11000',
-    specialInstructions: 'Carries inhaler in school bag. Allowed to take emergency dose if shortness of breath.',
-  });
+  const parent = mockProfiles.parent;
 
-  const [feedbackCategory, setFeedbackCategory] = useState<'Infrastructure' | 'Academic' | 'Transport' | 'Staff / Administration'>('Academic');
-  const [feedbackText, setFeedbackText] = useState('');
-  const [medicalSaved, setMedicalSaved] = useState(false);
-  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [category, setCategory] = useState<Category>('Academic');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
 
-  const [feedbackList, setFeedbackList] = useState([
+  const [feedbackList, setFeedbackList] = useState<FeedbackEntry[]>([
     {
       id: 'FB-401',
       category: 'Transport',
-      text: 'Morning Route 4 pickup arrived 10 mins late near SG Highway stop.',
-      status: 'Reviewed & Resolved',
-      resolution: 'Transport manager rerouted bus to bypass road construction. Timing restored.',
+      subject: 'Morning pickup delay',
+      message: 'Morning Route 4 pickup arrived 10 minutes late near the SG Highway stop.',
+      rating: 3,
+      status: 'Reviewed & resolved',
+      statusTone: 'success',
       date: 'Aug 14, 2026',
     },
   ]);
 
-  const handleMedicalSave = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setMedicalSaved(true);
-    setTimeout(() => setMedicalSaved(false), 3500);
-  };
-
-  const handleFeedbackSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackText.trim()) return;
-
-    setFeedbackList([
-      {
-        id: `FB-${Math.floor(400 + Math.random() * 500)}`,
-        category: feedbackCategory,
-        text: feedbackText,
-        status: 'Under Investigation',
-        resolution: 'Assigned to School Administration for review.',
-        date: 'Just now',
-      },
-      ...feedbackList,
-    ]);
-
-    setFeedbackText('');
-    setFeedbackSent(true);
-    setTimeout(() => setFeedbackSent(false), 3500);
+    if (!subject.trim() || !message.trim()) {
+      toast('Missing details', 'warning', 'Please add a subject and message before submitting');
+      return;
+    }
+    const ticketId = `FB-${Math.floor(400 + Math.random() * 500)}`;
+    const entry: FeedbackEntry = {
+      id: ticketId,
+      category,
+      subject: subject.trim(),
+      message: message.trim(),
+      rating,
+      status: 'Received',
+      statusTone: 'info',
+      date: 'Just now',
+    };
+    setFeedbackList((prev) => [entry, ...prev]);
+    setSubject('');
+    setMessage('');
+    setRating(0);
+    setCategory('Academic');
+    toast('Feedback submitted', 'success', `Ticket ${ticketId} routed to the Principal's office`);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <HeartPulse size={26} color="#EF4444" /> Emergency Medical Profile &amp; Feedback Desk
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Safeguarding health records &bull; Direct parental feedback and grievance submission
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Feedback & grievance desk"
+        subtitle="Share suggestions or concerns directly with school leadership and track their status"
+      />
 
-      {medicalSaved && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontWeight: 600,
-        }}>
-          <Check size={18} /> Student medical profile and emergency contacts updated in campus infirmary registry.
-        </div>
-      )}
-
-      {feedbackSent && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontWeight: 600,
-        }}>
-          <Check size={18} /> Feedback submitted. A tracking ticket has been routed to the Principal&apos;s office.
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
-        {/* Medical & Emergency Profile Form */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <ShieldAlert size={20} color="#EF4444" />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Duty-of-Care Health &amp; Emergency Record</h3>
+      {/* Parent profile summary */}
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <img
+              src={parent.avatarUrl}
+              alt={`${parent.firstName} ${parent.lastName}`}
+              className="h-14 w-14 rounded-lg object-cover ring-2 ring-border"
+            />
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-section text-foreground">
+                  {parent.firstName} {parent.lastName}
+                </h3>
+                <Badge tone="primary">
+                  <User size={12} /> Parent account
+                </Badge>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-text-secondary">
+                <span className="inline-flex items-center gap-1.5">
+                  <Mail size={13} className="text-text-tertiary" /> {parent.email}
+                </span>
+                {parent.phone && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Phone size={13} className="text-text-tertiary" /> {parent.phone}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-
-          <form onSubmit={handleMedicalSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>BLOOD GROUP</label>
-                <input
-                  type="text"
-                  value={medicalInfo.bloodGroup}
-                  onChange={(e) => setMedicalInfo({ ...medicalInfo, bloodGroup: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    marginTop: '4px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.88rem',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>EMERGENCY PHONE</label>
-                <input
-                  type="text"
-                  value={medicalInfo.emergencyPhone}
-                  onChange={(e) => setMedicalInfo({ ...medicalInfo, emergencyPhone: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    marginTop: '4px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.88rem',
-                  }}
-                />
-              </div>
+          <div className="sm:text-right">
+            <div className="eyebrow">Open tickets</div>
+            <div className="mt-1 text-2xl font-semibold text-foreground">
+              {feedbackList.filter((f) => f.statusTone !== 'success').length}
             </div>
-
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>KNOWN ALLERGIES / CONDITIONS</label>
-              <input
-                type="text"
-                value={medicalInfo.allergies}
-                onChange={(e) => setMedicalInfo({ ...medicalInfo, allergies: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '4px',
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '0.88rem',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>SPECIAL INSTRUCTIONS FOR INFIRMARY / TEACHERS</label>
-              <textarea
-                rows={2}
-                value={medicalInfo.specialInstructions}
-                onChange={(e) => setMedicalInfo({ ...medicalInfo, specialInstructions: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '4px',
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '0.88rem',
-                  resize: 'none',
-                }}
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="btn-primary"
-              style={{ alignSelf: 'flex-start', fontSize: '0.85rem', background: '#EF4444' }}
-            >
-              <Check size={16} /> Save Emergency Profile
-            </button>
-          </form>
+          </div>
         </div>
+      </Card>
 
-        {/* Feedback / Complaint Submission & Log */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-              <MessageSquareQuote size={20} color="#F59E0B" />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Submit Feedback / Grievance</h3>
-            </div>
-
-            <form onSubmit={handleFeedbackSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>TOPIC</label>
-                <select
-                  value={feedbackCategory}
-                  onChange={(e) => setFeedbackCategory(e.target.value as any)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    marginTop: '4px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.88rem',
-                  }}
-                >
-                  <option value="Academic">Academic Pacing &amp; Homework</option>
-                  <option value="Transport">Bus Route &amp; Transportation</option>
-                  <option value="Infrastructure">Classroom &amp; Canteen Infrastructure</option>
-                  <option value="Staff / Administration">Staff &amp; Administrative Services</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>FEEDBACK DETAILS</label>
-                <textarea
-                  rows={2}
-                  placeholder="Enter your suggestion or concern..."
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    marginTop: '4px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.88rem',
-                    resize: 'none',
-                  }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn-primary"
-                style={{ alignSelf: 'flex-start', fontSize: '0.85rem' }}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Submit form */}
+        <SectionCard title="Submit feedback / grievance" icon={<MessageSquareQuote size={18} />}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="label" htmlFor="fb-category">
+                Category
+              </label>
+              <select
+                id="fb-category"
+                className="input"
+                value={category}
+                onChange={(e) => setCategory(e.target.value as Category)}
               >
-                <Send size={15} /> Send to Leadership
-              </button>
-            </form>
-          </div>
-
-          {/* Feedback History */}
-          <div className="glass-card" style={{ padding: '20px' }}>
-            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '12px' }}>Previous Submissions</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {feedbackList.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700 }}>
-                    <span style={{ color: 'var(--accent)' }}>{item.category}</span>
-                    <span className="badge badge-success" style={{ fontSize: '0.68rem' }}>{item.status}</span>
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: '#fff', marginTop: '4px' }}>{item.text}</div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Resolution: {item.resolution}
-                  </div>
-                </div>
-              ))}
+                {CATEGORY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            <div>
+              <label className="label" htmlFor="fb-subject">
+                Subject
+              </label>
+              <input
+                id="fb-subject"
+                className="input"
+                placeholder="Brief summary of your feedback"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="label" htmlFor="fb-message">
+                Message
+              </label>
+              <textarea
+                id="fb-message"
+                className="input resize-none"
+                rows={4}
+                placeholder="Describe your suggestion or concern in detail…"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="label">Overall experience (optional)</label>
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const active = star <= (hoverRating || rating);
+                  return (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star === rating ? 0 : star)}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="rounded-md p-0.5 text-text-tertiary transition-colors"
+                      aria-label={`${star} star${star > 1 ? 's' : ''}`}
+                    >
+                      <Star size={22} className={cn(active ? 'fill-warning text-warning' : 'text-text-disabled')} />
+                    </button>
+                  );
+                })}
+                {rating > 0 && <span className="ml-1 text-meta text-text-secondary">{rating}/5</span>}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button type="submit" className="btn-primary">
+                <Send size={15} /> Submit feedback
+              </button>
+            </div>
+          </form>
+        </SectionCard>
+
+        {/* Tracked history */}
+        <SectionCard title="Your submissions" icon={<Ticket size={18} />}>
+          <div className="flex flex-col gap-3">
+            {feedbackList.map((item) => (
+              <div key={item.id} className="rounded-md border border-border bg-surface-muted p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge tone="neutral">{item.category}</Badge>
+                    <span className="font-mono text-micro text-text-tertiary">{item.id}</span>
+                  </div>
+                  <Badge tone={item.statusTone}>{item.status}</Badge>
+                </div>
+                <div className="mt-2 text-meta font-semibold text-foreground">{item.subject}</div>
+                <p className="mt-1 text-meta leading-relaxed text-text-secondary">{item.message}</p>
+                <div className="mt-2 flex items-center justify-between text-micro text-text-tertiary">
+                  <span>{item.date}</span>
+                  {item.rating > 0 && (
+                    <span className="inline-flex items-center gap-0.5">
+                      {Array.from({ length: item.rating }).map((_, i) => (
+                        <Star key={i} size={12} className="fill-warning text-warning" />
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </SectionCard>
       </div>
     </div>
   );

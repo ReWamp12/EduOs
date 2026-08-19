@@ -1,246 +1,206 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, ArrowLeftRight, Check, AlertCircle, Sparkles, UserCheck } from 'lucide-react';
-import { dataService } from '@/lib/dataService';
+import React, { useState } from 'react';
+import { Calendar, Clock, MapPin, ArrowLeftRight, UserCheck, CalendarOff } from 'lucide-react';
 import { TimetableSlot } from '@/lib/types';
+import { useTeacherBatch } from '@/lib/teacherContext';
+import { timetableForBatch } from '@/lib/batchData';
+import { PageHeader, SectionCard, Badge, EmptyState } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+
+interface SubRequest {
+  id: string;
+  requestor: string;
+  subject: string;
+  batch: string;
+  period: string;
+  date: string;
+  reason: string;
+}
+
+const DAYS = [
+  { dayNumber: 1, name: 'Mon' },
+  { dayNumber: 2, name: 'Tue' },
+  { dayNumber: 3, name: 'Wed' },
+  { dayNumber: 4, name: 'Thu' },
+  { dayNumber: 5, name: 'Fri' },
+  { dayNumber: 6, name: 'Sat' },
+];
 
 export const TeacherTimetable: React.FC = () => {
-  const [selectedDay, setSelectedDay] = useState<number>(1); // 1 = Monday
-  const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { batch } = useTeacherBatch();
+  const timetable = timetableForBatch(batch.id);
+  const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [requestedSlots, setRequestedSlots] = useState<Record<string, boolean>>({});
 
-  const [substitutionRequests, setSubstitutionRequests] = useState([
+  const [substitutionRequests, setSubstitutionRequests] = useState<SubRequest[]>([
     {
       id: 'sub-1',
-      requestor: 'Prof. Amit Verma',
+      requestor: 'Prof. Vikram Roy',
       subject: 'Mathematics (Calculus)',
       batch: 'Class 11 - JEE Advanced Alpha',
-      period: 'Period 3 (11:30 AM - 01:00 PM)',
-      date: 'Tomorrow, Aug 19',
+      period: 'Period 3 · 12:30–02:00 PM',
+      date: 'Tomorrow, Aug 20',
       reason: 'Attending CBSE Regional Academic Conclave',
-      status: 'Open for Coverage',
     },
     {
       id: 'sub-2',
       requestor: 'Dr. Sunita Rao',
       subject: 'Organic Chemistry',
-      batch: 'Class 12 - NEET Medical Top 50',
-      period: 'Period 4 (02:00 PM - 03:30 PM)',
-      date: 'Wednesday, Aug 20',
+      batch: 'Class 12 - NEET Medical Champions',
+      period: 'Period 4 · 02:15–03:45 PM',
+      date: 'Wednesday, Aug 21',
       reason: 'Medical Leave',
-      status: 'Open for Coverage',
     },
   ]);
 
-  const [claimedNotice, setClaimedNotice] = useState<string | null>(null);
+  const currentSlots = timetable
+    .filter((s) => s.dayOfWeek === selectedDay)
+    .sort((a, b) => a.periodNumber - b.periodNumber);
 
-  useEffect(() => {
-    let active = true;
-    dataService.getTeacherTimetable('t-1').then((res) => {
-      if (active) {
-        setTimetable(res);
-        setLoading(false);
-      }
-    });
-    return () => { active = false; };
-  }, []);
-
-  const handleClaim = (id: string, name: string) => {
-    setSubstitutionRequests((prev) => prev.filter((r) => r.id !== id));
-    setClaimedNotice(`You have agreed to cover ${name}'s class. Timetable updated and notifications sent to Principal.`);
-    setTimeout(() => setClaimedNotice(null), 4000);
+  const handleRequestSub = (slot: TimetableSlot) => {
+    setRequestedSlots((prev) => ({ ...prev, [slot.id]: true }));
+    toast('Substitution request sent', 'success', `Period ${slot.periodNumber} · ${slot.subjectName} posted to coverage marketplace`);
   };
 
-  const days = [
-    { dayNumber: 1, name: 'Monday' },
-    { dayNumber: 2, name: 'Tuesday' },
-    { dayNumber: 3, name: 'Wednesday' },
-    { dayNumber: 4, name: 'Thursday' },
-    { dayNumber: 5, name: 'Friday' },
-    { dayNumber: 6, name: 'Saturday' },
-  ];
-
-  const currentSlots = timetable.filter((s) => s.dayOfWeek === selectedDay);
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', color: 'var(--text-secondary)' }}>
-        Loading faculty timetable entries from database...
-      </div>
-    );
-  }
+  const handleClaim = (req: SubRequest) => {
+    setSubstitutionRequests((prev) => prev.filter((r) => r.id !== req.id));
+    toast('Coverage confirmed', 'success', `You are covering ${req.requestor}'s ${req.subject} class`);
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={26} color="#06B6D4" /> Faculty Master Timetable &amp; Coverage Marketplace
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Interactive period schedule &bull; Instant peer class coverage and substitution trading
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Faculty Timetable"
+        subtitle={`${batch.name} · weekly schedule with peer class coverage & substitutions`}
+        actions={<Badge tone="primary">Week of Aug 17</Badge>}
+      />
 
-      {claimedNotice && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontWeight: 600,
-        }}>
-          <Check size={18} /> {claimedNotice}
-        </div>
-      )}
-
-      {/* Day Selector Tabs */}
-      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-        {days.map((d) => {
+      {/* Day switcher */}
+      <div className="flex flex-wrap gap-2">
+        {DAYS.map((d) => {
           const isSelected = selectedDay === d.dayNumber;
+          const count = timetable.filter((s) => s.dayOfWeek === d.dayNumber).length;
           return (
             <button
               key={d.dayNumber}
               onClick={() => setSelectedDay(d.dayNumber)}
               className={isSelected ? 'btn-primary' : 'btn-secondary'}
-              style={{
-                fontSize: '0.85rem',
-                padding: '8px 18px',
-                background: isSelected ? 'linear-gradient(135deg, #06B6D4, #4F46E5)' : undefined,
-              }}
             >
               {d.name}
+              {count > 0 && (
+                <span
+                  className={
+                    isSelected
+                      ? 'ml-1 rounded-full bg-white/25 px-1.5 text-micro font-semibold'
+                      : 'ml-1 rounded-full bg-muted px-1.5 text-micro font-semibold text-text-secondary'
+                  }
+                >
+                  {count}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Timetable Grid & Substitution Side-by-Side */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '24px' }}>
-        {/* Schedule List */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-              {days.find((d) => d.dayNumber === selectedDay)?.name} Assigned Teaching Periods
-            </h3>
-            <span className="badge badge-primary">{currentSlots.length} Scheduled</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {currentSlots.length > 0 ? (
-              currentSlots.map((slot) => (
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
+        {/* Schedule list */}
+        <SectionCard
+          title={`${['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][selectedDay]} Schedule`}
+          icon={<Calendar size={18} />}
+          action={<Badge tone="neutral">{currentSlots.length} periods</Badge>}
+          bodyClassName="flex flex-col gap-3"
+        >
+          {currentSlots.length > 0 ? (
+            currentSlots.map((slot) => {
+              const requested = requestedSlots[slot.id];
+              return (
                 <div
                   key={slot.id}
-                  style={{
-                    padding: '16px 20px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border-subtle)',
-                    borderLeft: `4px solid ${slot.subjectColor}`,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
+                  className="flex flex-col gap-3 rounded-md border border-border bg-surface-muted p-4 sm:flex-row sm:items-center sm:justify-between"
+                  style={{ borderLeft: `4px solid ${slot.subjectColor}` }}
                 >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
-                        Period {slot.periodNumber} &bull; {slot.subjectName}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-micro font-bold text-white"
+                        style={{ background: slot.subjectColor }}
+                      >
+                        {slot.periodNumber}
                       </span>
+                      <span className="truncate text-meta font-semibold text-foreground">{slot.subjectName}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '14px', marginTop: '6px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={14} color="var(--primary)" /> {slot.startTime} - {slot.endTime}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-micro text-text-tertiary">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock size={13} /> {slot.startTime} – {slot.endTime}
                       </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <MapPin size={14} color="var(--accent)" /> {slot.roomNumber}
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin size={13} /> {slot.roomNumber}
                       </span>
                     </div>
                   </div>
 
-                  <button
-                    className="btn-secondary"
-                    style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-                    onClick={() => alert(`Requested substitution for Period ${slot.periodNumber}. Posted to coverage marketplace.`)}
-                  >
-                    <ArrowLeftRight size={13} /> Request Swap
-                  </button>
+                  {requested ? (
+                    <Badge tone="warning" className="shrink-0 self-start sm:self-auto">
+                      Coverage requested
+                    </Badge>
+                  ) : (
+                    <button
+                      onClick={() => handleRequestSub(slot)}
+                      className="btn-secondary shrink-0 self-start px-3 py-2 text-micro sm:self-auto"
+                    >
+                      <ArrowLeftRight size={13} /> Request substitution
+                    </button>
+                  )}
                 </div>
-              ))
-            ) : (
-              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No active lectures scheduled for this day. Free for research &amp; lesson prep!
-              </div>
-            )}
-          </div>
-        </div>
+              );
+            })
+          ) : (
+            <EmptyState
+              icon={<CalendarOff size={22} />}
+              title="No lectures scheduled"
+              description="This day is free for research and lesson preparation."
+            />
+          )}
+        </SectionCard>
 
-        {/* Peer Substitution Marketplace */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ArrowLeftRight size={20} color="#F59E0B" />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Substitution Marketplace</h3>
-          </div>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            Help fellow faculty by claiming open coverage requests. Claimed hours count towards institutional service credits.
+        {/* Substitution marketplace */}
+        <SectionCard
+          title="Coverage Marketplace"
+          icon={<ArrowLeftRight size={18} />}
+          action={<Badge tone="warning">{substitutionRequests.length} open</Badge>}
+          bodyClassName="flex flex-col gap-3"
+        >
+          <p className="text-micro leading-relaxed text-text-secondary">
+            Claim open coverage requests from fellow faculty. Claimed hours count towards institutional service credits.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {substitutionRequests.length > 0 ? (
-              substitutionRequests.map((req) => (
-                <div
-                  key={req.id}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(245, 158, 11, 0.05)',
-                    border: '1px solid rgba(245, 158, 11, 0.25)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>{req.requestor}</div>
-                    <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>{req.date}</span>
-                  </div>
-
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <strong>{req.subject}</strong> ({req.period})
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Reason: {req.reason}
-                  </div>
-
-                  <button
-                    onClick={() => handleClaim(req.id, req.requestor)}
-                    className="btn-primary"
-                    style={{
-                      background: 'linear-gradient(135deg, #10B981, #06B6D4)',
-                      fontSize: '0.78rem',
-                      padding: '6px 12px',
-                      marginTop: '4px',
-                    }}
-                  >
-                    <UserCheck size={14} /> Accept &amp; Cover Class
-                  </button>
+          {substitutionRequests.length > 0 ? (
+            substitutionRequests.map((req) => (
+              <div key={req.id} className="flex flex-col gap-2 rounded-md border border-warning/25 bg-warning-soft p-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-meta font-semibold text-foreground">{req.requestor}</span>
+                  <Badge tone="warning">{req.date}</Badge>
                 </div>
-              ))
-            ) : (
-              <div style={{ padding: '24px', textAlign: 'center', color: '#34D399', fontSize: '0.85rem' }}>
-                <Check size={20} style={{ margin: '0 auto 8px', display: 'block' }} />
-                All peer substitutions have been covered!
+                <div className="text-micro text-text-secondary">
+                  <span className="font-semibold text-foreground">{req.subject}</span> · {req.period}
+                </div>
+                <div className="text-micro text-text-tertiary">{req.batch}</div>
+                <div className="text-micro text-text-tertiary">Reason: {req.reason}</div>
+                <button onClick={() => handleClaim(req)} className="btn-primary mt-1 w-full px-3 py-2 text-micro">
+                  <UserCheck size={14} /> Accept &amp; cover class
+                </button>
               </div>
-            )}
-          </div>
-        </div>
+            ))
+          ) : (
+            <EmptyState
+              icon={<UserCheck size={22} />}
+              title="All covered"
+              description="Every peer substitution request has been claimed."
+            />
+          )}
+        </SectionCard>
       </div>
     </div>
   );

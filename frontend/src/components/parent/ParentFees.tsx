@@ -2,8 +2,20 @@
 
 import React, { useState } from 'react';
 import { mockFeeInvoices } from '@/lib/mockData';
-import { CreditCard, Download, CheckCircle2, ShieldCheck, QrCode, ArrowRight, IndianRupee, Sparkles } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { Card, SectionCard, StatCard, Badge, PageHeader, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+import {
+  CreditCard,
+  Download,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Smartphone,
+  CheckCircle2,
+  X,
+  IndianRupee,
+  Receipt,
+} from 'lucide-react';
 
 interface FeeInvoiceItem {
   id: string;
@@ -18,235 +30,254 @@ interface FeeInvoiceItem {
   breakdown?: { head: string; amount: number }[];
 }
 
+type PayMethod = 'UPI' | 'Card' | 'Net Banking';
+
 export const ParentFees: React.FC = () => {
   const [invoices, setInvoices] = useState<FeeInvoiceItem[]>(mockFeeInvoices);
-  const [isPaying, setIsPaying] = useState(false);
-  const [activeInvoice, setActiveInvoice] = useState<any>(null);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [method, setMethod] = useState<PayMethod>('UPI');
+  const [processing, setProcessing] = useState(false);
+  const [receiptReady, setReceiptReady] = useState<Record<string, boolean>>({});
 
-  const handleOpenPayment = (inv: any) => {
-    setActiveInvoice(inv);
-    setIsPaying(true);
+  const totalDue = invoices
+    .filter((i) => i.status !== 'paid')
+    .reduce((sum, i) => sum + i.amount, 0);
+  const paidCount = invoices.filter((i) => i.status === 'paid').length;
+
+  const openConfirm = (id: string) => {
+    setPayingId(id);
+    setMethod('UPI');
   };
 
-  const handleCompletePayment = () => {
-    setIsPaying(false);
-    setPaymentSuccess(true);
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
+  const confirmPayment = (inv: FeeInvoiceItem) => {
+    setProcessing(true);
+    const receiptId = `APX-REC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const txnId = `TXN-${method === 'UPI' ? 'UPI' : method === 'Card' ? 'CARD' : 'NB'}-${Math.floor(
+      10000000 + Math.random() * 90000000,
+    )}`;
 
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === activeInvoice.id
-          ? {
-              ...inv,
-              status: 'paid',
-              paidOn: 'Today, 03:30 PM',
-              transactionId: `TXN-UPI-${Math.floor(10000000 + Math.random() * 90000000)}`,
-            }
-          : inv
-      )
-    );
+    // Simulate gateway round-trip
+    setTimeout(() => {
+      setInvoices((prev) =>
+        prev.map((i) =>
+          i.id === inv.id
+            ? {
+                ...i,
+                status: 'paid',
+                paidOn: 'Today, 03:30 PM',
+                transactionId: txnId,
+                receiptUrl: `/receipts/${receiptId}.pdf`,
+              }
+            : i,
+        ),
+      );
+      setReceiptReady((r) => ({ ...r, [inv.id]: true }));
+      setProcessing(false);
+      setPayingId(null);
+      toast('Payment successful', 'success', `Receipt ${receiptId} · ₹${inv.amount.toLocaleString('en-IN')} paid via ${method}`);
+    }, 900);
+  };
 
-    setTimeout(() => setPaymentSuccess(false), 5000);
+  const downloadReceipt = (inv: FeeInvoiceItem) => {
+    toast('Receipt downloading', 'info', `${inv.transactionId ?? 'Official receipt'} · PDF generated for ${inv.studentName}`);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Fee Invoices &amp; Online Payments</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Student: <strong>Aarav Sharma</strong> &bull; Class 11 - JEE Advanced Alpha
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Fees & invoices"
+        subtitle={
+          <>
+            Student <span className="font-semibold text-foreground">Aarav Sharma</span> · Class 11 — JEE Advanced Alpha
+          </>
+        }
+      />
+
+      {/* Summary tiles */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Total amount due"
+          value={totalDue > 0 ? `₹${totalDue.toLocaleString('en-IN')}` : '₹0'}
+          icon={<IndianRupee size={16} />}
+          tone={totalDue > 0 ? 'warning' : 'success'}
+          hint={totalDue > 0 ? 'Across open invoices' : 'No pending dues'}
+        />
+        <StatCard
+          label="Invoices cleared"
+          value={paidCount}
+          icon={<CheckCircle2 size={16} />}
+          tone="success"
+          hint={`of ${invoices.length} issued this year`}
+        />
+        <StatCard
+          label="Payment security"
+          value="PCI-DSS"
+          icon={<ShieldCheck size={16} />}
+          tone="info"
+          hint="UPI · Card · Net Banking"
+        />
       </div>
 
-      {paymentSuccess && (
-        <div style={{
-          padding: '16px 20px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          fontWeight: 600,
-          animation: 'fadeIn 0.3s ease',
-        }}>
-          <CheckCircle2 size={20} />
-          Payment of ₹45,000 completed successfully! Official Tax/Fee receipt generated and sent to parent WhatsApp.
-        </div>
-      )}
+      {/* Invoices */}
+      <div className="flex flex-col gap-4">
+        {invoices.map((inv) => {
+          const isPaid = inv.status === 'paid';
+          const isExpanded = expandedId === inv.id;
+          const isConfirming = payingId === inv.id;
+          const showReceipt = isPaid && (receiptReady[inv.id] || !!inv.receiptUrl);
 
-      {/* Invoices List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {invoices.map((inv) => (
-          <div
-            key={inv.id}
-            className="glass-card"
-            style={{
-              padding: '24px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              borderLeft: inv.status === 'paid' ? '4px solid #10B981' : '4px solid #F59E0B',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className={`badge ${inv.status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
-                    {inv.status === 'paid' ? 'PAID & CLEARED' : 'DUE / UNPAID'}
-                  </span>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>{inv.title}</h3>
-                </div>
-
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {inv.status === 'paid' ? (
-                    <>Paid on: <strong style={{ color: '#fff' }}>{inv.paidOn}</strong> &bull; Txn ID: <code>{inv.transactionId}</code></>
-                  ) : (
-                    <>Due Date: <strong style={{ color: '#F59E0B' }}>{inv.dueDate}</strong> &bull; 0% Late Fee Grace Period Active</>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: inv.status === 'paid' ? '#10B981' : '#F59E0B' }}>
-                  ₹{inv.amount.toLocaleString()}
-                </div>
-              </div>
-            </div>
-
-            {/* Fee Breakdown if unpaid */}
-            {inv.breakdown && (
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                padding: '14px 18px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Fee Head Breakdown:
-                </div>
-                {inv.breakdown.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{item.head}</span>
-                    <strong style={{ color: 'var(--text-primary)' }}>₹{item.amount.toLocaleString()}</strong>
+          return (
+            <Card key={inv.id} className="overflow-hidden">
+              {/* Accent rail + header */}
+              <div className="flex">
+                <span className={cn('w-1 shrink-0', isPaid ? 'bg-success' : 'bg-warning')} />
+                <div className="flex-1 p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={isPaid ? 'success' : 'warning'}>
+                          {isPaid ? 'Paid & cleared' : 'Due / unpaid'}
+                        </Badge>
+                        <h3 className="text-section text-foreground">{inv.title}</h3>
+                      </div>
+                      <div className="mt-1.5 text-meta text-text-secondary">
+                        {isPaid ? (
+                          <>
+                            Paid on <span className="font-semibold text-foreground">{inv.paidOn}</span> · Txn{' '}
+                            <span className="font-mono text-text-secondary">{inv.transactionId}</span>
+                          </>
+                        ) : (
+                          <>
+                            Due by <span className="font-semibold text-warning">{inv.dueDate}</span> · 0% late-fee grace active
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="shrink-0 sm:text-right">
+                      <div className={cn('text-2xl font-semibold', isPaid ? 'text-success' : 'text-warning')}>
+                        ₹{inv.amount.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-micro text-text-tertiary">{inv.studentName}</div>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
 
-            {/* Actions */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
-              {inv.status === 'paid' ? (
-                <button className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-                  <Download size={16} /> Download Official Tax Receipt (PDF)
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleOpenPayment(inv)}
-                  className="btn-primary"
-                  style={{ background: 'linear-gradient(135deg, #F59E0B, #4F46E5)', fontSize: '0.85rem' }}
-                >
-                  <CreditCard size={16} /> Pay ₹{inv.amount.toLocaleString()} Online (UPI / Card)
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+                  {/* Breakdown (expandable) */}
+                  {inv.breakdown && inv.breakdown.length > 0 && (
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : inv.id)}
+                        className="inline-flex items-center gap-1.5 text-meta font-medium text-primary hover:text-primary-hover"
+                        aria-expanded={isExpanded}
+                      >
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        {isExpanded ? 'Hide fee breakdown' : 'View fee breakdown'}
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-3 overflow-hidden rounded-md border border-border bg-surface-muted">
+                          {inv.breakdown.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={cn(
+                                'flex items-center justify-between px-4 py-2.5 text-meta',
+                                idx !== inv.breakdown!.length - 1 && 'border-b border-border',
+                              )}
+                            >
+                              <span className="text-text-secondary">{item.head}</span>
+                              <span className="font-semibold text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between bg-muted px-4 py-2.5 text-meta font-semibold">
+                            <span className="text-foreground">Total payable</span>
+                            <span className="text-foreground">₹{inv.amount.toLocaleString('en-IN')}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Inline confirm panel */}
+                  {isConfirming && !isPaid && (
+                    <div className="mt-4 rounded-lg border border-primary/25 bg-primary-soft p-4 animate-fade-in">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck size={18} className="text-primary" />
+                          <span className="text-meta font-semibold text-foreground">Confirm secure payment</span>
+                        </div>
+                        <button
+                          onClick={() => setPayingId(null)}
+                          className="grid h-6 w-6 place-items-center rounded-md text-text-tertiary hover:bg-surface"
+                          aria-label="Cancel"
+                          disabled={processing}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="mt-3 flex items-baseline gap-2">
+                        <span className="eyebrow">Payable amount</span>
+                        <span className="text-lg font-semibold text-foreground">
+                          ₹{inv.amount.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <span className="eyebrow">Payment method</span>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(['UPI', 'Card', 'Net Banking'] as PayMethod[]).map((m) => (
+                            <button
+                              key={m}
+                              onClick={() => setMethod(m)}
+                              disabled={processing}
+                              className={cn(
+                                'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-meta font-medium transition-colors',
+                                method === m
+                                  ? 'border-primary bg-surface text-primary shadow-xs'
+                                  : 'border-border bg-surface text-text-secondary hover:border-border-strong',
+                              )}
+                            >
+                              <Smartphone size={14} /> {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap justify-end gap-2">
+                        <button onClick={() => setPayingId(null)} className="btn-secondary" disabled={processing}>
+                          Cancel
+                        </button>
+                        <button onClick={() => confirmPayment(inv)} className="btn-primary" disabled={processing}>
+                          {processing ? 'Processing…' : `Confirm & pay ₹${inv.amount.toLocaleString('en-IN')}`}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    {isPaid ? (
+                      <button onClick={() => downloadReceipt(inv)} className="btn-secondary">
+                        <Download size={16} /> Download receipt
+                      </button>
+                    ) : (
+                      !isConfirming && (
+                        <button onClick={() => openConfirm(inv.id)} className="btn-primary">
+                          <CreditCard size={16} /> Pay now
+                        </button>
+                      )
+                    )}
+                    {showReceipt && !isPaid && (
+                      <button onClick={() => downloadReceipt(inv)} className="btn-secondary">
+                        <Receipt size={16} /> Download receipt
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
-
-      {/* Simulated Payment Modal */}
-      {isPaying && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-        }}>
-          <div className="glass-card" style={{
-            width: '420px',
-            padding: '28px',
-            background: '#111827',
-            border: '1px solid rgba(79, 70, 229, 0.4)',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '18px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={20} color="#10B981" />
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>EduOS Pay Gateway</h3>
-              </div>
-              <button
-                onClick={() => setIsPaying(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}
-              >
-                &times;
-              </button>
-            </div>
-
-            <div style={{ textAlign: 'center', padding: '10px 0' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Payable Amount</div>
-              <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#10B981', marginTop: '4px' }}>
-                ₹{activeInvoice.amount.toLocaleString()}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Apex Institute of Science &bull; Term 2 Fees
-              </div>
-            </div>
-
-            {/* UPI QR Simulation */}
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '12px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '10px',
-            }}>
-              <div style={{ background: '#fff', padding: '8px', borderRadius: '8px' }}>
-                <QrCode size={120} color="#000" />
-              </div>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Scan with Google Pay, PhonePe, or Paytm
-              </span>
-            </div>
-
-            <button
-              onClick={handleCompletePayment}
-              className="btn-primary"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '0.95rem',
-                background: 'linear-gradient(135deg, #10B981, #06B6D4)',
-              }}
-            >
-              Simulate Successful 1-Tap UPI Payment <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

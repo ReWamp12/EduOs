@@ -1,289 +1,282 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, Check, Download, Send, Sliders, BookOpen, Layers, Award } from 'lucide-react';
+import { Sparkles, Send, RefreshCw, BookOpen, KeyRound, FileQuestion } from 'lucide-react';
+import { PageHeader, SectionCard, Badge, EmptyState, Skeleton, cn } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+
+const CLASSES = ['Class 10', 'Class 11', 'Class 12'];
+const SUBJECTS = ['Physics', 'Physical Chemistry', 'Organic Chemistry', 'Mathematics'];
+const CHAPTERS: Record<string, string[]> = {
+  Physics: ['Rotational Dynamics & Moment of Inertia', 'Thermodynamics & Kinetic Theory', 'Electrostatics & Gauss Law'],
+  'Physical Chemistry': ['Chemical Thermodynamics', 'Ionic & Chemical Equilibrium', 'Electrochemistry'],
+  'Organic Chemistry': ['Reaction Mechanisms (EAS)', 'Aldehydes, Ketones & Carboxylic Acids', 'Isomerism'],
+  Mathematics: ['Definite Integrals & Area', 'Continuity & Differentiability', 'Complex Numbers'],
+};
+const DIFFICULTIES = ['JEE Main', 'JEE Advanced', 'NEET UG', 'Olympiad / KVPY'];
+const QUESTION_TYPES = ['MCQ', 'Subjective', 'Numerical', 'Assertion-Reasoning', 'Case-based'] as const;
+type QType = (typeof QUESTION_TYPES)[number];
+
+interface GenQuestion {
+  number: number;
+  type: QType;
+  marks: number;
+  question: string;
+  answer: string;
+}
+
+interface Paper {
+  title: string;
+  className: string;
+  subject: string;
+  chapter: string;
+  difficulty: string;
+  totalMarks: number;
+  questions: GenQuestion[];
+}
+
+const MARKS_BY_TYPE: Record<QType, number> = {
+  MCQ: 4,
+  Subjective: 6,
+  Numerical: 4,
+  'Assertion-Reasoning': 3,
+  'Case-based': 5,
+};
+
+function buildQuestion(type: QType, n: number, subject: string, chapter: string, difficulty: string): GenQuestion {
+  const templates: Record<QType, { q: string; a: string }> = {
+    MCQ: {
+      q: `[${difficulty}] Single-correct MCQ on ${chapter}: identify the correct expression governing the primary ${subject} relationship in this scenario.`,
+      a: 'Option (C) — derived from the standard governing equation for this topic.',
+    },
+    Subjective: {
+      q: `[${difficulty}] Derive, from first principles, the key result for ${chapter}. Show every intermediate step and state assumptions.`,
+      a: 'Full derivation expected; award step-marks for setup, integration, and final simplification.',
+    },
+    Numerical: {
+      q: `[${difficulty}] Numerical value type on ${chapter}: compute the required quantity to two decimal places (use standard constants).`,
+      a: 'Correct numeric value with units — accept ±0.05 tolerance.',
+    },
+    'Assertion-Reasoning': {
+      q: `[${difficulty}] Assertion (A) about ${chapter} and Reason (R): decide whether R correctly explains A.`,
+      a: 'Both A and R true, and R is the correct explanation of A.',
+    },
+    'Case-based': {
+      q: `[${difficulty}] Case study in ${subject} (${chapter}): read the passage and answer the sub-parts on application and analysis.`,
+      a: 'Model answers provided per sub-part; grade holistically against the rubric.',
+    },
+  };
+  const t = templates[type];
+  return { number: n, type, marks: MARKS_BY_TYPE[type], question: t.q, answer: t.a };
+}
 
 export const TeacherAIQuestions: React.FC = () => {
-  const [subject, setSubject] = useState('Physics');
-  const [chapter, setChapter] = useState('Rotational Dynamics & Moment of Inertia');
-  const [numQuestions, setNumQuestions] = useState(10);
-  const [difficulty, setDifficulty] = useState('JEE Advanced');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedPaper, setGeneratedPaper] = useState<any>(null);
+  const [className, setClassName] = useState(CLASSES[1]);
+  const [subject, setSubject] = useState(SUBJECTS[0]);
+  const [chapter, setChapter] = useState(CHAPTERS[SUBJECTS[0]][0]);
+  const [difficulty, setDifficulty] = useState(DIFFICULTIES[1]);
+  const [numQuestions, setNumQuestions] = useState(6);
+  const [types, setTypes] = useState<QType[]>(['MCQ', 'Numerical', 'Assertion-Reasoning']);
+  const [generating, setGenerating] = useState(false);
+  const [paper, setPaper] = useState<Paper | null>(null);
 
-  const sampleGeneratedPaper = {
-    title: 'JEE Advanced Practice Test: Rotational Mechanics & Fixed Axis Dynamics',
-    totalMarks: 40,
-    durationMinutes: 45,
-    questions: [
-      {
-        number: 1,
-        type: 'Multiple Choice (Single Correct)',
-        marks: 4,
-        negativeMarks: -1,
-        question:
-          'A solid cylinder of mass M and radius R rolls without slipping down an inclined plane of inclination θ. What is the minimum coefficient of static friction μ required for pure rolling?',
-        options: ['(1/3) tan θ', '(1/2) tan θ', '(2/3) tan θ', '(1/4) tan θ'],
-        correctOption: 0,
-        solution:
-          'For a solid cylinder, I = (1/2)MR². The linear acceleration a = g sin θ / (1 + I/MR²) = (2/3)g sin θ. Friction f = Iα/R = (1/3)Mg sin θ. For no slip: f ≤ μN = μMg cos θ. Hence, μ ≥ (1/3) tan θ.',
-      },
-      {
-        number: 2,
-        type: 'Numerical Value Type',
-        marks: 4,
-        negativeMarks: 0,
-        question:
-          'A uniform thin rod of length 2m and mass 3kg is free to rotate in a vertical plane about a horizontal axis through its top end. If it is released from the horizontal position, find its angular velocity (in rad/s) when it becomes vertical. (Take g = 10 m/s²)',
-        correctAnswer: '3.87 rad/s (or √15 rad/s)',
-        solution:
-          'By conservation of energy: Loss in PE = Gain in Rotational KE. Mg(L/2) = (1/2)Iω². Here I = (1/3)ML². Thus, Mg(L/2) = (1/6)ML²ω² => ω = √(3g/L) = √(3 × 10 / 2) = √15 ≈ 3.87 rad/s.',
-      },
-      {
-        number: 3,
-        type: 'Assertion & Reasoning',
-        marks: 4,
-        negativeMarks: -1,
-        question:
-          'Assertion (A): Moment of inertia of a body is not unique and depends on the axis of rotation chosen.\nReason (R): Parallel axis theorem can only be applied when one of the axes passes through the center of mass.',
-        options: [
-          'Both A and R are true and R is the correct explanation of A.',
-          'Both A and R are true but R is NOT the correct explanation of A.',
-          'A is true but R is false.',
-          'A is false but R is true.',
-        ],
-        correctOption: 1,
-        solution:
-          'Both statements are correct. Moment of inertia varies with axis geometry. Parallel axis theorem I = I_cm + Md² strictly requires one axis to be through the CM.',
-      },
-    ],
+  const onSubjectChange = (s: string) => {
+    setSubject(s);
+    setChapter(CHAPTERS[s][0]);
   };
 
-  const handleGenerate = () => {
-    setIsGenerating(true);
+  const toggleType = (t: QType) => {
+    setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  };
+
+  const generate = () => {
+    if (types.length === 0) {
+      toast('Select a question type', 'warning', 'Choose at least one question type to generate.');
+      return;
+    }
+    setGenerating(true);
     setTimeout(() => {
-      setIsGenerating(false);
-      setGeneratedPaper(sampleGeneratedPaper);
-    }, 1200);
+      const questions: GenQuestion[] = Array.from({ length: numQuestions }, (_, i) =>
+        buildQuestion(types[i % types.length], i + 1, subject, chapter, difficulty),
+      );
+      const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+      setPaper({
+        title: `${difficulty} Practice Paper — ${chapter}`,
+        className,
+        subject,
+        chapter,
+        difficulty,
+        totalMarks,
+        questions,
+      });
+      setGenerating(false);
+      toast('Question paper generated', 'success', `${numQuestions} questions · ${totalMarks} marks`);
+    }, 800);
+  };
+
+  const publish = () => {
+    toast('Published to LMS', 'success', `${paper?.title} is now available to the batch`);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Sparkles size={24} color="#06B6D4" /> AI Question Paper &amp; Rubric Studio
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Generate balanced test papers with model solutions and marking rubrics in seconds
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="AI Question Studio"
+        subtitle="Generate balanced test papers with model answer keys in seconds"
+        actions={<Badge tone="info"><Sparkles size={12} /> AI Engine</Badge>}
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '24px' }}>
-        {/* Controls Card */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Paper Configuration</h3>
-
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.6fr]">
+        {/* Config */}
+        <SectionCard title="Paper Configuration" icon={<BookOpen size={18} />} bodyClassName="flex flex-col gap-4">
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>SUBJECT</label>
-            <select
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                marginTop: '6px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '0.9rem',
-              }}
-            >
-              <option>Physics</option>
-              <option>Physical Chemistry</option>
-              <option>Organic Chemistry</option>
-              <option>Mathematics</option>
+            <label className="label" htmlFor="class">Class</label>
+            <select id="class" className="input" value={className} onChange={(e) => setClassName(e.target.value)}>
+              {CLASSES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>TARGET CHAPTER</label>
-            <select
-              value={chapter}
-              onChange={(e) => setChapter(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                marginTop: '6px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '0.9rem',
-              }}
-            >
-              <option>Rotational Dynamics &amp; Moment of Inertia</option>
-              <option>Thermodynamics &amp; Kinetic Theory</option>
-              <option>Definite Integrals &amp; Area Under Curves</option>
-              <option>Chemical Bonding &amp; Molecular Structure</option>
+            <label className="label" htmlFor="subject">Subject</label>
+            <select id="subject" className="input" value={subject} onChange={(e) => onSubjectChange(e.target.value)}>
+              {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>TARGET EXAM BENCHMARK</label>
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                marginTop: '6px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '0.9rem',
-              }}
-            >
-              <option>JEE Advanced (Multi-concept &amp; Numerical)</option>
-              <option>JEE Main (Standard Speed &amp; Accuracy)</option>
-              <option>NEET UG (Direct Formula &amp; NCERT High-Yield)</option>
-              <option>Olympiad / KVPY Advanced</option>
+            <label className="label" htmlFor="chapter">Chapter</label>
+            <select id="chapter" className="input" value={chapter} onChange={(e) => setChapter(e.target.value)}>
+              {CHAPTERS[subject].map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-              NUMBER OF QUESTIONS: <strong style={{ color: 'var(--primary)' }}>{numQuestions}</strong>
+            <label className="label" htmlFor="difficulty">Difficulty</label>
+            <select id="difficulty" className="input" value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+              {DIFFICULTIES.map((d) => <option key={d}>{d}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="label" htmlFor="num">
+              Number of questions: <span className="text-primary">{numQuestions}</span>
             </label>
             <input
+              id="num"
               type="range"
-              min="5"
-              max="25"
+              min={4}
+              max={20}
               value={numQuestions}
               onChange={(e) => setNumQuestions(Number(e.target.value))}
-              style={{ width: '100%', marginTop: '8px', accentColor: '#4F46E5' }}
+              className="w-full accent-primary"
             />
           </div>
 
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="btn-primary"
-            style={{ marginTop: '10px', background: 'linear-gradient(135deg, #06B6D4, #4F46E5)' }}
-          >
-            <Sparkles size={16} />
-            {isGenerating ? 'Synthesizing Questions...' : 'Generate Balanced Question Paper'}
-          </button>
-        </div>
+          <div>
+            <span className="label">Question types</span>
+            <div className="flex flex-wrap gap-2">
+              {QUESTION_TYPES.map((t) => {
+                const active = types.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleType(t)}
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-micro font-semibold transition-colors',
+                      active
+                        ? 'border-primary bg-primary-soft text-primary'
+                        : 'border-border bg-surface text-text-secondary hover:bg-muted',
+                    )}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-        {/* Generated Output Preview */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          {generatedPaper ? (
+          <button onClick={generate} disabled={generating} className="btn-primary mt-1 w-full">
+            <Sparkles size={16} /> {generating ? 'Generating…' : paper ? 'Regenerate' : 'Generate'}
+          </button>
+        </SectionCard>
+
+        {/* Output */}
+        <SectionCard
+          title="Generated Paper"
+          icon={<FileQuestion size={18} />}
+          action={
+            paper ? (
+              <div className="flex gap-2">
+                <button onClick={generate} disabled={generating} className="btn-secondary px-3 py-1.5 text-micro">
+                  <RefreshCw size={13} /> Regenerate
+                </button>
+                <button onClick={publish} className="btn-primary px-3 py-1.5 text-micro">
+                  <Send size={13} /> Publish to LMS
+                </button>
+              </div>
+            ) : undefined
+          }
+          bodyClassName="flex flex-col gap-4"
+        >
+          {generating ? (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px' }}>
-                <div>
-                  <span className="badge badge-success">Generated by EduOS AI Engine</span>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '6px' }}>{generatedPaper.title}</h3>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Total Marks: {generatedPaper.totalMarks} &bull; Suggested Time: {generatedPaper.durationMinutes} Mins
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="btn-secondary" style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-                    <Download size={14} /> PDF
-                  </button>
-                  <button className="btn-primary" style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-                    <Send size={14} /> Publish to LMS
-                  </button>
+              <Skeleton className="h-6 w-2/3" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </>
+          ) : paper ? (
+            <>
+              <div className="rounded-md border border-border bg-surface-muted p-4">
+                <h3 className="text-section text-foreground">{paper.title}</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Badge tone="neutral">{paper.className}</Badge>
+                  <Badge tone="primary">{paper.subject}</Badge>
+                  <Badge tone="info">{paper.difficulty}</Badge>
+                  <Badge tone="success">{paper.questions.length} questions · {paper.totalMarks} marks</Badge>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '520px', overflowY: 'auto' }}>
-                {generatedPaper.questions.map((q: any) => (
-                  <div
-                    key={q.number}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '16px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '0.9rem' }}>
-                        Question {q.number}
-                      </span>
-                      <span className="badge badge-primary">
-                        {q.marks} Marks ({q.negativeMarks} Negative)
-                      </span>
-                    </div>
-
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                      {q.question}
-                    </p>
-
-                    {q.options && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
-                        {q.options.map((opt: string, idx: number) => (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '8px 12px',
-                              background: idx === q.correctOption ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.2)',
-                              border: idx === q.correctOption ? '1px solid #10B981' : '1px solid var(--border-subtle)',
-                              borderRadius: '6px',
-                              fontSize: '0.82rem',
-                              color: idx === q.correctOption ? '#34D399' : 'var(--text-secondary)',
-                              fontWeight: idx === q.correctOption ? 700 : 500,
-                            }}
-                          >
-                            ({String.fromCharCode(65 + idx)}) {opt}
-                          </div>
-                        ))}
+              {/* Questions */}
+              <div className="flex flex-col gap-3">
+                {paper.questions.map((q) => (
+                  <div key={q.number} className="rounded-md border border-border bg-surface p-4">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-meta font-semibold text-foreground">Question {q.number}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge tone="neutral">{q.type}</Badge>
+                        <Badge tone="primary">{q.marks} marks</Badge>
                       </div>
-                    )}
-
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '10px 12px',
-                      background: 'rgba(79, 70, 229, 0.08)',
-                      borderLeft: '3px solid #4F46E5',
-                      borderRadius: '4px',
-                      fontSize: '0.78rem',
-                      color: 'var(--text-secondary)',
-                    }}>
-                      <strong style={{ color: '#818CF8' }}>Model Solution &amp; Step Rubric:</strong>
-                      <div style={{ marginTop: '2px' }}>{q.solution}</div>
                     </div>
+                    <p className="text-meta leading-relaxed text-text-secondary">{q.question}</p>
                   </div>
                 ))}
               </div>
+
+              {/* Answer key */}
+              <div className="rounded-md border border-info/20 bg-info-soft p-4">
+                <div className="mb-2 flex items-center gap-2 text-info">
+                  <KeyRound size={16} />
+                  <span className="text-meta font-semibold">Answer Key</span>
+                </div>
+                <ol className="flex flex-col gap-2">
+                  {paper.questions.map((q) => (
+                    <li key={q.number} className="text-micro leading-relaxed text-text-secondary">
+                      <span className="font-semibold text-foreground">Q{q.number}.</span> {q.answer}
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </>
           ) : (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '380px',
-              color: 'var(--text-muted)',
-              textAlign: 'center',
-              gap: '12px',
-            }}>
-              <Sparkles size={40} color="#06B6D4" style={{ opacity: 0.5 }} />
-              <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Configure parameters on the left to generate an AI Question Paper
-              </div>
-              <div style={{ fontSize: '0.8rem', maxWidth: '320px' }}>
-                AI ensures balanced difficulty weighting, LaTeX equations, and complete step-by-step marking rubrics.
-              </div>
-            </div>
+            <EmptyState
+              icon={<Sparkles size={22} />}
+              title="No paper yet"
+              description="Configure parameters on the left and generate an AI question paper with a full answer key."
+            />
           )}
-        </div>
+        </SectionCard>
       </div>
     </div>
   );

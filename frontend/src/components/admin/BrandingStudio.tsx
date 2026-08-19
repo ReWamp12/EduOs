@@ -1,204 +1,185 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Palette, Check, RefreshCw, Eye, Sparkles } from 'lucide-react';
+import { Palette, Check, Eye, RotateCcw } from 'lucide-react';
 import { dataService } from '@/lib/dataService';
+import { PageHeader, SectionCard, Badge } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
+
+const DEFAULTS = { primary: '#4F46E5', secondary: '#06B6D4', accent: '#F59E0B', name: 'Apex Institute of Science' };
 
 export const BrandingStudio: React.FC = () => {
-  const [primaryColor, setPrimaryColor] = useState('#4F46E5');
-  const [secondaryColor, setSecondaryColor] = useState('#06B6D4');
-  const [accentColor, setAccentColor] = useState('#F59E0B');
-  const [appName, setAppName] = useState('Apex Institute of Science');
-  const [saved, setSaved] = useState(false);
+  const [primaryColor, setPrimaryColor] = useState(DEFAULTS.primary);
+  const [secondaryColor, setSecondaryColor] = useState(DEFAULTS.secondary);
+  const [accentColor, setAccentColor] = useState(DEFAULTS.accent);
+  const [appName, setAppName] = useState(DEFAULTS.name);
   const [saving, setSaving] = useState(false);
+
+  const applyTokens = (p: string, s: string, a: string) => {
+    // White-label runtime theming — updates the live CSS custom properties the
+    // entire app reads. Must be preserved: this is how tenant branding applies
+    // instantly with no rebuild.
+    const root = document.documentElement;
+    root.style.setProperty('--primary', p);
+    root.style.setProperty('--secondary', s);
+    root.style.setProperty('--accent', a);
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Save variables in runtime database
       await dataService.updateTenantBranding('t-1', {
         name: appName,
         primaryColor,
         secondaryColor,
         accentColor,
       });
-
-      // Update CSS custom properties dynamically at runtime!
-      document.documentElement.style.setProperty('--primary', primaryColor);
-      document.documentElement.style.setProperty('--secondary', secondaryColor);
-      document.documentElement.style.setProperty('--accent', accentColor);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      applyTokens(primaryColor, secondaryColor, accentColor);
+      toast('Branding applied', 'success', 'Theme tokens saved and applied live across the workspace.');
     } catch (e) {
       console.error(e);
+      toast('Could not save branding', 'error', 'Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleReset = () => {
+    setPrimaryColor(DEFAULTS.primary);
+    setSecondaryColor(DEFAULTS.secondary);
+    setAccentColor(DEFAULTS.accent);
+    setAppName(DEFAULTS.name);
+    applyTokens(DEFAULTS.primary, DEFAULTS.secondary, DEFAULTS.accent);
+    toast('Reset to defaults', 'info');
+  };
+
+  const colorFields: { label: string; value: string; set: (v: string) => void }[] = [
+    { label: 'Primary', value: primaryColor, set: setPrimaryColor },
+    { label: 'Secondary', value: secondaryColor, set: setSecondaryColor },
+    { label: 'Accent', value: accentColor, set: setAccentColor },
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Palette size={24} color="#F59E0B" /> White-Label Branding Studio
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Live runtime theme generator &bull; Zero code-rebuild dynamic styling
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-md bg-primary-soft text-primary">
+              <Palette size={18} />
+            </span>
+            White-Label Branding Studio
+          </span>
+        }
+        subtitle="Live runtime theme generator — zero-rebuild dynamic styling per tenant."
+        actions={
+          <>
+            <button onClick={handleReset} className="btn-secondary">
+              <RotateCcw size={15} /> Reset
+            </button>
+            <button onClick={handleSave} className="btn-primary" disabled={saving}>
+              <Check size={16} /> {saving ? 'Applying…' : 'Save & apply'}
+            </button>
+          </>
+        }
+      />
 
-        <button onClick={handleSave} className="btn-primary" style={{ fontSize: '0.85rem' }} disabled={saving}>
-          <Check size={16} /> {saving ? 'Applying Tokens...' : 'Save & Apply Live Tokens'}
-        </button>
-      </div>
-
-      {saved && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'rgba(16, 185, 129, 0.15)',
-          border: '1px solid #10B981',
-          borderRadius: 'var(--radius-sm)',
-          color: '#34D399',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontWeight: 600,
-        }}>
-          <Check size={18} /> Theme variables applied instantly and saved to database!
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
-        {/* Editor Controls */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Brand Identity &amp; Colors</h3>
-
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_1fr]">
+        {/* Editor */}
+        <SectionCard title="Brand identity & colors" bodyClassName="flex flex-col gap-5">
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>INSTITUTION DISPLAY NAME</label>
+            <label className="label" htmlFor="brand-name">Institution display name</label>
             <input
+              id="brand-name"
               type="text"
               value={appName}
               onChange={(e) => setAppName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px 14px',
-                marginTop: '6px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '0.95rem',
-              }}
+              className="input"
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>PRIMARY COLOR</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                <input
-                  type="color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  style={{ width: '42px', height: '42px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'transparent' }}
-                />
-                <code style={{ fontSize: '0.85rem' }}>{primaryColor}</code>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {colorFields.map((f) => (
+              <div key={f.label}>
+                <label className="label">{f.label} color</label>
+                <div className="flex items-center gap-2.5 rounded-md border border-border-strong bg-surface p-2">
+                  <input
+                    type="color"
+                    value={f.value}
+                    onChange={(e) => f.set(e.target.value)}
+                    className="h-9 w-9 cursor-pointer rounded-md border-0 bg-transparent p-0"
+                    aria-label={`${f.label} color`}
+                  />
+                  <code className="text-meta font-medium uppercase text-text-secondary">{f.value}</code>
+                </div>
               </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>SECONDARY COLOR</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                <input
-                  type="color"
-                  value={secondaryColor}
-                  onChange={(e) => setSecondaryColor(e.target.value)}
-                  style={{ width: '42px', height: '42px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'transparent' }}
-                />
-                <code style={{ fontSize: '0.85rem' }}>{secondaryColor}</code>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>ACCENT COLOR</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                <input
-                  type="color"
-                  value={accentColor}
-                  onChange={(e) => setAccentColor(e.target.value)}
-                  style={{ width: '42px', height: '42px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'transparent' }}
-                />
-                <code style={{ fontSize: '0.85rem' }}>{accentColor}</code>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Live Preview Card */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Eye size={18} color="var(--primary)" />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Live Portal Rendering Preview</h3>
+            ))}
           </div>
 
-          <div style={{
-            background: 'var(--bg-main)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                color: '#fff',
-              }}>
-                A
+          <div className="rounded-md border border-info/20 bg-info-soft p-3.5 text-meta text-info-foreground">
+            These values map to the semantic <code className="font-semibold">--primary</code>,{' '}
+            <code className="font-semibold">--secondary</code> and <code className="font-semibold">--accent</code> tokens.
+            Saving updates them live for every screen in this tenant.
+          </div>
+        </SectionCard>
+
+        {/* Live preview */}
+        <SectionCard
+          title="Live rendering preview"
+          icon={<Eye size={18} />}
+          bodyClassName="flex flex-col gap-4"
+        >
+          <div className="rounded-lg border border-border bg-surface-muted p-5">
+            <div className="flex items-center gap-3">
+              <div
+                className="grid h-10 w-10 place-items-center rounded-md text-lg font-bold text-white"
+                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+              >
+                {appName.charAt(0) || 'A'}
               </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{appName}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Student &amp; Faculty Portal</div>
+              <div className="min-w-0">
+                <div className="truncate text-section text-foreground">{appName || 'Institution name'}</div>
+                <div className="text-micro text-text-tertiary">Student & Faculty Portal</div>
               </div>
             </div>
 
-            <button style={{
-              background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
-              color: '#fff',
-              border: 'none',
-              padding: '10px',
-              borderRadius: '6px',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-            }}>
-              Primary Branded Button
+            <button
+              className="mt-4 w-full rounded-md py-2.5 text-meta font-semibold text-white shadow-xs"
+              style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+            >
+              Primary branded button
             </button>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <span style={{
-                background: `${accentColor}22`,
-                color: accentColor,
-                border: `1px solid ${accentColor}44`,
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-              }}>
-                Accent Badge Tag
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className="rounded-full px-2.5 py-1 text-micro font-semibold"
+                style={{
+                  background: `${accentColor}1f`,
+                  color: accentColor,
+                  border: `1px solid ${accentColor}3d`,
+                }}
+              >
+                Accent tag
+              </span>
+              <span
+                className="rounded-full px-2.5 py-1 text-micro font-semibold"
+                style={{ background: `${primaryColor}14`, color: primaryColor, border: `1px solid ${primaryColor}33` }}
+              >
+                Primary chip
+              </span>
+              <span
+                className="rounded-full px-2.5 py-1 text-micro font-semibold"
+                style={{ background: `${secondaryColor}14`, color: secondaryColor, border: `1px solid ${secondaryColor}33` }}
+              >
+                Secondary chip
               </span>
             </div>
           </div>
-        </div>
+
+          <div className="flex items-center gap-2 text-micro text-text-tertiary">
+            <Badge tone="success">Live</Badge>
+            Preview reflects unsaved changes. Click “Save & apply” to push tokens tenant-wide.
+          </div>
+        </SectionCard>
       </div>
     </div>
   );

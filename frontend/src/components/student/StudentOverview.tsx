@@ -4,17 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { dataService } from '@/lib/dataService';
 import { Student } from '@/lib/types';
 import { mockAssignments, mockExamResults, mockTimetable } from '@/lib/mockData';
-import { 
-  Calendar, 
-  Clock, 
-  Trophy, 
-  Flame, 
-  BookOpen, 
-  ChevronRight, 
-  CheckCircle2, 
+import { StatCard, SectionCard, Badge, Skeleton, SkeletonCard } from '@/components/ui';
+import {
+  Clock,
+  Trophy,
+  Flame,
+  BookOpen,
+  ChevronRight,
+  CheckCircle2,
   AlertCircle,
   Sparkles,
-  Award
+  Award,
+  CalendarDays,
 } from 'lucide-react';
 
 export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
@@ -29,13 +30,24 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
         setLoading(false);
       }
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (loading || !student) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', color: 'var(--text-secondary)' }}>
-        Loading student profile data from isolated database schema...
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-24 w-full rounded-lg" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
+          <Skeleton className="h-80 rounded-lg" />
+          <Skeleton className="h-80 rounded-lg" />
+        </div>
       </div>
     );
   }
@@ -44,233 +56,149 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
   const latestExam = mockExamResults[0];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Welcome Banner */}
-      <div className="glass-card" style={{
-        padding: '24px 28px',
-        background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.2), rgba(6, 182, 212, 0.15))',
-        border: '1px solid rgba(79, 70, 229, 0.3)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <img
-            src={student.avatarUrl}
-            alt={student.name}
-            style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '16px',
-              objectFit: 'cover',
-              border: '3px solid #4F46E5',
-              boxShadow: '0 8px 20px rgba(0, 0, 0, 0.4)',
-            }}
-          />
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Welcome back, {student.name}!</h2>
-              <span className="badge badge-warning" style={{ gap: '4px' }}>
-                <Flame size={12} fill="#F59E0B" /> 14 Day Study Streak
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.9rem' }}>
-              {student.batchName} &bull; Roll: <strong style={{ color: '#fff' }}>{student.rollNumber}</strong> &bull; Target: <strong style={{ color: 'var(--accent)' }}>{student.targetExam}</strong>
-            </p>
-          </div>
-        </div>
-
-        <button 
-          onClick={() => onNavigate('id_card')}
-          className="btn-primary" 
-          style={{ fontSize: '0.85rem' }}
+    <div className="flex flex-col gap-6">
+      {/* Welcome banner */}
+      <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+        <div
+          className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+          style={{ background: 'linear-gradient(120deg, var(--primary-soft), var(--surface) 62%)' }}
         >
-          <Award size={16} /> View Digital ID
-        </button>
-      </div>
-
-      {/* Metrics Row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '16px',
-      }}>
-        {/* Attendance Metric */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ATTENDANCE RATE</span>
-            <CheckCircle2 size={18} color="#10B981" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#10B981' }}>
-            {student.attendancePct}%
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Eligible for JEE Board Exam (&gt;75% required)
-          </div>
-        </div>
-
-        {/* Batch Rank Metric */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>BATCH STANDING</span>
-            <Trophy size={18} color="#F59E0B" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#F59E0B' }}>
-            Rank #{student.rankInBatch} <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ 38</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Top 8% in All-India Mock Tests
-          </div>
-        </div>
-
-        {/* Pending Assignments Metric */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>PENDING HOMEWORK</span>
-            <BookOpen size={18} color="#06B6D4" />
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '8px', color: '#06B6D4' }}>
-            {pendingAssignments.length} <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-muted)' }}>DPP due</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Physics Work-Energy due tomorrow
-          </div>
-        </div>
-
-        {/* Next Exam Metric */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>NEXT MOCK TEST</span>
-            <Calendar size={18} color="#818CF8" />
-          </div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '10px', color: '#818CF8' }}>
-            This Sunday, 09:00 AM
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
-            All-India CBT Mock Test 04
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Today's Timetable + AI Performance Snapshot */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px' }}>
-        {/* Today's Timetable */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock size={20} color="#4F46E5" />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Today&apos;s Lecture Schedule</h3>
+          <div className="flex items-center gap-4">
+            <img
+              src={student.avatarUrl}
+              alt={student.name}
+              className="h-16 w-16 rounded-lg object-cover ring-2 ring-surface shadow-sm"
+            />
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="text-title text-foreground">Welcome back, {student.name.split(' ')[0]}</h2>
+                <Badge tone="warning">
+                  <Flame size={12} /> 14-day streak
+                </Badge>
+              </div>
+              <p className="mt-1 text-body text-text-secondary">
+                {student.batchName} · Roll{' '}
+                <span className="font-semibold text-foreground">{student.rollNumber}</span> · Target{' '}
+                <span className="font-semibold text-primary">{student.targetExam}</span>
+              </p>
             </div>
-            <span className="badge badge-primary">Monday Timetable</span>
           </div>
+          <button onClick={() => onNavigate('id_card')} className="btn-primary shrink-0 self-start sm:self-auto">
+            <Award size={16} /> View Digital ID
+          </button>
+        </div>
+      </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* KPI row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Attendance Rate"
+          value={`${student.attendancePct}%`}
+          tone="success"
+          icon={<CheckCircle2 size={16} />}
+          trend={{ value: '+1.4%', direction: 'up' }}
+          hint="Eligible for board exam (>75% required)"
+        />
+        <StatCard
+          label="Batch Standing"
+          value={<>Rank #{student.rankInBatch}<span className="text-base font-medium text-text-tertiary"> / 38</span></>}
+          tone="warning"
+          icon={<Trophy size={16} />}
+          hint="Top 8% in All-India mock tests"
+        />
+        <StatCard
+          label="Pending Homework"
+          value={<>{pendingAssignments.length}<span className="text-base font-medium text-text-tertiary"> DPP due</span></>}
+          tone="info"
+          icon={<BookOpen size={16} />}
+          hint="Physics Work-Energy due tomorrow"
+          onClick={() => onNavigate('assignments')}
+        />
+        <StatCard
+          label="Next Mock Test"
+          value={<span className="text-xl">Sun · 09:00 AM</span>}
+          tone="primary"
+          icon={<CalendarDays size={16} />}
+          hint="All-India CBT Mock Test 04"
+          onClick={() => onNavigate('exams')}
+        />
+      </div>
+
+      {/* Main grid */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
+        {/* Timetable */}
+        <SectionCard
+          title="Today's Lecture Schedule"
+          icon={<Clock size={18} />}
+          action={<Badge tone="primary">Monday</Badge>}
+          bodyClassName="p-3"
+        >
+          <div className="flex flex-col gap-1.5">
             {mockTimetable.map((slot, index) => (
               <div
                 key={slot.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  background: index === 0 ? 'rgba(79, 70, 229, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                  border: index === 0 ? '1px solid rgba(79, 70, 229, 0.4)' : '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                }}
+                className={[
+                  'flex items-center justify-between gap-3 rounded-md border px-3 py-3 transition-colors',
+                  index === 0 ? 'border-primary/25 bg-primary-soft' : 'border-transparent hover:bg-surface-muted',
+                ].join(' ')}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '8px',
-                    background: slot.subjectColor,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    color: '#fff',
-                  }}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-micro font-bold text-white"
+                    style={{ background: slot.subjectColor }}
+                  >
                     P{slot.periodNumber}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                      {slot.subjectName}
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Faculty: {slot.teacherName} &bull; {slot.roomNumber}
+                  <div className="min-w-0">
+                    <div className="truncate text-meta font-semibold text-foreground">{slot.subjectName}</div>
+                    <div className="truncate text-micro text-text-tertiary">
+                      {slot.teacherName} · {slot.roomNumber}
                     </div>
                   </div>
                 </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {slot.startTime} - {slot.endTime}
-                  </div>
-                  {index === 0 && (
-                    <span className="badge badge-success" style={{ fontSize: '0.65rem', marginTop: '4px' }}>
-                      Live Next
-                    </span>
+                <div className="shrink-0 text-right">
+                  <div className="text-micro font-semibold text-foreground">{slot.startTime}</div>
+                  {index === 0 ? (
+                    <Badge tone="success" className="mt-1">Up next</Badge>
+                  ) : (
+                    <div className="text-micro text-text-tertiary">{slot.endTime}</div>
                   )}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </SectionCard>
 
-        {/* AI Performance Card */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={20} color="#F59E0B" />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>AI Diagnostic Summary</h3>
-          </div>
-
-          <div style={{
-            background: 'rgba(245, 158, 11, 0.08)',
-            border: '1px solid rgba(245, 158, 11, 0.25)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '16px',
-          }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FBBF24', marginBottom: '6px' }}>
-              Latest Mock Test: {latestExam.examTitle}
+        {/* AI diagnostic */}
+        <SectionCard title="AI Diagnostic Summary" icon={<Sparkles size={18} />} bodyClassName="flex flex-col gap-4">
+          <div className="rounded-md border border-warning/20 bg-warning-soft p-4">
+            <div className="text-micro font-semibold uppercase tracking-wide text-warning">
+              Latest: {latestExam.examTitle}
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            <p className="mt-1.5 text-meta leading-relaxed text-text-secondary">
               &ldquo;{latestExam.mistakeSummary}&rdquo;
-            </div>
+            </p>
           </div>
 
           <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-              Action Areas for this week:
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="eyebrow mb-2">Action areas this week</div>
+            <div className="flex flex-col gap-1.5">
               {latestExam.weakTopics.map((topic, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '0.82rem',
-                  color: 'var(--text-primary)',
-                  padding: '8px 12px',
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-subtle)',
-                }}>
-                  <AlertCircle size={14} color="#EF4444" />
-                  {topic}
+                <div
+                  key={i}
+                  className="flex items-center gap-2 rounded-md border border-border bg-surface-muted px-3 py-2 text-meta text-foreground"
+                >
+                  <AlertCircle size={14} className="shrink-0 text-destructive" />
+                  <span className="truncate">{topic}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <button 
-            onClick={() => onNavigate('exams')}
-            className="btn-secondary" 
-            style={{ width: '100%', marginTop: 'auto', fontSize: '0.85rem' }}
-          >
-            Detailed Scorecard & AI Review <ChevronRight size={16} />
+          <button onClick={() => onNavigate('exams')} className="btn-secondary mt-auto w-full">
+            Detailed scorecard & AI review <ChevronRight size={16} />
           </button>
-        </div>
+        </SectionCard>
       </div>
     </div>
   );
