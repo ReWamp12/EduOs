@@ -132,7 +132,7 @@ function seed(): AppState {
     id: `exam-seed-${er.id}`,
     title: er.examTitle,
     subject: er.subject,
-    batchName: 'Class 11 - JEE Advanced Alpha',
+    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
     examType: 'Mock Test',
     examDate: er.examDate,
     maxMarks: er.totalMarks,
