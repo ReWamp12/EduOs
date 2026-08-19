@@ -727,10 +727,11 @@ export const mockFeeInvoices = [
     dueDate: '2026-09-15',
     amount: 26000,
     status: 'pending',
+    studentName: 'Aarav Sharma',
     breakdown: [
-      { item: 'Tuition Fee (Term 2 - Class 10)', amount: 18000 },
-      { item: 'CBSE Board Examination & Registration Fee', amount: 3200 },
-      { item: 'Science & Computer Lab Composite Fee', amount: 4800 },
+      { head: 'Tuition Fee (Term 2 - Class 10)', amount: 18000 },
+      { head: 'CBSE Board Examination & Registration Fee', amount: 3200 },
+      { head: 'Science & Computer Lab Composite Fee', amount: 4800 },
     ],
   },
   {
@@ -738,14 +739,17 @@ export const mockFeeInvoices = [
     invoiceNumber: 'INV-2026-TERM1-1004',
     title: 'Term 1 Tuition & Annual Development Charge',
     dueDate: '2026-04-10',
-    paidDate: '2026-04-05',
+    paidOn: '2026-04-05',
+    transactionId: 'TXN-HDFC-9921402',
     amount: 52000,
     status: 'paid',
+    studentName: 'Aarav Sharma',
     receiptUrl: '/sample-receipt.pdf',
     breakdown: [
-      { item: 'Tuition Fee (Term 1 - Class 10)', amount: 18000 },
-      { item: 'Annual Development & Smart Class Charge', amount: 34000 },
+      { head: 'Tuition Fee (Term 1 - Class 10)', amount: 18000 },
+      { head: 'Annual Development & Smart Class Charge', amount: 34000 },
     ],
   },
 ];
+
 
