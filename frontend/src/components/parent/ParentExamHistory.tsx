@@ -11,9 +11,9 @@ export const ParentExamHistory: React.FC = () => {
   const [childId, setChildId] = useState(mockParentChildren[0].id);
   const child = mockParentChildren.find((c) => c.id === childId) || mockParentChildren[0];
 
-  // Exams for this child: matched by batch (child.grade) or explicit result name.
+  // Exams for this child: matched by batch (child.grade / child.batchName) or explicit result name.
   const childExams = exams.filter(
-    (e) => e.batchName === child.grade || e.studentName === child.name,
+    (e) => e.batchName === child.grade || e.batchName === child.batchName || e.studentName === child.name,
   );
   const completed = childExams.filter((e) => e.status === 'completed');
   const upcoming = childExams.filter((e) => e.status === 'scheduled');

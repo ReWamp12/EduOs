@@ -22,10 +22,10 @@ import {
 } from 'lucide-react';
 
 export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
-  const [selectedChildId, setSelectedChildId] = useState(mockParentChildren[0].id);
+  const [selectedChildId, setSelectedChildId] = useState(mockParentChildren[0]?.id || 'child-1');
   const activeChild = mockParentChildren.find((c) => c.id === selectedChildId) || mockParentChildren[0];
   const pendingConsent = mockConsentForms.filter((c) => c.status === 'pending');
-  const unpaidInvoice = mockFeeInvoices.find((i) => i.status === 'unpaid');
+  const unpaidInvoice = mockFeeInvoices.find((i) => i.status === 'unpaid' || i.status === 'pending');
 
   return (
     <div className="flex flex-col gap-6">
@@ -40,6 +40,8 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
         <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
           {mockParentChildren.map((child) => {
             const isSelected = child.id === selectedChildId;
+            const firstName = child.name?.split(' ')[0] || child.name;
+            const gradeLabel = child.grade?.split(' - ')[0] || child.batchName?.split(' — ')[0] || 'Class 10';
             return (
               <button
                 key={child.id}
@@ -50,7 +52,7 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
                 ].join(' ')}
               >
                 <img src={child.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
-                {child.name.split(' ')[0]} · {child.grade.split(' - ')[0]}
+                {firstName} · {gradeLabel}
               </button>
             );
           })}
@@ -58,37 +60,43 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
       </div>
 
       {/* Active child summary */}
-      <Card className="p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <img
-              src={activeChild.avatarUrl}
-              alt={activeChild.name}
-              className="h-14 w-14 rounded-lg object-cover ring-2 ring-border"
-            />
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-section text-foreground">{activeChild.name}</h3>
-                <Badge tone="primary">{activeChild.grade}</Badge>
+      {activeChild && (
+        <Card className="p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <img
+                src={activeChild.avatarUrl}
+                alt={activeChild.name}
+                className="h-14 w-14 rounded-lg object-cover ring-2 ring-border"
+              />
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-section text-foreground">{activeChild.name}</h3>
+                  <Badge tone="primary">{activeChild.grade || activeChild.batchName}</Badge>
+                </div>
+                <div className="mt-1 text-meta text-text-secondary">
+                  Roll <span className="font-semibold text-foreground">{activeChild.rollNumber}</span> · {activeChild.branch || 'Senior Wing'} · Target{' '}
+                  <span className="font-semibold text-primary">{activeChild.targetExam}</span>
+                </div>
               </div>
-              <div className="mt-1 text-meta text-text-secondary">
-                Roll <span className="font-semibold text-foreground">{activeChild.rollNumber}</span> · {activeChild.branch} · Target{' '}
-                <span className="font-semibold text-primary">{activeChild.targetExam}</span>
+            </div>
+            <div className="flex gap-8 sm:text-right">
+              <div>
+                <div className="eyebrow">Attendance</div>
+                <div className="mt-1 text-2xl font-semibold text-success">
+                  {activeChild.attendance ?? activeChild.attendancePct ?? 94.6}%
+                </div>
+              </div>
+              <div>
+                <div className="eyebrow">Latest mock score</div>
+                <div className="mt-1 text-lg font-semibold text-foreground">
+                  {activeChild.latestScore || '74/80 (92.5%)'}
+                </div>
               </div>
             </div>
           </div>
-          <div className="flex gap-8 sm:text-right">
-            <div>
-              <div className="eyebrow">Attendance</div>
-              <div className="mt-1 text-2xl font-semibold text-success">{activeChild.attendance}%</div>
-            </div>
-            <div>
-              <div className="eyebrow">Latest mock score</div>
-              <div className="mt-1 text-lg font-semibold text-foreground">{activeChild.latestScore}</div>
-            </div>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Real-time attendance alerts from teachers */}
       <ParentAttendanceAlerts />
