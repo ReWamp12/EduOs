@@ -677,6 +677,11 @@ export const mockParentChildren = [
 ];
 
 export const mockParentAINarrative = {
+  studentName: 'Aarav',
+  english:
+    'Aarav continues to demonstrate outstanding consistency in CBSE Class 10 preparation. He ranks #2 in Section 10-A with a cumulative score of 93.8% across Periodic Assessments and Pre-Board 1. His strongest areas are Mathematics Quadratic Equations and Physics Electricity, with a recommended focus on Trigonometric Identities proving questions.',
+  hindi:
+    'आरव ने सीबीएसई कक्षा 10 की परीक्षाओं में निरंतर प्रगति और उत्कृष्ट प्रदर्शन बनाए रखा है। वह 93.8% अंकों के साथ अपनी कक्षा 10-ए में दूसरे स्थान पर हैं। गणित और विज्ञान में उनका प्रदर्शन असाधारण है।',
   executiveSummary:
     'Aarav continues to demonstrate outstanding consistency in CBSE Class 10 preparation. He ranks #2 in Section 10-A with a cumulative score of 93.8% across Periodic Assessments and Pre-Board 1.',
   keyStrengths: [
