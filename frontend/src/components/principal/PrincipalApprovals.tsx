@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { dataService } from '@/lib/dataService';
+import { useAppStore, updateLeaveStatus } from '@/lib/store';
 import { LeaveRequest } from '@/lib/types';
 import {
   PageHeader,
@@ -36,59 +36,39 @@ const statusTone: Record<LeaveRequest['status'], 'warning' | 'success' | 'danger
 };
 
 export const PrincipalApprovals: React.FC = () => {
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { leaveRequests } = useAppStore();
   const [comments, setComments] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<StatusFilter>('all');
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await dataService.getLeaveRequests();
-        if (active) setRequests(data);
-      } catch {
-        if (active) toast('Could not load leave requests', 'error', 'Please retry in a moment.');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const counts = useMemo(
     () => ({
-      pending: requests.filter((r) => r.status === 'pending').length,
-      approved: requests.filter((r) => r.status === 'approved').length,
-      rejected: requests.filter((r) => r.status === 'rejected').length,
+      pending: leaveRequests.filter((r) => r.status === 'pending').length,
+      approved: leaveRequests.filter((r) => r.status === 'approved').length,
+      rejected: leaveRequests.filter((r) => r.status === 'rejected').length,
     }),
-    [requests],
+    [leaveRequests],
   );
 
   const visible = useMemo(
-    () => (filter === 'all' ? requests : requests.filter((r) => r.status === filter)),
-    [requests, filter],
+    () => (filter === 'all' ? leaveRequests : leaveRequests.filter((r) => r.status === filter)),
+    [leaveRequests, filter],
   );
 
   const handleDecision = (req: LeaveRequest, decision: Decision) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === req.id ? { ...r, status: decision } : r)),
-    );
     const note = comments[req.id]?.trim();
+    updateLeaveStatus(req.id, decision, note);
+
     if (decision === 'approved') {
       toast(
-        'Leave approved',
+        'Leave Approved & Stamped',
         'success',
-        note ? `${req.employeeName} · ${note}` : `${req.employeeName} · ${req.leaveType}`,
+        note ? `${req.employeeName} · ${note}` : `${req.employeeName} · ${req.leaveType} authorized.`,
       );
     } else {
       toast(
-        'Leave rejected',
+        'Leave Application Declined',
         'warning',
-        note ? `${req.employeeName} · ${note}` : `${req.employeeName} · ${req.leaveType}`,
+        note ? `${req.employeeName} · ${note}` : `${req.employeeName} · ${req.leaveType} rejected.`,
       );
     }
   };
@@ -97,7 +77,7 @@ export const PrincipalApprovals: React.FC = () => {
     setComments((prev) => ({ ...prev, [id]: value }));
 
   const filters: { key: StatusFilter; label: string; count?: number }[] = [
-    { key: 'all', label: 'All', count: requests.length },
+    { key: 'all', label: 'All', count: leaveRequests.length },
     { key: 'pending', label: 'Pending', count: counts.pending },
     { key: 'approved', label: 'Approved', count: counts.approved },
     { key: 'rejected', label: 'Rejected', count: counts.rejected },
@@ -163,21 +143,7 @@ export const PrincipalApprovals: React.FC = () => {
         }
         bodyClassName="flex flex-col gap-4"
       >
-        {loading ? (
-          <div className="flex flex-col gap-4">
-            {[0, 1].map((i) => (
-              <div key={i} className="rounded-lg border border-border bg-surface-muted p-5">
-                <Skeleton className="h-5 w-48" />
-                <Skeleton className="mt-3 h-3 w-72" />
-                <Skeleton className="mt-2 h-3 w-56" />
-                <div className="mt-4 flex gap-2">
-                  <Skeleton className="h-9 w-28" />
-                  <Skeleton className="h-9 w-28" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : visible.length === 0 ? (
+        {visible.length === 0 ? (
           <EmptyState
             icon={<Inbox size={22} />}
             title={filter === 'all' ? 'No leave requests' : `No ${filter} requests`}

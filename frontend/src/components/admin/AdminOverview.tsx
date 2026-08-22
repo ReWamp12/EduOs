@@ -6,7 +6,7 @@ import { Building2, Users, CreditCard, Activity, ShieldCheck, Sliders, Plus } fr
 
 export const AdminOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const tenantsList = [
-    { id: 't-1', name: 'Apex Institute of Science', subdomain: 'apex.eduos.app', type: 'Coaching Institute', students: 1200, status: 'Active', mrr: '₹45,000/mo', branches: 2 },
+    { id: 't-1', name: 'Modern Public School (CBSE)', subdomain: 'mps.eduos.app', type: 'K-12 School (CBSE)', students: 1850, status: 'Active', mrr: '₹65,000/mo', branches: 2 },
     { id: 't-2', name: 'Greenwood World School', subdomain: 'greenwood.eduos.app', type: 'K-12 School (CBSE)', students: 2400, status: 'Active', mrr: '₹85,000/mo', branches: 3 },
     { id: 't-3', name: 'Target Medical Academy', subdomain: 'targetmedical.eduos.app', type: 'Coaching (NEET)', students: 850, status: 'Active', mrr: '₹35,000/mo', branches: 1 },
   ];

@@ -32,6 +32,11 @@ export function toast(message: string, tone: ToastTone = 'success', description?
   return id;
 }
 
+toast.success = (message: string, description?: string) => toast(message, 'success', description);
+toast.error = (message: string, description?: string) => toast(message, 'error', description);
+toast.info = (message: string, description?: string) => toast(message, 'info', description);
+toast.warning = (message: string, description?: string) => toast(message, 'warning', description);
+
 export function dismiss(id: number) {
   items = items.filter((t) => t.id !== id);
   emit();

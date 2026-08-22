@@ -9,6 +9,9 @@ import { mockBatches, mockStudentsInBatch, mockTimetable } from './mockData';
 
 const avatar = (seed: string) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 
+const BLOOD_GROUPS = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-'];
+const GENDERS = ['Male', 'Female'];
+
 const mk = (
   batchId: string,
   batchName: string,
@@ -19,47 +22,62 @@ const mk = (
   attendancePct: number,
   rankInBatch: number,
   parentName: string,
-): Student => ({
-  id: `${batchId}-s${n}`,
-  userId: `${batchId}-u${n}`,
-  name,
-  email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@mpsdelhi.edu.in`,
-  rollNumber: roll,
-  admissionNumber: `ADM-2025-${roll.replace(/\D/g, '').slice(-4) || '100' + n}`,
-  batchId,
-  batchName,
-  targetExam,
-  attendancePct,
-  rankInBatch,
-  parentName,
-  parentPhone: '+91 98xxx xxxxx',
-  qrCodeId: `MPS-${roll}`,
-  avatarUrl: avatar(name),
-});
+  bloodGroup: string = 'O+',
+  gender: string = 'Male',
+): Student => {
+  const clean = name.toLowerCase().replace(/[^a-z]+/g, '.');
+  const parentClean = parentName.toLowerCase().replace(/[^a-z]+/g, '.');
+  return {
+    id: `${batchId}-s${n}`,
+    userId: `${batchId}-u${n}`,
+    name,
+    email: `${clean}@mpsdelhi.edu.in`,
+    rollNumber: roll,
+    admissionNumber: `ADM-2025-${roll.replace(/\D/g, '').slice(-4) || '100' + n}`,
+    batchId,
+    batchName,
+    targetExam,
+    attendancePct,
+    rankInBatch,
+    parentName,
+    parentPhone: `+91 98${(n * 11111 + 22222).toString().slice(0, 8)}`,
+    parentEmail: `${parentClean}.parent@gmail.com`,
+    parentRelation: parentName.startsWith('Mrs') ? 'Mother' : 'Father',
+    bloodGroup,
+    dob: `2010-0${(n % 9) + 1}-1${(n % 8) + 1}`,
+    gender,
+    address: `${12 + n}, Sector ${n + 4}, Pushp Vihar, New Delhi - 110017`,
+    emergencyContact: `+91 98${(n * 11111 + 22222).toString().slice(0, 8)}`,
+    feeStatus: n % 5 === 0 ? 'partial' : 'paid',
+    medicalNotes: n === 3 ? 'Mild dust allergy. Carries inhaler.' : 'No known chronic allergies.',
+    qrCodeId: `MPS-${roll}-${name.split(' ')[0].toUpperCase()}`,
+    avatarUrl: avatar(name),
+  };
+};
 
 // Class 10-B — CBSE Achievers (Aryabhata Section)
 const cbse10bRoster: Student[] = [
-  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 1, 'Ishaan Nair', 'CBSE-10B-01', 96.1, 1, 'Mr. Suresh Nair'),
-  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 2, 'Meera Krishnan', 'CBSE-10B-02', 93.4, 2, 'Mrs. Latha Krishnan'),
-  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 3, 'Aditya Menon', 'CBSE-10B-03', 88.7, 5, 'Mr. Prakash Menon'),
-  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 4, 'Sneha Pillai', 'CBSE-10B-04', 91.2, 3, 'Mr. Rajan Pillai'),
-  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 5, 'Rahul Nambiar', 'CBSE-10B-05', 79.5, 12, 'Mr. Gopal Nambiar'),
+  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 1, 'Ishaan Nair', 'CBSE-10B-01', 96.1, 1, 'Mr. Suresh Nair', 'A+', 'Male'),
+  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 2, 'Meera Krishnan', 'CBSE-10B-02', 93.4, 2, 'Mrs. Latha Krishnan', 'O+', 'Female'),
+  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 3, 'Aditya Menon', 'CBSE-10B-03', 88.7, 5, 'Mr. Prakash Menon', 'B+', 'Male'),
+  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 4, 'Sneha Pillai', 'CBSE-10B-04', 91.2, 3, 'Mr. Rajan Pillai', 'AB+', 'Female'),
+  mk('batch-cbse-10b', 'Class 10-B — CBSE Achievers (Aryabhata Section)', 'CBSE 10th Board Exam 2026', 5, 'Rahul Nambiar', 'CBSE-10B-05', 79.5, 12, 'Mr. Gopal Nambiar', 'O+', 'Male'),
 ];
 
 // Class 9-A — CBSE Foundation (Ramanujan Section)
 const cbse9aRoster: Student[] = [
-  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 1, 'Vivaan Joshi', 'CBSE-9A-01', 97.3, 1, 'Mr. Nikhil Joshi'),
-  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 2, 'Diya Kulkarni', 'CBSE-9A-02', 94.8, 2, 'Mr. Sameer Kulkarni'),
-  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 3, 'Arjun Patil', 'CBSE-9A-03', 85.6, 8, 'Mr. Mahesh Patil'),
-  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 4, 'Riya Shah', 'CBSE-9A-04', 90.1, 4, 'Mr. Kalpesh Shah'),
-  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 5, 'Kabir Desai', 'CBSE-9A-05', 82.0, 10, 'Mr. Hardik Desai'),
+  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 1, 'Vivaan Joshi', 'CBSE-9A-01', 97.3, 1, 'Mr. Nikhil Joshi', 'B+', 'Male'),
+  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 2, 'Diya Kulkarni', 'CBSE-9A-02', 94.8, 2, 'Mr. Sameer Kulkarni', 'A+', 'Female'),
+  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 3, 'Arjun Patil', 'CBSE-9A-03', 85.6, 8, 'Mr. Mahesh Patil', 'O+', 'Male'),
+  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 4, 'Riya Shah', 'CBSE-9A-04', 90.1, 4, 'Mr. Kalpesh Shah', 'AB+', 'Female'),
+  mk('batch-cbse-9a', 'Class 9-A — CBSE Foundation (Ramanujan Section)', 'CBSE Class 9 Annual Exam', 5, 'Kabir Desai', 'CBSE-9A-05', 82.0, 10, 'Mr. Hardik Desai', 'O-', 'Male'),
 ];
 
 // Class 9-B — CBSE Scholars (Bose Section)
 const cbse9bRoster: Student[] = [
-  mk('batch-cbse-9b', 'Class 9-B — CBSE Scholars (Bose Section)', 'CBSE Class 9 Annual Exam', 1, 'Pranav Agarwal', 'CBSE-9B-01', 95.0, 1, 'Mr. Manoj Agarwal'),
-  mk('batch-cbse-9b', 'Class 9-B — CBSE Scholars (Bose Section)', 'CBSE Class 9 Annual Exam', 2, 'Tanvi Saxena', 'CBSE-9B-02', 92.5, 2, 'Mrs. Neha Saxena'),
-  mk('batch-cbse-9b', 'Class 9-B — CBSE Scholars (Bose Section)', 'CBSE Class 9 Annual Exam', 3, 'Devansh Singhal', 'CBSE-9B-03', 87.2, 5, 'Mr. Rajesh Singhal'),
+  mk('batch-cbse-9b', 'Class 9-B — CBSE Scholars (Bose Section)', 'CBSE Class 9 Annual Exam', 1, 'Pranav Agarwal', 'CBSE-9B-01', 95.0, 1, 'Mr. Manoj Agarwal', 'O+', 'Male'),
+  mk('batch-cbse-9b', 'Class 9-B — CBSE Scholars (Bose Section)', 'CBSE Class 9 Annual Exam', 2, 'Tanvi Saxena', 'CBSE-9B-02', 92.5, 2, 'Mrs. Neha Saxena', 'A+', 'Female'),
+  mk('batch-cbse-9b', 'Class 9-B — CBSE Scholars (Bose Section)', 'CBSE Class 9 Annual Exam', 3, 'Devansh Singhal', 'CBSE-9B-03', 87.2, 5, 'Mr. Rajesh Singhal', 'B+', 'Male'),
 ];
 
 /** Roster per batch id. */
@@ -69,6 +87,14 @@ export const studentsByBatch: Record<string, Student[]> = {
   'batch-cbse-9a': cbse9aRoster,
   'batch-cbse-9b': cbse9bRoster,
 };
+
+/** All students across all classes for Principal institutional view. */
+export const allStudentsInSchool: Student[] = [
+  ...mockStudentsInBatch,
+  ...cbse10bRoster,
+  ...cbse9aRoster,
+  ...cbse9bRoster,
+];
 
 /** Batches this teacher teaches. */
 export const teacherBatches: Batch[] = mockBatches;

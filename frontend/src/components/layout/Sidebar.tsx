@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   X,
+  Briefcase,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +31,7 @@ const ROLE_META: { role: UserRole; icon: React.ReactNode }[] = [
   { role: 'parent', icon: <Users size={16} /> },
   { role: 'teacher', icon: <Users size={16} /> },
   { role: 'principal', icon: <ShieldCheck size={16} /> },
+  { role: 'hr_manager', icon: <Briefcase size={16} /> },
   { role: 'super_admin', icon: <Crown size={16} /> },
 ];
 
@@ -94,7 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="truncate text-[0.9rem] font-semibold text-foreground leading-tight">
                 {mockTenant.name}
               </div>
-              <div className="truncate text-micro text-text-tertiary">Coaching Edition</div>
+              <div className="truncate text-micro text-text-tertiary">
+                {mockTenant.institutionType === 'school' ? 'CBSE School Edition' : 'Coaching Edition'}
+              </div>
             </div>
           </div>
           <button
@@ -190,7 +194,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span className={active ? 'text-primary' : 'text-text-tertiary group-hover:text-text-secondary'}>
                         {item.icon}
                       </span>
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate flex-1 text-left">{item.label}</span>
+                      {item.badge && (
+                        <span
+                          className={[
+                            'ml-auto rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                            item.badgeTone === 'gradient'
+                              ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-2xs'
+                              : item.badgeTone === 'info'
+                              ? 'bg-info-soft text-info'
+                              : 'bg-primary-soft text-primary',
+                          ].join(' ')}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

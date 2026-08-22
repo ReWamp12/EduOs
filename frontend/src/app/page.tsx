@@ -31,13 +31,19 @@ import { ParentExamHistory } from '@/components/parent/ParentExamHistory';
 // Teacher Components
 import { TeacherOverview } from '@/components/teacher/TeacherOverview';
 import { TeacherAttendance } from '@/components/teacher/TeacherAttendance';
+import { TeacherStudentDirectory } from '@/components/teacher/TeacherStudentDirectory';
+import { TeacherAssignments } from '@/components/teacher/TeacherAssignments';
 import { TeacherGradebook } from '@/components/teacher/TeacherGradebook';
 import { TeacherAIQuestions } from '@/components/teacher/TeacherAIQuestions';
 import { TeacherTimetable } from '@/components/teacher/TeacherTimetable';
 import { TeacherExams } from '@/components/teacher/TeacherExams';
+import { TeacherConsentForms } from '@/components/teacher/TeacherConsentForms';
+import { TeacherLeavePortal } from '@/components/teacher/TeacherLeavePortal';
 
 // Principal Components
 import { PrincipalOverview } from '@/components/principal/PrincipalOverview';
+import { PrincipalStudentDirectory } from '@/components/principal/PrincipalStudentDirectory';
+import { PrincipalConsentForms } from '@/components/principal/PrincipalConsentForms';
 import { PrincipalApprovals } from '@/components/principal/PrincipalApprovals';
 import { PrincipalInspection } from '@/components/principal/PrincipalInspection';
 
@@ -47,6 +53,13 @@ import { TenantManager } from '@/components/admin/TenantManager';
 import { BrandingStudio } from '@/components/admin/BrandingStudio';
 import { FeatureMatrix } from '@/components/admin/FeatureMatrix';
 import { ComplianceLib } from '@/components/admin/ComplianceLib';
+
+// HR Manager Components (EDUOS-101)
+import { HROverview } from '@/components/hr/HROverview';
+import { HRCareersATS } from '@/components/hr/HRCareersATS';
+import { HRServiceBooks } from '@/components/hr/HRServiceBooks';
+import { HRPoliceVerificationGate } from '@/components/hr/HRPoliceVerificationGate';
+import { HRTeacherCPDRegister } from '@/components/hr/HRTeacherCPDRegister';
 
 export default function Home() {
   const [activeRole, setActiveRole] = useState<UserRole>('student');
@@ -115,14 +128,20 @@ export default function Home() {
             return <TeacherOverview onNavigate={setActiveTab} />;
           case 'attendance':
             return <TeacherAttendance />;
+          case 'students':
+            return <TeacherStudentDirectory />;
+          case 'assignments':
+            return <TeacherAssignments />;
+          case 'consent':
+            return <TeacherConsentForms />;
           case 'gradebook':
             return <TeacherGradebook />;
-          case 'lms_creator':
-            return <StudentLMS />;
           case 'ai_question_studio':
             return <TeacherAIQuestions />;
           case 'timetable':
             return <TeacherTimetable />;
+          case 'leave':
+            return <TeacherLeavePortal />;
           case 'exams':
             return <TeacherExams />;
           case 'notices':
@@ -135,6 +154,10 @@ export default function Home() {
         switch (activeTab) {
           case 'overview':
             return <PrincipalOverview onNavigate={setActiveTab} />;
+          case 'students':
+            return <PrincipalStudentDirectory />;
+          case 'consent':
+            return <PrincipalConsentForms />;
           case 'approvals':
             return <PrincipalApprovals />;
           case 'academic_heatmaps':
@@ -161,6 +184,22 @@ export default function Home() {
             return <ComplianceLib />;
           default:
             return <AdminOverview onNavigate={setActiveTab} />;
+        }
+
+      case 'hr_manager':
+        switch (activeTab) {
+          case 'overview':
+            return <HROverview onNavigate={setActiveTab} />;
+          case 'ats':
+            return <HRCareersATS />;
+          case 'service_books':
+            return <HRServiceBooks />;
+          case 'police_gate':
+            return <HRPoliceVerificationGate />;
+          case 'cpd_register':
+            return <HRTeacherCPDRegister />;
+          default:
+            return <HROverview onNavigate={setActiveTab} />;
         }
     }
   };

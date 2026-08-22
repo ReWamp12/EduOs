@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useAppStore, markParentAlertsRead, ParentAlert } from '@/lib/store';
+import { useAppStore, markParentAlertsRead, clearSingleParentAlert, ParentAlert } from '@/lib/store';
 import { mockParentChildren } from '@/lib/mockData';
 import { SectionCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
-import { BellRing, CheckCheck, UserX, UserCheck, Clock, Award, CalendarClock } from 'lucide-react';
+import { BellRing, CheckCheck, UserX, UserCheck, Clock, Award, CalendarClock, CheckCircle2, X } from 'lucide-react';
 
 const childNames = mockParentChildren.map((c) => c.name);
+const MAX_QUEUE_SIZE = 3;
 
 const iconFor = (a: ParentAlert) => {
   if (a.type === 'result') return <Award size={15} />;
@@ -39,12 +40,18 @@ const timeAgo = (ts: number) => {
 
 export const ParentAttendanceAlerts: React.FC = () => {
   const { parentAlerts } = useAppStore();
-  const alerts = parentAlerts.filter((a) => childNames.includes(a.studentName)).slice(0, 8);
+  // FIFO Queue: Maximum 3 alerts (earliest discarded if size > 3)
+  const alerts = parentAlerts.filter((a) => childNames.includes(a.studentName)).slice(0, MAX_QUEUE_SIZE);
   const unread = alerts.filter((a) => !a.read).length;
 
   const handleMarkRead = () => {
     markParentAlertsRead(childNames);
-    toast('Alerts marked read', 'info');
+    toast('Alerts cleared', 'success', 'All notifications marked as read and cleared.');
+  };
+
+  const handleDismissSingle = (id: string) => {
+    clearSingleParentAlert(id);
+    toast('Alert dismissed', 'info');
   };
 
   return (
@@ -55,7 +62,7 @@ export const ParentAttendanceAlerts: React.FC = () => {
         <div className="flex items-center gap-2">
           {unread > 0 && <Badge tone="danger">{unread} new</Badge>}
           {alerts.length > 0 && (
-            <button onClick={handleMarkRead} className="btn-tertiary px-2 py-1 text-micro">
+            <button onClick={handleMarkRead} className="btn-tertiary px-2 py-1 text-micro hover:text-foreground">
               <CheckCheck size={14} /> Mark read
             </button>
           )}
@@ -64,34 +71,46 @@ export const ParentAttendanceAlerts: React.FC = () => {
       bodyClassName="p-0"
     >
       {alerts.length === 0 ? (
-        <EmptyState
-          icon={<BellRing size={22} />}
-          title="No alerts yet"
-          description="When a teacher marks attendance or publishes marks for your child, real-time notifications appear here."
-        />
+        <div className="p-6">
+          <EmptyState
+            icon={<CheckCircle2 size={24} className="text-success" />}
+            title="All caught up!"
+            description="No active alerts or pending notifications for your children."
+          />
+        </div>
       ) : (
         <ul className="divide-y divide-border">
           {alerts.map((a) => (
             <li
               key={a.id}
-              className={a.read ? 'px-5 py-3.5' : 'border-l-2 border-l-primary bg-primary-soft/40 px-5 py-3.5'}
+              className={a.read ? 'px-5 py-3.5' : 'border-l-2 border-l-primary bg-primary-soft/30 px-5 py-3.5'}
             >
-              <div className="flex items-start gap-3">
-                <span className={'mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md ' + iconBg(a.tone)}>
-                  {iconFor(a)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-meta font-semibold text-foreground">{a.studentName}</span>
-                    <Badge tone={a.type === 'attendance' ? (a.tone as 'success' | 'warning' | 'danger') : 'info'}>
-                      {badgeLabel(a)}
-                    </Badge>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <span className={'mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg ' + iconBg(a.tone)}>
+                    {iconFor(a)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-meta font-semibold text-foreground">{a.studentName}</span>
+                      <Badge tone={a.type === 'attendance' ? (a.tone as 'success' | 'warning' | 'danger') : 'info'}>
+                        {badgeLabel(a)}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 text-micro text-text-secondary">{a.message}</p>
+                    <p className="mt-0.5 text-micro text-text-tertiary">
+                      {a.date} · {a.source} · {timeAgo(a.createdAt)}
+                    </p>
                   </div>
-                  <p className="mt-0.5 text-micro text-text-secondary">{a.message}</p>
-                  <p className="mt-0.5 text-micro text-text-tertiary">
-                    {a.date} · {a.source} · {timeAgo(a.createdAt)}
-                  </p>
                 </div>
+
+                <button
+                  onClick={() => handleDismissSingle(a.id)}
+                  className="text-text-tertiary hover:text-foreground p-1 text-xs shrink-0"
+                  title="Dismiss alert"
+                >
+                  <X size={14} />
+                </button>
               </div>
             </li>
           ))}
@@ -100,3 +119,4 @@ export const ParentAttendanceAlerts: React.FC = () => {
     </SectionCard>
   );
 };
+

@@ -236,6 +236,137 @@ CREATE TABLE IF NOT EXISTS public.leave_requests (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 16. Job Openings (Careers & ATS)
+CREATE TABLE IF NOT EXISTS public.job_openings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    department TEXT NOT NULL,
+    job_type TEXT DEFAULT 'Full-time',
+    designation_category TEXT DEFAULT 'Teaching',
+    experience_required TEXT DEFAULT '2-5 years',
+    salary_range TEXT,
+    description TEXT NOT NULL,
+    requirements TEXT,
+    status TEXT DEFAULT 'published' CHECK (status IN ('draft', 'published', 'closed', 'filled')),
+    location TEXT DEFAULT 'Main Campus',
+    positions_count INT DEFAULT 1,
+    deadline DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 17. Applicants (ATS Pipeline)
+CREATE TABLE IF NOT EXISTS public.applicants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_id UUID NOT NULL REFERENCES public.job_openings(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    experience_years NUMERIC(4,1) DEFAULT 0,
+    highest_qualification TEXT NOT NULL,
+    current_organization TEXT,
+    resume_url TEXT,
+    portfolio_url TEXT,
+    cover_letter TEXT,
+    stage TEXT DEFAULT 'applied' CHECK (stage IN ('applied', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_extended', 'e_signed', 'hired', 'rejected')),
+    offered_salary TEXT,
+    proposed_joining_date DATE,
+    e_sign_timestamp TIMESTAMPTZ,
+    source TEXT DEFAULT 'Career Portal',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 18. Interview Scorecards
+CREATE TABLE IF NOT EXISTS public.interview_scorecards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    applicant_id UUID NOT NULL REFERENCES public.applicants(id) ON DELETE CASCADE,
+    interviewer_id UUID REFERENCES public.user_profiles(id),
+    interviewer_name TEXT NOT NULL,
+    round_name TEXT DEFAULT 'Pedagogy & Technical Round',
+    pedagogy_score INT DEFAULT 0 CHECK (pedagogy_score BETWEEN 0 AND 5),
+    subject_knowledge_score INT DEFAULT 0 CHECK (subject_knowledge_score BETWEEN 0 AND 5),
+    classroom_management_score INT DEFAULT 0 CHECK (classroom_management_score BETWEEN 0 AND 5),
+    communication_score INT DEFAULT 0 CHECK (communication_score BETWEEN 0 AND 5),
+    overall_rating NUMERIC(3,2) DEFAULT 0,
+    strengths TEXT,
+    areas_of_improvement TEXT,
+    recommendation TEXT DEFAULT 'hire' CHECK (recommendation IN ('strong_hire', 'hire', 'hold', 'reject')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 19. Employee Records & Police Verification Gate
+CREATE TABLE IF NOT EXISTS public.employee_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    employee_code TEXT NOT NULL UNIQUE,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    designation TEXT NOT NULL,
+    department TEXT NOT NULL,
+    employee_type TEXT DEFAULT 'teaching' CHECK (employee_type IN ('teaching', 'non_teaching', 'administrative', 'support')),
+    date_of_joining DATE NOT NULL,
+    employment_status TEXT DEFAULT 'probationary' CHECK (employment_status IN ('probationary', 'confirmed', 'notice_period', 'resigned', 'retired')),
+    police_verification_status TEXT DEFAULT 'submitted_pending' CHECK (police_verification_status IN ('verified', 'submitted_pending', 'missing')),
+    police_doc_url TEXT,
+    police_verification_date DATE,
+    police_acknowledgment_number TEXT,
+    grace_period_expiry_date DATE,
+    is_access_restricted BOOLEAN DEFAULT false,
+    emergency_contact_name TEXT,
+    emergency_contact_phone TEXT,
+    avatar_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 20. Statutory Employee Service Records
+CREATE TABLE IF NOT EXISTS public.employee_service_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID NOT NULL REFERENCES public.employee_records(id) ON DELETE CASCADE,
+    appointment_order_number TEXT NOT NULL,
+    appointment_date DATE NOT NULL,
+    confirmation_order_number TEXT,
+    confirmation_date DATE,
+    provident_fund_uan TEXT,
+    esi_insurance_number TEXT,
+    pan_number TEXT,
+    qualifications_json JSONB DEFAULT '[]'::jsonb,
+    scale_history_json JSONB DEFAULT '[]'::jsonb,
+    promotion_history_json JSONB DEFAULT '[]'::jsonb,
+    casual_leave_balance INT DEFAULT 12,
+    earned_leave_balance INT DEFAULT 30,
+    medical_leave_balance INT DEFAULT 10,
+    disciplinary_entries TEXT,
+    service_book_locked BOOLEAN DEFAULT false,
+    last_verified_by_name TEXT,
+    last_verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 21. CBSE 50-Hour CPD Training Records
+CREATE TABLE IF NOT EXISTS public.training_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID NOT NULL REFERENCES public.employee_records(id) ON DELETE CASCADE,
+    training_title TEXT NOT NULL,
+    provider_agency TEXT NOT NULL,
+    category TEXT DEFAULT 'pedagogy' CHECK (category IN ('pedagogy', 'nep2020', 'subject_enrichment', 'child_safety_pocso', 'ict_digital', 'inclusive_education')),
+    duration_hours NUMERIC(4,1) DEFAULT 0,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    academic_year TEXT DEFAULT '2026-2027',
+    mode TEXT DEFAULT 'online' CHECK (mode IN ('online', 'offline_workshop', 'hybrid')),
+    certificate_url TEXT,
+    is_verified_by_principal BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Row-Level Security (RLS) Policies
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
@@ -247,6 +378,11 @@ ALTER TABLE public.exams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exam_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leave_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_openings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.applicants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_service_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.training_records ENABLE ROW LEVEL SECURITY;
 
 -- Helper policy template: Tenant isolation
 CREATE POLICY tenant_isolation_on_user_profiles ON public.user_profiles
@@ -259,4 +395,10 @@ CREATE POLICY tenant_isolation_on_students ON public.students
     USING (tenant_id = (SELECT tenant_id FROM public.user_profiles WHERE auth_user_id = auth.uid()));
 
 CREATE POLICY tenant_isolation_on_attendances ON public.attendances
+    USING (tenant_id = (SELECT tenant_id FROM public.user_profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY tenant_isolation_on_job_openings ON public.job_openings
+    USING (tenant_id = (SELECT tenant_id FROM public.user_profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY tenant_isolation_on_employee_records ON public.employee_records
     USING (tenant_id = (SELECT tenant_id FROM public.user_profiles WHERE auth_user_id = auth.uid()));

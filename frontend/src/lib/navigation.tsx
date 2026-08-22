@@ -22,12 +22,25 @@ import {
   FileCheck2,
   HelpCircle,
   HeartPulse,
+  Users,
+  IdCard,
+  FileSignature,
+  UserCheck,
+  Briefcase,
+  UserPlus,
+  ShieldCheck,
+  Award,
+  BookMarked,
+  FolderLock,
 } from 'lucide-react';
 
 export interface NavItem {
   id: string;
   label: string;
   icon: React.ReactNode;
+  badge?: string;
+  badgeTone?: 'primary' | 'info' | 'warning' | 'success' | 'danger' | 'neutral' | 'gradient';
+  isFlagged?: boolean;
 }
 
 export interface NavGroup {
@@ -65,7 +78,6 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'overview', label: 'Child Overview', icon: <LayoutDashboard size={ICON} /> },
     ]},
     { label: 'Academics', items: [
-      { id: 'ai_report', label: 'AI Progress Card', icon: <Sparkles size={ICON} /> },
       { id: 'exam_history', label: 'Exam History', icon: <Trophy size={ICON} /> },
       { id: 'notices', label: 'School Notices', icon: <BellRing size={ICON} /> },
     ]},
@@ -75,7 +87,6 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
     ]},
     { label: 'Engagement', items: [
       { id: 'ptm', label: 'PTM Scheduler', icon: <Calendar size={ICON} /> },
-      { id: 'bus', label: 'Live Bus Tracking', icon: <Bus size={ICON} /> },
       { id: 'feedback', label: 'Profile & Feedback', icon: <HeartPulse size={ICON} /> },
     ]},
   ],
@@ -85,13 +96,16 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
     ]},
     { label: 'Teaching', items: [
       { id: 'attendance', label: 'Mark Attendance', icon: <CalendarCheck2 size={ICON} /> },
+      { id: 'students', label: 'Student Directory & IDs', icon: <Users size={ICON} /> },
+      { id: 'assignments', label: 'Assignments & DPPs', icon: <FileText size={ICON} /> },
+      { id: 'consent', label: 'Digital Consent & Trips', icon: <FileSignature size={ICON} /> },
       { id: 'gradebook', label: 'Gradebook & Publish', icon: <ClipboardList size={ICON} /> },
       { id: 'exams', label: 'Exams', icon: <Trophy size={ICON} /> },
-      { id: 'lms_creator', label: 'Course Materials', icon: <BookOpen size={ICON} /> },
       { id: 'ai_question_studio', label: 'AI Question Studio', icon: <Sparkles size={ICON} /> },
     ]},
-    { label: 'Schedule', items: [
+    { label: 'Schedule & Leave', items: [
       { id: 'timetable', label: 'My Timetable', icon: <Calendar size={ICON} /> },
+      { id: 'leave', label: 'Apply Leave & History', icon: <UserCheck size={ICON} /> },
       { id: 'notices', label: 'Notices', icon: <BellRing size={ICON} /> },
     ]},
   ],
@@ -100,6 +114,8 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'overview', label: 'Operations Command', icon: <LayoutDashboard size={ICON} /> },
     ]},
     { label: 'Operations', items: [
+      { id: 'students', label: 'Institutional Student Directory', icon: <Users size={ICON} /> },
+      { id: 'consent', label: 'Digital Consent Hub', icon: <FileSignature size={ICON} /> },
       { id: 'approvals', label: 'Staff Leave Approvals', icon: <ClipboardList size={ICON} /> },
       { id: 'academic_heatmaps', label: 'Academic Heatmaps', icon: <GraduationCap size={ICON} /> },
     ]},
@@ -121,6 +137,18 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'compliance_lib', label: 'Compliance Library', icon: <Scale size={ICON} /> },
     ]},
   ],
+  hr_manager: [
+    { label: 'Overview', items: [
+      { id: 'overview', label: 'HR & Statutory Command', icon: <LayoutDashboard size={ICON} /> },
+    ]},
+    { label: 'Recruitment & ATS', items: [
+      { id: 'ats', label: 'Career ATS & Pipelines', icon: <UserPlus size={ICON} />, badge: '4 Active', badgeTone: 'primary' },
+    ]},
+    { label: 'Staff & Governance', items: [
+      { id: 'service_books', label: 'Statutory Service Books', icon: <BookMarked size={ICON} /> },
+      { id: 'police_gate', label: 'Police Verification Gate', icon: <ShieldCheck size={ICON} />, badge: '1 Overdue', badgeTone: 'danger' },
+    ]},
+  ],
 };
 
 export const ROLE_LABEL: Record<UserRole, string> = {
@@ -129,6 +157,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   teacher: 'Teacher',
   principal: 'Principal',
   super_admin: 'Super Admin',
+  hr_manager: 'HR Manager',
 };
 
 /** Section + item label lookup for the current tab (used by breadcrumbs & page title). */

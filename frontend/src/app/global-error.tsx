@@ -11,17 +11,17 @@ export default function GlobalError({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center font-sans">
-        <div className="bg-white rounded-xl shadow-lg border border-red-200 p-8 max-w-md">
-          <h2 className="text-xl font-bold text-red-600 mb-2">Global System Error</h2>
-          <p className="text-gray-600 text-sm mb-6">
+      <body style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', margin: 0, backgroundColor: '#f9fafb' }}>
+        <div style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2rem', maxWidth: '480px', textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#dc2626', marginBottom: '0.5rem' }}>Application Error</h2>
+          <p style={{ fontSize: '0.875rem', color: '#4b5563', marginBottom: '1.5rem' }}>
             {error.message || 'A critical error occurred while loading the application.'}
           </p>
           <button
             onClick={() => reset()}
-            className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '8px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}
           >
-            Reload EduOS
+            Reload EduOS Workspace
           </button>
         </div>
       </body>

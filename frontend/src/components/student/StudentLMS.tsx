@@ -32,9 +32,10 @@ export const StudentLMS: React.FC = () => {
   const courses = useMemo(() => {
     const map = new Map<string, LMSLesson[]>();
     lessons.forEach((l) => {
-      const list = map.get(l.courseTitle) ?? [];
+      const courseKey = l.courseTitle || l.subject || 'General Curriculum';
+      const list = map.get(courseKey) ?? [];
       list.push(l);
-      map.set(l.courseTitle, list);
+      map.set(courseKey, list);
     });
     return Array.from(map.entries());
   }, [lessons]);
@@ -44,16 +45,18 @@ export const StudentLMS: React.FC = () => {
   const toggleComplete = (lesson: LMSLesson) => {
     const nowComplete = !lesson.completed;
     setLessons((prev) => prev.map((l) => (l.id === lesson.id ? { ...l, completed: nowComplete } : l)));
+    const title = lesson.title || lesson.lessonTitle || 'Lesson';
     if (nowComplete) {
-      toast('Lesson completed', 'success', lesson.title);
+      toast('Lesson completed', 'success', title);
     } else {
-      toast('Marked as pending', 'info', lesson.title);
+      toast('Marked as pending', 'info', title);
     }
   };
 
   const openLesson = (lesson: LMSLesson) => {
     const verb = lesson.contentType === 'video' ? 'Playing' : 'Opening';
-    toast(`${verb} lesson`, 'info', lesson.title);
+    const title = lesson.title || lesson.lessonTitle || 'Lesson';
+    toast(`${verb} lesson`, 'info', title);
   };
 
   return (

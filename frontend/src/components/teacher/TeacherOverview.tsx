@@ -64,7 +64,8 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
           value={students.length}
           tone="info"
           icon={<Users size={16} />}
-          hint={batch.name}
+          hint={`${batch.name.split(' - ')[0]} · View Roster`}
+          onClick={() => onNavigate('students')}
         />
         <StatCard
           label="Today's Lectures"

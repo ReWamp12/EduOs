@@ -4,28 +4,33 @@ import React, { useState } from 'react';
 import {
   mockProfiles,
   mockParentChildren,
-  mockFeeInvoices,
-  mockConsentForms,
-  mockBusLiveTracking,
-  mockParentAINarrative,
 } from '@/lib/mockData';
-import { Card, SectionCard, Badge } from '@/components/ui';
+import { useAppStore } from '@/lib/store';
+import { Card, Badge } from '@/components/ui';
 import { ParentAttendanceAlerts } from './ParentAttendanceAlerts';
 import {
-  Users,
   CreditCard,
   Calendar,
-  Bus,
   FileCheck2,
-  Sparkles,
-  ChevronRight,
 } from 'lucide-react';
 
 export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
+  const { feeInvoices, consentForms } = useAppStore();
   const [selectedChildId, setSelectedChildId] = useState(mockParentChildren[0]?.id || 'child-1');
   const activeChild = mockParentChildren.find((c) => c.id === selectedChildId) || mockParentChildren[0];
-  const pendingConsent = mockConsentForms.filter((c) => c.status === 'pending');
-  const unpaidInvoice = mockFeeInvoices.find((i) => i.status === 'unpaid' || i.status === 'pending');
+
+  const childInvoices = feeInvoices.filter(
+    (i) => i.studentName.toLowerCase().trim() === activeChild.name.toLowerCase().trim(),
+  );
+  const unpaidInvoice = childInvoices.find((i) => i.status !== 'paid');
+
+  const pendingConsent = consentForms.filter((f) =>
+    f.responses.some(
+      (r) =>
+        r.studentName.toLowerCase().trim() === activeChild.name.toLowerCase().trim() &&
+        r.status === 'pending',
+    ),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,17 +66,17 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
 
       {/* Active child summary */}
       {activeChild && (
-        <Card className="p-5">
+        <Card className="p-5 rounded-2xl border border-border shadow-xs">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <img
                 src={activeChild.avatarUrl}
                 alt={activeChild.name}
-                className="h-14 w-14 rounded-lg object-cover ring-2 ring-border"
+                className="h-14 w-14 rounded-xl object-cover ring-2 ring-border"
               />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-section text-foreground">{activeChild.name}</h3>
+                  <h3 className="text-section font-semibold text-foreground">{activeChild.name}</h3>
                   <Badge tone="primary">{activeChild.grade || activeChild.batchName}</Badge>
                 </div>
                 <div className="mt-1 text-meta text-text-secondary">
@@ -102,9 +107,9 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
       <ParentAttendanceAlerts />
 
       {/* Action metrics */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* Fees */}
-        <Card className="flex flex-col p-5">
+        <Card className="flex flex-col p-5 rounded-2xl border border-border shadow-xs">
           <div className="flex items-start justify-between">
             <span className="eyebrow">Fees & invoice</span>
             <span className="grid h-8 w-8 place-items-center rounded-md bg-warning-soft text-warning">
@@ -117,32 +122,21 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
           <div className="mt-1 text-micro text-text-tertiary">
             {unpaidInvoice ? `Due by ${unpaidInvoice.dueDate}` : 'Term 1 & 2 clear'}
           </div>
-          {unpaidInvoice && (
+          {unpaidInvoice ? (
             <button onClick={() => onNavigate('fees')} className="btn-primary mt-4 w-full">
               Pay online
+            </button>
+          ) : (
+            <button onClick={() => onNavigate('fees')} className="btn-secondary mt-4 w-full">
+              View Receipts
             </button>
           )}
         </Card>
 
-        {/* Bus */}
-        <Card className="flex flex-col p-5">
-          <div className="flex items-start justify-between">
-            <span className="eyebrow">Bus GPS tracking</span>
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-info-soft text-info">
-              <Bus size={16} />
-            </span>
-          </div>
-          <div className="mt-3 text-xl font-semibold text-foreground">ETA {mockBusLiveTracking.etaMinutes} min</div>
-          <div className="mt-1 text-micro text-text-tertiary">Near {mockBusLiveTracking.currentStop}</div>
-          <button onClick={() => onNavigate('bus')} className="btn-secondary mt-4 w-full">
-            Live map & logs
-          </button>
-        </Card>
-
         {/* Consent */}
-        <Card className="flex flex-col p-5">
+        <Card className="flex flex-col p-5 rounded-2xl border border-border shadow-xs">
           <div className="flex items-start justify-between">
-            <span className="eyebrow">Digital consent</span>
+            <span className="eyebrow">Digital Consent</span>
             <span className={`grid h-8 w-8 place-items-center rounded-md ${pendingConsent.length ? 'bg-destructive-soft text-destructive' : 'bg-success-soft text-success'}`}>
               <FileCheck2 size={16} />
             </span>
@@ -150,44 +144,27 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
           <div className={`mt-3 text-xl font-semibold ${pendingConsent.length ? 'text-destructive' : 'text-success'}`}>
             {pendingConsent.length} pending
           </div>
-          <div className="mt-1 text-micro text-text-tertiary">ISRO educational excursion</div>
-          {pendingConsent.length > 0 && (
-            <button onClick={() => onNavigate('consent')} className="btn-secondary mt-4 w-full">
-              Review & sign
-            </button>
-          )}
+          <div className="mt-1 text-micro text-text-tertiary">Field trips & school authorizations</div>
+          <button onClick={() => onNavigate('consent')} className="btn-secondary mt-4 w-full">
+            Review & Sign
+          </button>
         </Card>
 
         {/* PTM */}
-        <Card className="flex flex-col p-5">
+        <Card className="flex flex-col p-5 rounded-2xl border border-border shadow-xs">
           <div className="flex items-start justify-between">
-            <span className="eyebrow">PTM consultation</span>
+            <span className="eyebrow">PTM Consultation</span>
             <span className="grid h-8 w-8 place-items-center rounded-md bg-primary-soft text-primary">
               <Calendar size={16} />
             </span>
           </div>
-          <div className="mt-3 text-xl font-semibold text-foreground">Slots open</div>
+          <div className="mt-3 text-xl font-semibold text-foreground">Slots Open</div>
           <div className="mt-1 text-micro text-text-tertiary">Physics · Prof. Amit Verma</div>
           <button onClick={() => onNavigate('ptm')} className="btn-secondary mt-4 w-full">
-            Book time slot
+            Book Time Slot
           </button>
         </Card>
       </div>
-
-      {/* AI narrative */}
-      <SectionCard
-        title="AI progress summary"
-        icon={<Sparkles size={18} />}
-        action={
-          <button onClick={() => onNavigate('ai_report')} className="btn-tertiary">
-            Full report <ChevronRight size={15} />
-          </button>
-        }
-      >
-        <div className="rounded-md border border-warning/20 bg-warning-soft p-4 text-body leading-relaxed text-text-secondary">
-          &ldquo;{mockParentAINarrative.english}&rdquo;
-        </div>
-      </SectionCard>
     </div>
   );
 };

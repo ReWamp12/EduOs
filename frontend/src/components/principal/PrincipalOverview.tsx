@@ -53,7 +53,8 @@ export const PrincipalOverview: React.FC<{ onNavigate: (tab: string) => void }> 
           tone="success"
           icon={<CalendarCheck size={16} />}
           trend={{ value: '+0.6%', direction: 'up' }}
-          hint="103 of 110 students present"
+          hint="103 of 110 students present · View Directory"
+          onClick={() => onNavigate('students')}
         />
         <StatCard
           label="Staff On Duty"
@@ -82,11 +83,20 @@ export const PrincipalOverview: React.FC<{ onNavigate: (tab: string) => void }> 
       {/* Main grid */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
         {/* Batches */}
-        <SectionCard title="Active Academic Batches" bodyClassName="flex flex-col gap-2.5">
+        <SectionCard
+          title="Active Academic Batches"
+          action={
+            <button onClick={() => onNavigate('students')} className="btn-secondary py-1 px-2.5 text-micro">
+              <Users size={13} /> View All Student Profiles
+            </button>
+          }
+          bodyClassName="flex flex-col gap-2.5"
+        >
           {mockBatches.map((b) => (
             <div
               key={b.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-muted px-4 py-3.5"
+              onClick={() => onNavigate('students')}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-muted px-4 py-3.5 hover:border-primary/40 cursor-pointer transition-colors"
             >
               <div className="min-w-0">
                 <div className="truncate text-meta font-semibold text-foreground">{b.name}</div>
