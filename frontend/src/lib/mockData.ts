@@ -17,1348 +17,261 @@ import {
 } from './types';
 
 export const mockTenant: Tenant = {
-  id: 'tenant-cbse-dps-01',
-  name: 'Modern Public School (CBSE Affiliated)',
+  id: 'tenant-default',
+  name: 'Modern Public School',
   subdomain: 'mps',
   institutionType: 'school',
-  primaryColor: '#2563EB', // Royal Blue
-  secondaryColor: '#0D9488', // Teal
-  accentColor: '#F59E0B', // Amber
-  tagline: 'Excellence in CBSE Academics, Values & Innovation (Affiliation No. 1030492)',
-  logoUrl: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=120&auto=format&fit=crop&q=80',
+  primaryColor: '#2563EB',
+  secondaryColor: '#0D9488',
+  accentColor: '#F59E0B',
+  tagline: 'EduOS Institutional Platform',
+  logoUrl: '',
 };
 
 export const mockProfiles: Record<string, UserProfile> = {
   student: {
     id: 'user-std-01',
-    email: 'aarav.sharma@mpsdelhi.edu.in',
-    firstName: 'Aarav',
-    lastName: 'Sharma',
+    email: '',
+    firstName: 'Student',
+    lastName: '',
     role: 'student',
-    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-    phone: '+91 98765 43210',
+    phone: '',
+    avatarUrl: '',
     tenantId: mockTenant.id,
     branchId: 'branch-main-campus',
   },
   teacher: {
     id: 'user-tch-01',
-    email: 'amit.verma@mpsdelhi.edu.in',
-    firstName: 'Prof. Amit',
-    lastName: 'Verma',
+    email: '',
+    firstName: 'Teacher',
+    lastName: '',
     role: 'teacher',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    phone: '+91 98234 56789',
+    phone: '',
+    avatarUrl: '',
     tenantId: mockTenant.id,
     branchId: 'branch-main-campus',
   },
   principal: {
     id: 'user-prn-01',
-    email: 'principal.iyer@mpsdelhi.edu.in',
-    firstName: 'Dr. Rajesh',
-    lastName: 'Iyer',
+    email: '',
+    firstName: 'Principal',
+    lastName: '',
     role: 'principal',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    phone: '+91 99887 66554',
+    phone: '',
+    avatarUrl: '',
     tenantId: mockTenant.id,
     branchId: 'branch-main-campus',
   },
   parent: {
     id: 'user-par-01',
-    email: 'rajesh.sharma.parent@gmail.com',
-    firstName: 'Mr. Rajesh',
-    lastName: 'Sharma',
+    email: '',
+    firstName: 'Parent',
+    lastName: '',
     role: 'parent',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    phone: '+91 98111 22334',
+    phone: '',
+    avatarUrl: '',
     tenantId: mockTenant.id,
     branchId: 'branch-main-campus',
   },
   super_admin: {
     id: 'user-adm-01',
-    email: 'admin@eduos.app',
-    firstName: 'EduOS',
-    lastName: 'SuperAdmin',
+    email: '',
+    firstName: 'Super',
+    lastName: 'Admin',
     role: 'super_admin',
-    avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
-    phone: '+91 90000 00001',
+    phone: '',
+    avatarUrl: '',
     tenantId: mockTenant.id,
   },
   hr_manager: {
     id: 'user-hr-01',
-    email: 'hr.meenakshi@mpsdelhi.edu.in',
-    firstName: 'Meenakshi',
-    lastName: 'Sundaram',
+    email: '',
+    firstName: 'HR',
+    lastName: 'Manager',
     role: 'hr_manager',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    phone: '+91 98109 77881',
+    phone: '',
+    avatarUrl: '',
     tenantId: mockTenant.id,
     branchId: 'branch-main-campus',
   },
 };
 
-export const mockBatches: Batch[] = [
-  {
-    id: 'batch-cbse-10a',
-    name: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    code: 'CBSE-10A',
-    targetExam: 'CBSE 10th Board Exam 2026',
-    gradeLevel: 'Class 10',
-    roomNumber: 'Room 101',
-    mentorTeacherName: 'Mrs. Sunita Rao (Science HOD)',
-    studentCount: 38,
-    capacity: 40,
-  },
-  {
-    id: 'batch-cbse-10b',
-    name: 'Class 10-B — CBSE Achievers (Aryabhata Section)',
-    code: 'CBSE-10B',
-    targetExam: 'CBSE 10th Board Exam 2026',
-    gradeLevel: 'Class 10',
-    roomNumber: 'Room 102',
-    mentorTeacherName: 'Prof. Amit Verma (Maths HOD)',
-    studentCount: 40,
-    capacity: 40,
-  },
-  {
-    id: 'batch-cbse-9a',
-    name: 'Class 9-A — CBSE Foundation (Ramanujan Section)',
-    code: 'CBSE-9A',
-    targetExam: 'CBSE Class 9 Annual Exam',
-    gradeLevel: 'Class 9',
-    roomNumber: 'Room 201',
-    mentorTeacherName: 'Dr. Rajesh Iyer (Mathematics)',
-    studentCount: 36,
-    capacity: 40,
-  },
-  {
-    id: 'batch-cbse-9b',
-    name: 'Class 9-B — CBSE Scholars (Bose Section)',
-    code: 'CBSE-9B',
-    targetExam: 'CBSE Class 9 Annual Exam',
-    gradeLevel: 'Class 9',
-    roomNumber: 'Room 202',
-    mentorTeacherName: 'Mrs. Ananya Sen (English)',
-    studentCount: 35,
-    capacity: 40,
-  },
-];
+export const mockBatches: Batch[] = [];
 
 export const mockCurrentStudent: Student = {
-  id: 'std-aarav-01',
-  userId: 'user-std-01',
-  name: 'Aarav Sharma',
-  email: 'aarav.sharma@mpsdelhi.edu.in',
-  rollNumber: 'CBSE-10A-04',
-  admissionNumber: 'ADM-2025-1004',
-  batchId: 'batch-cbse-10a',
-  batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-  targetExam: 'CBSE 10th Board Exam 2026',
-  attendancePct: 94.6,
-  rankInBatch: 2,
-  parentName: 'Mr. Rajesh & Mrs. Sunita Sharma',
-  parentPhone: '+91 98111 22334',
-  qrCodeId: 'MPS-CBSE-10A-004-AARAV',
-  avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
+  id: '',
+  userId: '',
+  name: '',
+  email: '',
+  rollNumber: '',
+  admissionNumber: '',
+  batchId: '',
+  batchName: '',
+  targetExam: '',
+  attendancePct: 0,
+  rankInBatch: 0,
+  parentName: '',
+  parentPhone: '',
+  qrCodeId: '',
+  avatarUrl: '',
 };
 
-export const mockStudentsInBatch: Student[] = [
-  mockCurrentStudent,
-  {
-    id: 'std-02',
-    userId: 'user-std-02',
-    name: 'Ananya Gupta',
-    email: 'ananya.gupta@mpsdelhi.edu.in',
-    rollNumber: 'CBSE-10A-01',
-    admissionNumber: 'ADM-2025-1001',
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    targetExam: 'CBSE 10th Board Exam 2026',
-    attendancePct: 97.3,
-    rankInBatch: 1,
-    parentName: 'Mr. Sanjay Gupta',
-    parentPhone: '+91 98222 33445',
-    qrCodeId: 'MPS-CBSE-10A-001-ANANYA',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'std-03',
-    userId: 'user-std-03',
-    name: 'Rohan Mehra',
-    email: 'rohan.mehra@mpsdelhi.edu.in',
-    rollNumber: 'CBSE-10A-07',
-    admissionNumber: 'ADM-2025-1007',
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    targetExam: 'CBSE 10th Board Exam 2026',
-    attendancePct: 89.5,
-    rankInBatch: 4,
-    parentName: 'Dr. Vivek Mehra',
-    parentPhone: '+91 98333 44556',
-    qrCodeId: 'MPS-CBSE-10A-007-ROHAN',
-    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'std-04',
-    userId: 'user-std-04',
-    name: 'Pooja Verma',
-    email: 'pooja.verma@mpsdelhi.edu.in',
-    rollNumber: 'CBSE-10A-11',
-    admissionNumber: 'ADM-2025-1011',
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    targetExam: 'CBSE 10th Board Exam 2026',
-    attendancePct: 78.4,
-    rankInBatch: 12,
-    parentName: 'Mr. Alok Verma',
-    parentPhone: '+91 98444 55667',
-    qrCodeId: 'MPS-CBSE-10A-011-POOJA',
-    avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'std-05',
-    userId: 'user-std-05',
-    name: 'Kavya Nair',
-    email: 'kavya.nair@mpsdelhi.edu.in',
-    rollNumber: 'CBSE-10A-15',
-    admissionNumber: 'ADM-2025-1015',
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    targetExam: 'CBSE 10th Board Exam 2026',
-    attendancePct: 92.8,
-    rankInBatch: 3,
-    parentName: 'Mrs. Radhika Nair',
-    parentPhone: '+91 98555 66778',
-    qrCodeId: 'MPS-CBSE-10A-015-KAVYA',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-  },
-];
-
-export const mockTimetable: TimetableSlot[] = [
-  {
-    id: 'slot-1',
-    dayOfWeek: 1,
-    periodNumber: 1,
-    startTime: '08:00 AM',
-    endTime: '08:45 AM',
-    subjectName: 'Mathematics (Quadratic Equations)',
-    subjectColor: '#2563EB',
-    teacherName: 'Prof. Amit Verma',
-    roomNumber: 'Room 101',
-    batchId: 'batch-cbse-10a',
-  },
-  {
-    id: 'slot-2',
-    dayOfWeek: 1,
-    periodNumber: 2,
-    startTime: '08:45 AM',
-    endTime: '09:30 AM',
-    subjectName: 'Science (Physics: Electricity)',
-    subjectColor: '#0D9488',
-    teacherName: 'Mrs. Sunita Rao',
-    roomNumber: 'Science Lab 1',
-    batchId: 'batch-cbse-10a',
-  },
-  {
-    id: 'slot-3',
-    dayOfWeek: 1,
-    periodNumber: 3,
-    startTime: '09:30 AM',
-    endTime: '10:15 AM',
-    subjectName: 'English (First Flight)',
-    subjectColor: '#7C3AED',
-    teacherName: 'Mrs. Ananya Sen',
-    roomNumber: 'Room 101',
-    batchId: 'batch-cbse-10a',
-  },
-  {
-    id: 'slot-4',
-    dayOfWeek: 1,
-    periodNumber: 4,
-    startTime: '10:35 AM',
-    endTime: '11:20 AM',
-    subjectName: 'Social Science (Federalism & Democracy)',
-    subjectColor: '#EA580C',
-    teacherName: 'Mr. Rakesh Sharma',
-    roomNumber: 'Room 101',
-    batchId: 'batch-cbse-10a',
-  },
-  {
-    id: 'slot-5',
-    dayOfWeek: 1,
-    periodNumber: 5,
-    startTime: '11:20 AM',
-    endTime: '12:05 PM',
-    subjectName: 'Hindi Course A / Sanskrit',
-    subjectColor: '#DC2626',
-    teacherName: 'Dr. Meenakshi Joshi',
-    roomNumber: 'Room 101',
-    batchId: 'batch-cbse-10a',
-  },
-  {
-    id: 'slot-6',
-    dayOfWeek: 1,
-    periodNumber: 6,
-    startTime: '12:05 PM',
-    endTime: '12:50 PM',
-    subjectName: 'Information Technology (Code 402)',
-    subjectColor: '#059669',
-    teacherName: 'Mr. Sandeep Patil',
-    roomNumber: 'IT Lab 2',
-    batchId: 'batch-cbse-10a',
-  },
-];
-
-export const mockSubjects = [
-  { id: 'sub-1', name: 'Mathematics (Code 041)', code: 'MATH-041', color: '#2563EB', icon: 'Calculator' },
-  { id: 'sub-2', name: 'Science (Physics, Chem, Bio - Code 086)', code: 'SCI-086', color: '#0D9488', icon: 'Atom' },
-  { id: 'sub-3', name: 'Social Science (Hist, Civics, Geo, Eco - Code 087)', code: 'SST-087', color: '#EA580C', icon: 'Globe' },
-  { id: 'sub-4', name: 'English Language & Literature (Code 184)', code: 'ENG-184', color: '#7C3AED', icon: 'BookOpen' },
-  { id: 'sub-5', name: 'Hindi Course A (Code 002)', code: 'HIN-002', color: '#DC2626', icon: 'Languages' },
-  { id: 'sub-6', name: 'Information Technology / AI (Code 402)', code: 'IT-402', color: '#059669', icon: 'Cpu' },
-];
-
-export const mockAttendanceHistory: AttendanceRecord[] = [
-  { id: 'att-1', date: '2026-08-18', status: 'present', remarks: 'Present in all 8 periods' },
-  { id: 'att-2', date: '2026-08-17', status: 'present', remarks: 'Present in all 8 periods' },
-  { id: 'att-3', date: '2026-08-14', status: 'present', remarks: 'Present in all 8 periods' },
-  { id: 'att-4', date: '2026-08-13', status: 'late', remarks: 'Bus delay: 15 mins late check-in' },
-  { id: 'att-5', date: '2026-08-12', status: 'present', remarks: 'Present in all 8 periods' },
-  { id: 'att-6', date: '2026-08-11', status: 'present', remarks: 'Present in all 8 periods' },
-  { id: 'att-7', date: '2026-08-08', status: 'absent', remarks: 'Sick leave (Medical slip submitted)' },
-];
-
-export const mockLMSLessons: LMSLesson[] = [
-  {
-    id: 'lms-1',
-    courseTitle: 'Mathematics (Code 041)',
-    chapter: 'Chapter 4: Quadratic Equations',
-    title: 'Mastering the Quadratic Formula & Nature of Roots (Discriminant)',
-    durationMinutes: 45,
-    contentType: 'video',
-    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    completed: true,
-  },
-  {
-    id: 'lms-2',
-    courseTitle: 'Science (Physics & Chemistry - Code 086)',
-    chapter: 'Chapter 12: Electricity',
-    title: "Verification of Ohm's Law, Resistance in Series and Parallel Combinations",
-    durationMinutes: 50,
-    contentType: 'pdf',
-    url: '/sample-notes.pdf',
-    completed: true,
-  },
-  {
-    id: 'lms-3',
-    courseTitle: 'Science (Physics & Chemistry - Code 086)',
-    chapter: 'Chapter 1: Chemical Reactions & Equations',
-    title: 'Balancing Chemical Equations & Redox Reactions with NCERT Exemplar',
-    durationMinutes: 40,
-    contentType: 'video',
-    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    completed: false,
-  },
-  {
-    id: 'lms-4',
-    courseTitle: 'Social Science (Code 087)',
-    chapter: 'Chapter 2: Nationalism in India',
-    title: 'Non-Cooperation Movement, Dandi Salt March & Timeline Mind-Map',
-    durationMinutes: 35,
-    contentType: 'notes',
-    url: '/sample-notes.pdf',
-    completed: false,
-  },
-];
-
-export const mockAssignments: Assignment[] = [
-  {
-    id: 'asg-1',
-    subject: 'Mathematics',
-    title: 'NCERT Chapter 4 - Quadratic Equations Exercise 4.2 & 4.3',
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    category: 'homework',
-    teacherId: 'user-tch-01',
-    teacherName: 'Prof. Amit Verma (Maths HOD)',
-    description: 'Complete word problems from Exercises 4.2 and 4.3. Show step-by-step factorization and quadratic formula derivations with discriminant verification.',
-    instructions: '1. Write all steps clearly in your Mathematics homework notebook.\n2. State the formula used before substituting values.\n3. Verify whether roots are real, equal, or non-real.\n4. Upload scanned PDF of your completed solutions.',
-    dueDate: '2026-08-22',
-    maxMarks: 25,
-    status: 'submitted',
-    obtainedMarks: 23,
-    feedback: 'Good work using the quadratic formula. Watch out for sign errors when finding discriminant in Q7.',
-    attachments: [
-      { name: 'Quadratic_Equations_Ex4.2_4.3_Worksheet.pdf', url: 'https://storage.eduos.app/sheets/math-quad-10a.pdf', size: '1.2 MB', type: 'pdf' },
-      { name: 'Formula_Sheet_Quadratic_Nature_of_Roots.png', url: 'https://storage.eduos.app/sheets/math-formula-roots.png', size: '420 KB', type: 'image' },
-    ],
-    tags: ['NCERT', 'Board Important', 'Algebra'],
-    createdAt: Date.now() - 3 * 86_400_000,
-  },
-  {
-    id: 'asg-2',
-    subject: 'Science (Physics)',
-    title: "Science Lab Practical File - Ohm's Law & Circuit Diagram Verification",
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    category: 'project',
-    teacherId: 'user-tch-01',
-    teacherName: 'Mrs. Sunita Rao (Science HOD)',
-    description: "Plot V-I graph for the given resistor circuit observations. Calculate slope to determine resistance value and percentage error against theoretical value.",
-    instructions: '1. Draw neat circuit diagram with Ammeter, Voltmeter, Rheostat, and Key.\n2. Tabulate at least 5 sets of V and I readings.\n3. Plot graph on millimetre graph paper and attach photo/scan.\n4. Write precautions and sources of error.',
-    dueDate: '2026-08-25',
-    maxMarks: 20,
-    status: 'pending',
-    attachments: [
-      { name: 'Lab_Manual_Exp_03_Ohms_Law.pdf', url: 'https://storage.eduos.app/sheets/phys-lab-03.pdf', size: '2.4 MB', type: 'pdf' },
-    ],
-    tags: ['Lab File', 'Practical', 'Electricity'],
-    createdAt: Date.now() - 2 * 86_400_000,
-  },
-  {
-    id: 'asg-3',
-    subject: 'Social Science',
-    title: 'Map Skill Worksheet - Major Iron & Steel Plants & Soil Types of India',
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    category: 'worksheet',
-    teacherId: 'user-tch-01',
-    teacherName: 'Mr. Rakesh Sharma',
-    description: 'Locate and label all 6 CBSE prescribed Iron and Steel plants (Bhilai, Bokaro, Jamshedpur, Durgapur, Rourkela, Salem) and major soil distribution zones on the political map of India.',
-    instructions: '1. Use standard NCERT map symbols.\n2. Label states clearly with neat arrows.\n3. Color-code soil types using standard legend.\n4. Scan map in color at 300 dpi or take clear high-res photo.',
-    dueDate: '2026-08-20',
-    maxMarks: 15,
-    status: 'submitted',
-    obtainedMarks: 15,
-    feedback: 'Excellent precise map plotting and labelling.',
-    attachments: [
-      { name: 'India_Political_Outline_Map_CBSE.pdf', url: 'https://storage.eduos.app/sheets/india-map-blank.pdf', size: '850 KB', type: 'pdf' },
-    ],
-    tags: ['Map Skills', 'Geography', 'CBSE 2026'],
-    createdAt: Date.now() - 4 * 86_400_000,
-  },
-  {
-    id: 'asg-4',
-    subject: 'English',
-    title: 'Formal Letter Writing Practice: Letter to Editor on Road Safety',
-    batchId: 'batch-cbse-10a',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    category: 'dpp',
-    teacherId: 'user-tch-01',
-    teacherName: 'Mrs. Ananya Sen',
-    description: 'Write a formal letter in 120-150 words to the Editor of a national daily highlighting the urgent need for speed breakers and traffic signals near school zones in your city.',
-    instructions: '1. Follow latest CBSE letter format (Sender address, Date, Receiver address, Subject, Salutation, Body in 3 paragraphs, Complimentary close).\n2. Maintain formal tone and stick to the 150-word limit.\n3. Highlight 3 concrete civic suggestions.',
-    dueDate: '2026-08-27',
-    maxMarks: 10,
-    status: 'pending',
-    attachments: [
-      { name: 'CBSE_Formal_Letter_Format_Sample_Rubric.pdf', url: 'https://storage.eduos.app/sheets/english-letter-rubric.pdf', size: '620 KB', type: 'pdf' },
-    ],
-    tags: ['Writing Skills', 'Letter Format', 'Grammar'],
-    createdAt: Date.now() - 1 * 86_400_000,
-  },
-];
-
-export const mockExamResults: ExamResult[] = [
-  {
-    id: 'res-1',
-    examTitle: 'CBSE Pre-Board Examination 1 (Mathematics Standard - Code 041)',
-    subject: 'Mathematics',
-    examDate: '2026-08-10',
-    totalMarks: 80,
-    marksObtained: 74,
-    percentile: 96.8,
-    rankInBatch: 2,
-    mistakeSummary: 'Lost 4 marks in Trigonometric Identities proving question (Section D). 2 minor calculation errors in Surface Area & Volumes.',
-    weakTopics: ['Trigonometric Identities (Section D Proving)', 'Surface Areas and Volumes - Combination of Solids'],
-  },
-  {
-    id: 'res-2',
-    examTitle: 'CBSE Periodic Assessment 2 (PA-2 - Science PCB)',
-    subject: 'Science',
-    examDate: '2026-07-28',
-    totalMarks: 40,
-    marksObtained: 38,
-    percentile: 98.2,
-    rankInBatch: 1,
-    mistakeSummary: '1 mark lost in Ray diagram precision for Concave mirror between F and C.',
-    weakTopics: ['Ray Optics Diagrams precision', 'Excretory System Nephron labeling'],
-  },
-  {
-    id: 'res-3',
-    examTitle: 'CBSE Periodic Assessment 1 (PA-1 - Social Science)',
-    subject: 'Social Science',
-    examDate: '2026-06-20',
-    totalMarks: 40,
-    marksObtained: 36,
-    percentile: 94.0,
-    rankInBatch: 3,
-    mistakeSummary: '2 marks lost in 5-marker question on Federalism power sharing features.',
-    weakTopics: ['Decentralization in India 1992 Amendment provisions'],
-  },
-];
-
-export const mockLeaveRequests: LeaveRequest[] = [
-  {
-    id: 'leave-1',
-    employeeName: 'Prof. Amit Verma',
-    designation: 'HOD Mathematics (Class 9 & 10)',
-    leaveType: 'Casual Leave',
-    startDate: '2026-08-21',
-    endDate: '2026-08-22',
-    reason: 'Attending CBSE National Pedagogy Workshop at CBSE Regional Office.',
-    status: 'pending',
-    appliedAt: '2026-08-19 09:30 AM',
-  },
-  {
-    id: 'leave-2',
-    employeeName: 'Mrs. Sunita Rao',
-    designation: 'HOD Science (Class 10-A Class Teacher)',
-    leaveType: 'Medical Leave',
-    startDate: '2026-08-14',
-    endDate: '2026-08-14',
-    reason: 'Routine health checkup / dental consultation.',
-    status: 'approved',
-    appliedAt: '2026-08-12 11:15 AM',
-  },
-];
-
-export const mockNotices: Notice[] = [
-  {
-    id: 'not-1',
-    title: 'CBSE Circular: Final Verification of Candidate List (LOC) for Class 10 Board 2026',
-    content: 'All parents and students of Class 10 are requested to verify spelling of candidate name, date of birth, mother/father name as per Aadhaar & Birth certificate in the school portal by 25th August.',
-    category: 'urgent',
-    priority: 'urgent',
-    author: "Principal's Office & CBSE Examination Cell",
-    date: '19 Aug 2026',
-    targetRole: 'all',
-  },
-  {
-    id: 'not-2',
-    title: 'Schedule for CBSE Pre-Board 1 & Internal Assessment Viva (Class 9 & 10)',
-    content: 'Pre-Board Examination 1 will commence from 15th September 2026. Detailed date sheet, syllabus weightage, and practical lab schedule have been uploaded on the student portal.',
-    category: 'exam',
-    priority: 'urgent',
-    author: 'Academic Directorate',
-    date: '17 Aug 2026',
-    targetRole: 'student',
-  },
-  {
-    id: 'not-3',
-    title: 'Mandatory Term-1 Parent-Teacher Meeting (PTM) on Saturday',
-    content: 'Term 1 PTM for Class 9 and Class 10 is scheduled for Saturday, 23rd August from 10:00 AM to 01:30 PM. Book your 1-on-1 slot via the Parent Portal.',
-    category: 'academic',
-    priority: 'normal',
-    author: 'Academic Coordination Committee',
-    date: '15 Aug 2026',
-    targetRole: 'parent',
-  },
-  {
-    id: 'not-4',
-    title: 'CBSE Regional Science & Innovation Fair 2026: Team Registrations',
-    content: 'Students from Class 9 & 10 interested in submitting science models or IoT innovation projects must submit synopsis to the Science Lab by Friday.',
-    category: 'event',
-    priority: 'normal',
-    author: 'Science & Robotics Club',
-    date: '12 Aug 2026',
-    targetRole: 'all',
-  },
-];
-
-export const mockPTMSlots = [
-  {
-    id: 'ptm-1',
-    teacherName: 'Prof. Amit Verma (Maths HOD)',
-    subject: 'Mathematics Standard (Class 10)',
-    date: '2026-08-23',
-    time: '10:15 AM – 10:30 AM',
-    mode: 'Google Meet Video Call',
-    status: 'confirmed',
-    room: 'Room 101 / Google Meet',
-    availableSlots: ['10:00 AM', '10:15 AM', '10:30 AM', '10:45 AM', '11:00 AM'],
-  },
-  {
-    id: 'ptm-2',
-    teacherName: 'Mrs. Sunita Rao (Class Teacher & Science HOD)',
-    subject: 'Science & Class Conduct (Class 10-A)',
-    date: '2026-08-23',
-    time: '10:45 AM – 11:00 AM',
-    mode: 'In-Person (Science Lab 1)',
-    status: 'pending',
-    room: 'Science Lab 1',
-    availableSlots: ['10:15 AM', '10:45 AM', '11:15 AM', '11:45 AM', '12:15 PM'],
-  },
-];
+export const mockStudentsInBatch: Student[] = [];
+export const mockTimetable: TimetableSlot[] = [];
+export const mockSubjects: Array<{ id: string; name: string; code: string; color: string; icon: string }> = [];
+export const mockAttendanceHistory: AttendanceRecord[] = [];
+export const mockLMSLessons: LMSLesson[] = [];
+export const mockAssignments: Assignment[] = [];
+export const mockExamResults: ExamResult[] = [];
+export const mockLeaveRequests: LeaveRequest[] = [];
+export const mockNotices: Notice[] = [];
+export const mockPTMSlots: Array<{
+  id: string;
+  teacherName: string;
+  subject: string;
+  date: string;
+  time: string;
+  mode: string;
+  status: string;
+  room: string;
+  availableSlots: string[];
+}> = [];
 
 export const mockFeesBreakdown = {
-  totalAnnualFee: 78000,
-  paidAmount: 52000,
-  pendingAmount: 26000,
-  dueDate: '2026-09-15',
-  items: [
-    { name: 'Tuition Fee (Term 2 - Class 10)', amount: 18000, status: 'pending' },
-    { name: 'CBSE Board Examination & Registration Fee', amount: 3200, status: 'pending' },
-    { name: 'Composite Science & Computer Lab Fee', amount: 4800, status: 'pending' },
-    { name: 'Tuition Fee (Term 1 - Class 10)', amount: 18000, status: 'paid' },
-    { name: 'Annual Development & Smart Class Charge', amount: 34000, status: 'paid' },
-  ],
+  totalAnnualFee: 0,
+  paidAmount: 0,
+  pendingAmount: 0,
+  dueDate: '',
+  items: [] as Array<{ name: string; amount: number; status: string }>,
 };
 
-export const mockBusLiveTracking = {
-  routeNumber: 'Route 14 — West Delhi Express',
-  vehicleNumber: 'DL-1PB-4912',
-  driverName: 'Mr. Jagdish Singh',
-  driverPhone: '+91 98999 12345',
-  attendantName: 'Mrs. Shanti Devi',
-  currentSpeedKmph: 32,
-  speedKmH: 32,
-  currentStop: 'Janakpuri District Centre',
-  nextStop: 'Modern Public School Main Gate',
-  etaMinutes: 8,
-  latitude: 28.6289,
-  longitude: 77.0815,
-  status: 'en_route',
-  rfidLogs: [
-    { event: 'Boarded bus at morning stop', location: 'Janakpuri Gate 2', time: '07:22 AM', verified: true },
-    { event: 'Passed GPS Geo-fence #3', location: 'Ring Road Crossing', time: '07:38 AM', verified: true },
-    { event: 'De-boarded at school gate', location: 'Main Senior Wing Gate', time: '07:50 AM', verified: true },
-  ],
+export interface BusRfidLog {
+  event: string;
+  location: string;
+  time: string;
+  verified: boolean;
+}
+
+export const mockBusLiveTracking: {
+  routeNumber: string;
+  vehicleNumber: string;
+  driverName: string;
+  driverPhone: string;
+  attendantName: string;
+  currentSpeedKmph: number;
+  speedKmH: number;
+  currentStop: string;
+  nextStop: string;
+  etaMinutes: number;
+  latitude: number;
+  longitude: number;
+  status: string;
+  rfidLogs: BusRfidLog[];
+} = {
+  routeNumber: 'N/A',
+  vehicleNumber: '',
+  driverName: '',
+  driverPhone: '',
+  attendantName: '',
+  currentSpeedKmph: 0,
+  speedKmH: 0,
+  currentStop: '',
+  nextStop: '',
+  etaMinutes: 0,
+  latitude: 0,
+  longitude: 0,
+  status: 'idle',
+  rfidLogs: [],
 };
 
-export const mockConsentForms = [
-  {
-    id: 'consent-1',
-    title: 'Consent for CBSE Science Exhibition Field Visit to National Science Centre',
-    date: '2026-08-28',
-    deadline: '2026-08-27',
-    signedOn: 'Yesterday, 04:15 PM',
-    category: 'Excursion & Field Visit',
-    status: 'signed',
-    description: 'Educational field visit for Class 10 science students. Includes guided workshop on Optics & Robotics.',
-  },
-  {
-    id: 'consent-2',
-    title: 'Consent for After-School Pre-Board Remedial & Doubts Classes (3:00 PM to 4:30 PM)',
-    date: '2026-09-01',
-    deadline: '2026-08-30',
-    category: 'Academic Remedial',
-    status: 'pending',
-    description: 'Targeted revision sessions for Mathematics & Science board preparation.',
-  },
-];
+export const mockConsentForms: Array<{
+  id: string;
+  title: string;
+  date: string;
+  deadline: string;
+  signedOn?: string;
+  category: string;
+  status: string;
+  description: string;
+}> = [];
 
 export const mockMedicalRecord = {
-  bloodGroup: 'B+',
-  allergies: ['Dust / Pollen (Mild)'],
-  emergencyContact1: 'Mr. Rajesh Sharma (Father) - +91 98111 22334',
-  emergencyContact2: 'Mrs. Sunita Sharma (Mother) - +91 98111 55667',
-  doctorName: 'Dr. A. K. Banerjee (Pediatrician)',
-  doctorPhone: '+91 98100 99887',
-  specialInstructions: 'Inhaler available in school infirmary locker #14 if shortness of breath occurs during sports.',
+  bloodGroup: '',
+  allergies: [] as string[],
+  emergencyContact1: '',
+  emergencyContact2: '',
+  doctorName: '',
+  doctorPhone: '',
+  specialInstructions: '',
 };
 
-export const mockAIQuestions = [
-  {
-    id: 'q-1',
-    topic: 'Quadratic Equations (NCERT Class 10)',
-    question: 'Find the nature of the roots of the quadratic equation 2x² - 6x + 3 = 0. If real roots exist, find them using the quadratic formula.',
-    difficulty: 'Medium',
-    type: 'Subjective (3 Marks)',
-    source: 'CBSE Board 2024 Past Paper',
-  },
-  {
-    id: 'q-2',
-    topic: 'Electricity (NCERT Class 10)',
-    question: 'An electric lamp of resistance 20 Ω and a conductor of 4 Ω resistance are connected in series to a 6 V battery. Calculate: (a) Total resistance of the circuit, (b) The current flowing through the circuit.',
-    difficulty: 'Medium',
-    type: 'Numerical (3 Marks)',
-    source: 'NCERT In-Text Exemplar',
-  },
-  {
-    id: 'q-3',
-    topic: 'Life Processes (NCERT Class 10)',
-    question: 'Describe with a neat diagram the double circulation of blood in human beings. Why is it necessary to separate oxygenated and deoxygenated blood in mammals and birds?',
-    difficulty: 'Hard',
-    type: 'Long Answer (5 Marks)',
-    source: 'CBSE Sample Paper 2025-26',
-  },
-];
+export const mockAIQuestions: Array<{
+  id: string;
+  topic: string;
+  question: string;
+  difficulty: string;
+  type: string;
+  source: string;
+}> = [];
 
-export const mockStatutoryStandards = [
-  {
-    id: 'std-cbse-aff',
-    code: 'CBSE-AFF-2026',
-    title: 'CBSE Affiliation Bye-Laws 2018 (Composite Secondary Renewal)',
-    authority: 'Central Board of Secondary Education (CBSE)',
-    jurisdiction: 'National',
-    frequency: 'Every 5 Years',
-    mandatoryDocuments: ['Building Safety Certificate', 'Fire Safety NOC', 'Sanitation Certificate', 'Staff Salary Bank ECS Proof'],
-    status: 'compliant',
-    validUntil: '2028-03-31',
-  },
-  {
-    id: 'std-pocso',
-    code: 'POCSO-ACT-2012',
-    title: 'POCSO & Child Safety Internal Grievance Committee',
-    authority: 'Ministry of Women and Child Development (Govt. of India)',
-    jurisdiction: 'National',
-    frequency: 'Continuous / Annual Audit',
-    mandatoryDocuments: ['CCTV Coverage Log in all corridors/entrances', 'Police Verification of All Non-Teaching Staff', 'POCSO Box Register'],
-    status: 'compliant',
-    validUntil: '2027-01-01',
-  },
-  {
-    id: 'std-fire',
-    code: 'FIRE-SAFETY-NOC',
-    title: 'State Fire Service Department NOC & Extinguisher Hydrotest Log',
-    authority: 'Delhi Fire Services (Govt. of NCT of Delhi)',
-    jurisdiction: 'State',
-    frequency: 'Annual',
-    mandatoryDocuments: ['Fire NOC Certificate', 'Evacuation Drill Log Book', 'Hydrant Pressure Test Report'],
-    status: 'compliant',
-    validUntil: '2027-04-30',
-  },
-  {
-    id: 'std-udise',
-    code: 'UDISE-PLUS-RETURN',
-    title: 'Unified District Information System for Education (UDISE+ Annual Return)',
-    authority: 'Ministry of Education (Govt. of India)',
-    jurisdiction: 'National',
-    frequency: 'Annual (By 30th November)',
-    mandatoryDocuments: ['Student Aadhar Verification Log', 'Infrastructure & Toilet Ratio Report', 'Teacher Academic Profile Form'],
-    status: 'action_required',
-    validUntil: '2026-11-30',
-  },
-];
+export const mockStatutoryStandards: Array<{
+  id: string;
+  code: string;
+  title: string;
+  authority: string;
+  jurisdiction: string;
+  frequency: string;
+  mandatoryDocuments: string[];
+  status: string;
+  validUntil: string;
+}> = [];
 
-export const mockParentChildren = [
-  {
-    id: 'child-1',
-    name: 'Aarav Sharma',
-    rollNumber: 'CBSE-10A-04',
-    grade: 'Class 10-A - CBSE Kalam Section',
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    branch: 'Main Senior Wing',
-    targetExam: 'CBSE 10th Board Exam 2026',
-    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-    attendance: 94.6,
-    attendancePct: 94.6,
-    latestScore: '74/80 (92.5%)',
-    rankInBatch: 2,
-    unreadAlerts: 1,
-  },
-  {
-    id: 'child-2',
-    name: 'Ananya Sharma',
-    rollNumber: 'CBSE-9A-02',
-    grade: 'Class 9-A - CBSE Ramanujan Section',
-    batchName: 'Class 9-A — CBSE Foundation (Ramanujan Section)',
-    branch: 'Main Senior Wing',
-    targetExam: 'CBSE Class 9 Annual Exam',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    attendance: 96.2,
-    attendancePct: 96.2,
-    latestScore: '38/40 (95.0%)',
-    rankInBatch: 1,
-    unreadAlerts: 0,
-  },
-];
+export const mockParentChildren: Array<{
+  id: string;
+  name: string;
+  rollNumber: string;
+  grade: string;
+  batchName: string;
+  branch: string;
+  targetExam: string;
+  avatarUrl: string;
+  attendance: number;
+  attendancePct: number;
+  latestScore: string;
+  rankInBatch: number;
+  unreadAlerts: number;
+}> = [];
 
 export const mockParentAINarrative = {
-  studentName: 'Aarav',
-  english:
-    'Aarav continues to demonstrate outstanding consistency in CBSE Class 10 preparation. He ranks #2 in Section 10-A with a cumulative score of 93.8% across Periodic Assessments and Pre-Board 1. His strongest areas are Mathematics Quadratic Equations and Physics Electricity, with a recommended focus on Trigonometric Identities proving questions.',
-  hindi:
-    'आरव ने सीबीएसई कक्षा 10 की परीक्षाओं में निरंतर प्रगति और उत्कृष्ट प्रदर्शन बनाए रखा है। वह 93.8% अंकों के साथ अपनी कक्षा 10-ए में दूसरे स्थान पर हैं। गणित और विज्ञान में उनका प्रदर्शन असाधारण है।',
-  executiveSummary:
-    'Aarav continues to demonstrate outstanding consistency in CBSE Class 10 preparation. He ranks #2 in Section 10-A with a cumulative score of 93.8% across Periodic Assessments and Pre-Board 1.',
-  keyStrengths: [
-    'Mastery in Mathematics (Quadratic Equations, Coordinate Geometry) with 96.8 percentile.',
-    'Consistent 95%+ lab practical performance in Physics & Chemistry experiments.',
-    'Punctual attendance record (94.6% presence, only 1 excused medical leave).',
-  ],
-  recommendedFocusAreas: [
-    'Trigonometric Identities proving problems in Section D (lost 4 marks in Pre-Board 1).',
-    'Excretory system & Nephron ray diagram labelling speed in Science Biology.',
-    'Map work practice for Social Science geography unit.',
-  ],
-  teacherObservations:
-    'Mrs. Sunita Rao notes that Aarav is highly attentive during class problem-solving and actively helps peers in group study sessions.',
-  nextMilestone: 'CBSE Pre-Board Examination 2 starting 15th November 2026.',
+  studentName: '',
+  english: '',
+  hindi: '',
+  executiveSummary: 'No academic report generated yet.',
+  keyStrengths: [] as string[],
+  recommendedFocusAreas: [] as string[],
+  teacherObservations: '',
+  nextMilestone: '',
 };
 
-export const mockFeeInvoices = [
-  {
-    id: 'inv-101',
-    invoiceNumber: 'INV-2026-TERM2-1004',
-    title: 'Term 2 Composite Tuition & CBSE Board Exam Fee',
-    dueDate: '2026-09-15',
-    amount: 26000,
-    status: 'pending',
-    studentName: 'Aarav Sharma',
-    breakdown: [
-      { head: 'Tuition Fee (Term 2 - Class 10)', amount: 18000 },
-      { head: 'CBSE Board Examination & Registration Fee', amount: 3200 },
-      { head: 'Science & Computer Lab Composite Fee', amount: 4800 },
-    ],
-  },
-  {
-    id: 'inv-100',
-    invoiceNumber: 'INV-2026-TERM1-1004',
-    title: 'Term 1 Tuition & Annual Development Charge',
-    dueDate: '2026-04-10',
-    paidOn: '2026-04-05',
-    transactionId: 'TXN-HDFC-9921402',
-    amount: 52000,
-    status: 'paid',
-    studentName: 'Aarav Sharma',
-    receiptUrl: '/sample-receipt.pdf',
-    breakdown: [
-      { head: 'Tuition Fee (Term 1 - Class 10)', amount: 18000 },
-      { head: 'Annual Development & Smart Class Charge', amount: 34000 },
-    ],
-  },
-];
+export const mockFeeInvoices: Array<{
+  id: string;
+  invoiceNumber: string;
+  title: string;
+  dueDate: string;
+  paidOn?: string;
+  transactionId?: string;
+  amount: number;
+  status: string;
+  studentName: string;
+  receiptUrl?: string;
+  breakdown: Array<{ head: string; amount: number }>;
+}> = [];
 
 // ==========================================
-// TICKET EDUOS-101: HRMS & COMPLIANCE MOCK DATA
+// TICKET EDUOS-101: HRMS & COMPLIANCE MOCK DATA (EMPTIED)
 // ==========================================
 
-export const mockJobs: JobOpening[] = [
-  {
-    id: 'job-1',
-    tenantId: 'tenant-cbse-dps-01',
-    title: 'PGT Physics Faculty (CBSE & JEE Foundation)',
-    department: 'Science & Senior Secondary',
-    jobType: 'Full-time',
-    designationCategory: 'Teaching',
-    experienceRequired: '3-6 years',
-    salaryRange: '₹6,50,000 - ₹9,00,000 P.A.',
-    description: 'Seeking an energetic and qualified PGT Physics educator to lead senior secondary CBSE board batches and JEE foundation integrated classes.',
-    requirements: 'M.Sc. in Physics + B.Ed. (Mandatory). Demonstrated track record of 90%+ board distinctions.',
-    status: 'published',
-    location: 'Main Campus, New Delhi',
-    positionsCount: 2,
-    deadline: '2026-09-15',
-    applicantsCount: 14,
-    createdAt: '2026-08-01T10:00:00Z',
-  },
-  {
-    id: 'job-2',
-    tenantId: 'tenant-cbse-dps-01',
-    title: 'TGT Mathematics & STEM / Atal Tinkering Lab Mentor',
-    department: 'Mathematics & STEM',
-    jobType: 'Full-time',
-    designationCategory: 'Teaching',
-    experienceRequired: '2-4 years',
-    salaryRange: '₹4,80,000 - ₹6,80,000 P.A.',
-    description: 'Passionate math faculty proficient in hands-on geometry, interactive digital whiteboard teaching, and robotics/ATL mentoring.',
-    requirements: 'B.Sc./M.Sc. Mathematics + B.Ed. CTET clearance preferred.',
-    status: 'published',
-    location: 'Main Campus, New Delhi',
-    positionsCount: 1,
-    deadline: '2026-09-10',
-    applicantsCount: 9,
-    createdAt: '2026-08-05T09:30:00Z',
-  },
-  {
-    id: 'job-3',
-    tenantId: 'tenant-cbse-dps-01',
-    title: 'PRT English & Foundational Literacy (FLN) Lead',
-    department: 'Primary Wing',
-    jobType: 'Full-time',
-    designationCategory: 'Teaching',
-    experienceRequired: '1-3 years',
-    salaryRange: '₹3,60,000 - ₹5,20,000 P.A.',
-    description: 'Dynamic primary educator focusing on phonics, creative expression, and NEP 2020 experiential activity modules.',
-    requirements: 'B.A. English + D.El.Ed. or B.Ed. Fluency in English and child empathy.',
-    status: 'published',
-    location: 'Junior Wing, New Delhi',
-    positionsCount: 2,
-    deadline: '2026-09-20',
-    applicantsCount: 21,
-    createdAt: '2026-08-10T11:00:00Z',
-  },
-  {
-    id: 'job-4',
-    tenantId: 'tenant-cbse-dps-01',
-    title: 'Student Wellness & POCSO Mandatory Counselor',
-    department: 'Counseling & Student Care',
-    jobType: 'Full-time',
-    designationCategory: 'Administrative',
-    experienceRequired: '3-5 years',
-    salaryRange: '₹5,00,000 - ₹7,20,000 P.A.',
-    description: 'Certified clinical/child psychologist to manage student wellbeing, anti-bullying programs, and POCSO statutory compliance.',
-    requirements: 'M.A. Clinical/Child Psychology + RCI license preferred.',
-    status: 'published',
-    location: 'Main Campus, New Delhi',
-    positionsCount: 1,
-    deadline: '2026-09-05',
-    applicantsCount: 6,
-    createdAt: '2026-08-12T14:00:00Z',
-  },
-];
-
-export const mockApplicants: Applicant[] = [
-  {
-    id: 'app-1',
-    jobId: 'job-1',
-    tenantId: 'tenant-cbse-dps-01',
-    fullName: 'Dr. Vivek Swaminathan',
-    email: 'dr.vivek.swami@gmail.com',
-    phone: '+91 98110 44231',
-    experienceYears: 5.5,
-    highestQualification: 'Ph.D. in Applied Physics (IIT Delhi)',
-    currentOrganization: 'DPS R.K. Puram',
-    resumeUrl: 'https://storage.eduos.io/resumes/vivek_swami.pdf',
-    stage: 'interview_scheduled',
-    appliedAt: '2026-08-14T10:30:00Z',
-    jobTitle: 'PGT Physics Faculty (CBSE & JEE Foundation)',
-    scorecard: {
-      pedagogyScore: 4.5,
-      subjectKnowledgeScore: 5.0,
-      classroomManagementScore: 4.0,
-      communicationScore: 4.5,
-      overallRating: 4.5,
-      recommendation: 'strong_hire',
-      interviewerName: 'Principal Dr. Rajesh Iyer',
-      notes: 'Outstanding grasp of electrostatics and quantum physics. Strong board question breakdown technique.',
-    },
-  },
-  {
-    id: 'app-2',
-    jobId: 'job-1',
-    tenantId: 'tenant-cbse-dps-01',
-    fullName: 'Pooja Bhattacharya',
-    email: 'pooja.bhatt@gmail.com',
-    phone: '+91 97188 99120',
-    experienceYears: 4.0,
-    highestQualification: 'M.Sc. Physics (DU) + B.Ed.',
-    currentOrganization: 'Amity International School',
-    resumeUrl: 'https://storage.eduos.io/resumes/pooja_bhatt.pdf',
-    stage: 'offer_extended',
-    offeredSalary: '₹7,80,000 P.A.',
-    proposedJoiningDate: '2026-09-01',
-    appliedAt: '2026-08-10T14:15:00Z',
-    jobTitle: 'PGT Physics Faculty (CBSE & JEE Foundation)',
-    scorecard: {
-      pedagogyScore: 4.2,
-      subjectKnowledgeScore: 4.4,
-      classroomManagementScore: 4.8,
-      communicationScore: 4.6,
-      overallRating: 4.5,
-      recommendation: 'hire',
-      interviewerName: 'HOD Science Prof. Amit Verma',
-      notes: 'Excellent student engagement and structured lesson plan delivery. Recommended for offer release.',
-    },
-  },
-  {
-    id: 'app-3',
-    jobId: 'job-2',
-    tenantId: 'tenant-cbse-dps-01',
-    fullName: 'Karan Mehra',
-    email: 'karan.mehra@gmail.com',
-    phone: '+91 99203 11849',
-    experienceYears: 3.2,
-    highestQualification: 'B.Tech Robotics + B.Ed.',
-    currentOrganization: 'Modern Vidya Mandir',
-    resumeUrl: 'https://storage.eduos.io/resumes/karan_mehra.pdf',
-    stage: 'shortlisted',
-    appliedAt: '2026-08-16T11:00:00Z',
-    jobTitle: 'TGT Mathematics & STEM / Atal Tinkering Lab Mentor',
-    scorecard: null,
-  },
-  {
-    id: 'app-4',
-    jobId: 'job-3',
-    tenantId: 'tenant-cbse-dps-01',
-    fullName: 'Ananya Deshmukh',
-    email: 'ananya.desh@gmail.com',
-    phone: '+91 98450 77123',
-    experienceYears: 2.5,
-    highestQualification: 'M.A. English (Lady Shri Ram) + B.Ed.',
-    currentOrganization: 'Springdales School',
-    resumeUrl: 'https://storage.eduos.io/resumes/ananya_d.pdf',
-    stage: 'hired',
-    offeredSalary: '₹4,80,000 P.A.',
-    appliedAt: '2026-08-01T09:00:00Z',
-    jobTitle: 'PRT English & Foundational Literacy (FLN) Lead',
-    scorecard: {
-      pedagogyScore: 4.8,
-      subjectKnowledgeScore: 4.7,
-      classroomManagementScore: 4.5,
-      communicationScore: 5.0,
-      overallRating: 4.75,
-      recommendation: 'strong_hire',
-      interviewerName: 'Primary Lead Sunita Rao',
-      notes: 'Superb command of phonetics and gamified primary learning modules.',
-    },
-  },
-  {
-    id: 'app-5',
-    jobId: 'job-4',
-    tenantId: 'tenant-cbse-dps-01',
-    fullName: 'Rhea Sengupta',
-    email: 'rhea.sengupta@gmail.com',
-    phone: '+91 96500 33412',
-    experienceYears: 4.0,
-    highestQualification: 'M.A. Child Psychology + RCI License',
-    currentOrganization: 'Fortis Mental Health Clinic',
-    resumeUrl: 'https://storage.eduos.io/resumes/rhea_s.pdf',
-    stage: 'applied',
-    appliedAt: '2026-08-18T16:45:00Z',
-    jobTitle: 'Student Wellness & POCSO Mandatory Counselor',
-    scorecard: null,
-  },
-];
-
-export const mockEmployees: EmployeeRecord[] = [
-  {
-    id: 'emp-101',
-    tenantId: 'tenant-cbse-dps-01',
-    employeeCode: 'MPS-FAC-041',
-    fullName: 'Prof. Amit Verma',
-    email: 'amit.verma@mpsdelhi.edu.in',
-    phone: '+91 98234 56789',
-    designation: 'Senior Faculty & HOD Science',
-    department: 'Science & Senior Secondary',
-    employeeType: 'teaching',
-    dateOfJoining: '2021-06-15',
-    employmentStatus: 'confirmed',
-    policeVerificationStatus: 'verified',
-    policeDocUrl: 'https://storage.eduos.io/police/PCC_DEL_2021_041.pdf',
-    policeVerificationDate: '2021-07-02',
-    policeAcknowledgmentNumber: 'PCC/DL-ND/2021/88392',
-    gracePeriodExpiryDate: '2021-07-15',
-    isAccessRestricted: false,
-    emergencyContactName: 'Geeta Verma (Wife)',
-    emergencyContactPhone: '+91 98234 56799',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    cpdHoursCompleted: 44.5,
-    serviceBook: {
-      appointmentOrderNumber: 'MPS/HR/2021/APP-041',
-      appointmentDate: '2021-06-15',
-      confirmationOrderNumber: 'MPS/HR/2022/CONF-019',
-      confirmationDate: '2022-06-15',
-      providentFundUan: '100928374821',
-      esiInsuranceNumber: '3109283746001',
-      panNumber: 'ABCPS1234F',
-      casualLeaveBalance: 8,
-      earnedLeaveBalance: 24,
-      medicalLeaveBalance: 9,
-      qualificationsList: [
-        { degree: 'M.Sc. Physics (Gold Medalist)', institution: 'Delhi University', yearOfPassing: 2014, percentageOrGrade: '84.2%', isVerified: true },
-        { degree: 'B.Ed. Physical Sciences', institution: 'Jamia Millia Islamia', yearOfPassing: 2016, percentageOrGrade: '81.0%', isVerified: true },
-        { degree: 'CTET (Paper II)', institution: 'CBSE', yearOfPassing: 2017, percentageOrGrade: 'Qualified (122/150)', isVerified: true },
-      ],
-      scaleHistory: [
-        { id: 'sc-1', effectiveDate: '2021-06-15', basicPay: 47600, gradePay: 4800, daHraAllowances: 23800, grossPay: 76200, orderNumber: 'MPS/PAY/2021/041', remarks: 'Entry Pay Scale Level 8 per 7th CPC' },
-        { id: 'sc-2', effectiveDate: '2022-07-01', basicPay: 49000, gradePay: 4800, daHraAllowances: 26950, grossPay: 80750, orderNumber: 'MPS/INC/2022/108', remarks: 'Annual statutory increment 3%' },
-        { id: 'sc-3', effectiveDate: '2023-07-01', basicPay: 50500, gradePay: 4800, daHraAllowances: 30300, grossPay: 85600, orderNumber: 'MPS/INC/2023/114', remarks: 'Annual statutory increment 3%' },
-        { id: 'sc-4', effectiveDate: '2024-07-01', basicPay: 52000, gradePay: 4800, daHraAllowances: 33800, grossPay: 90600, orderNumber: 'MPS/INC/2024/092', remarks: 'Annual statutory increment 3%' },
-        { id: 'sc-5', effectiveDate: '2025-07-01', basicPay: 53600, gradePay: 5400, daHraAllowances: 37520, grossPay: 96520, orderNumber: 'MPS/PROM/2025/012', remarks: 'Promoted to HOD Science (Level 9)' },
-      ],
-      promotionHistory: [
-        { id: 'pr-1', effectiveDate: '2025-07-01', fromDesignation: 'PGT Physics', toDesignation: 'Senior Faculty & HOD Science', orderNumber: 'MPS/PROM/2025/012', remarks: 'Promoted on merit and academic distinction' },
-      ],
-    },
-  },
-  {
-    id: 'emp-102',
-    tenantId: 'tenant-cbse-dps-01',
-    employeeCode: 'MPS-FAC-078',
-    fullName: 'Sunita Rao',
-    email: 'sunita.rao@mpsdelhi.edu.in',
-    phone: '+91 98200 41109',
-    designation: 'Primary Academic Coordinator & PRT Lead',
-    department: 'Primary Wing',
-    employeeType: 'teaching',
-    dateOfJoining: '2022-04-01',
-    employmentStatus: 'confirmed',
-    policeVerificationStatus: 'verified',
-    policeDocUrl: 'https://storage.eduos.io/police/PCC_DEL_2022_078.pdf',
-    policeVerificationDate: '2022-04-20',
-    policeAcknowledgmentNumber: 'PCC/DL-SW/2022/41009',
-    gracePeriodExpiryDate: '2022-05-01',
-    isAccessRestricted: false,
-    emergencyContactName: 'Manoj Rao (Husband)',
-    emergencyContactPhone: '+91 98200 41110',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-    cpdHoursCompleted: 52.0,
-    serviceBook: {
-      appointmentOrderNumber: 'MPS/HR/2022/APP-078',
-      appointmentDate: '2022-04-01',
-      confirmationOrderNumber: 'MPS/HR/2023/CONF-031',
-      confirmationDate: '2023-04-01',
-      providentFundUan: '100882716301',
-      esiInsuranceNumber: '3108827163001',
-      panNumber: 'BKRPR4490M',
-      casualLeaveBalance: 11,
-      earnedLeaveBalance: 28,
-      medicalLeaveBalance: 10,
-      qualificationsList: [
-        { degree: 'M.A. Child Pedagogy', institution: 'IGNOU', yearOfPassing: 2018, percentageOrGrade: '76.5%', isVerified: true },
-        { degree: 'B.Ed. Primary Education', institution: 'Amity University', yearOfPassing: 2016, percentageOrGrade: '83.0%', isVerified: true },
-        { degree: 'CTET (Primary Stage I & II)', institution: 'CBSE', yearOfPassing: 2017, percentageOrGrade: 'Qualified (128/150)', isVerified: true },
-      ],
-      scaleHistory: [
-        { id: 'sc-1', effectiveDate: '2022-04-01', basicPay: 35400, gradePay: 4200, daHraAllowances: 17700, grossPay: 57300, orderNumber: 'MPS/PAY/2022/078', remarks: 'PRT Level 6 Entry Scale' },
-        { id: 'sc-2', effectiveDate: '2023-07-01', basicPay: 36500, gradePay: 4200, daHraAllowances: 20075, grossPay: 60775, orderNumber: 'MPS/INC/2023/118', remarks: 'Annual statutory increment' },
-        { id: 'sc-3', effectiveDate: '2024-07-01', basicPay: 37600, gradePay: 4600, daHraAllowances: 24440, grossPay: 66640, orderNumber: 'MPS/PROM/2024/007', remarks: 'Promoted to Primary Academic Coordinator' },
-      ],
-      promotionHistory: [
-        { id: 'pr-1', effectiveDate: '2024-07-01', fromDesignation: 'PRT Senior Teacher', toDesignation: 'Primary Academic Coordinator', orderNumber: 'MPS/PROM/2024/007', remarks: 'Promoted for leadership excellence' },
-      ],
-    },
-  },
-  {
-    id: 'emp-103',
-    tenantId: 'tenant-cbse-dps-01',
-    employeeCode: 'MPS-FAC-112',
-    fullName: 'Vikramaditya Bose',
-    email: 'vikram.bose@mpsdelhi.edu.in',
-    phone: '+91 97115 88990',
-    designation: 'TGT Computer Science & AI',
-    department: 'Computer Science & AI',
-    employeeType: 'teaching',
-    dateOfJoining: '2026-07-25',
-    employmentStatus: 'probationary',
-    policeVerificationStatus: 'submitted_pending',
-    policeDocUrl: 'https://storage.eduos.io/police/PCC_APP_REC_112.pdf',
-    policeVerificationDate: null,
-    policeAcknowledgmentNumber: 'DEL-POL-ACK/2026/99120',
-    gracePeriodExpiryDate: '2026-08-24', // 3 days remaining!
-    isAccessRestricted: false,
-    emergencyContactName: 'Debashree Bose (Mother)',
-    emergencyContactPhone: '+91 97115 88995',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    cpdHoursCompleted: 18.0,
-    serviceBook: {
-      appointmentOrderNumber: 'MPS/HR/2026/APP-112',
-      appointmentDate: '2026-07-25',
-      confirmationOrderNumber: null,
-      confirmationDate: null,
-      providentFundUan: '101992019920',
-      esiInsuranceNumber: '3109920199001',
-      panNumber: 'CZQPB9921K',
-      casualLeaveBalance: 12,
-      earnedLeaveBalance: 0,
-      medicalLeaveBalance: 10,
-      qualificationsList: [
-        { degree: 'B.Tech Computer Science & AI', institution: 'IIIT Delhi', yearOfPassing: 2022, percentageOrGrade: '8.4 CGPA', isVerified: true },
-        { degree: 'B.Ed. Computer Pedagogy', institution: 'GGSIPU', yearOfPassing: 2024, percentageOrGrade: '78.5%', isVerified: true },
-      ],
-      scaleHistory: [
-        { id: 'sc-1', effectiveDate: '2026-07-25', basicPay: 44900, gradePay: 4600, daHraAllowances: 22450, grossPay: 71950, orderNumber: 'MPS/PAY/2026/112', remarks: 'TGT Level 7 Entry Scale' },
-      ],
-      promotionHistory: [],
-    },
-  },
-  {
-    id: 'emp-104',
-    tenantId: 'tenant-cbse-dps-01',
-    employeeCode: 'MPS-FAC-119',
-    fullName: 'Mohd. Imran Khan',
-    email: 'imran.khan@mpsdelhi.edu.in',
-    phone: '+91 99100 81772',
-    designation: 'Physical Education Teacher (PET) & Swimming Coach',
-    department: 'Sports & Physical Education',
-    employeeType: 'teaching',
-    dateOfJoining: '2026-06-20',
-    employmentStatus: 'probationary',
-    policeVerificationStatus: 'missing',
-    policeDocUrl: null,
-    policeVerificationDate: null,
-    policeAcknowledgmentNumber: null,
-    gracePeriodExpiryDate: '2026-07-20', // Over 30 days expired!
-    isAccessRestricted: true, // Gate enforced!
-    emergencyContactName: 'Farida Khan (Sister)',
-    emergencyContactPhone: '+91 99100 81779',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    cpdHoursCompleted: 12.0,
-    serviceBook: {
-      appointmentOrderNumber: 'MPS/HR/2026/APP-119',
-      appointmentDate: '2026-06-20',
-      confirmationOrderNumber: null,
-      confirmationDate: null,
-      providentFundUan: '102001928371',
-      esiInsuranceNumber: '3102001928001',
-      panNumber: 'DFEPK8820Q',
-      casualLeaveBalance: 10,
-      earnedLeaveBalance: 0,
-      medicalLeaveBalance: 10,
-      qualificationsList: [
-        { degree: 'M.P.Ed. (Master of Physical Education)', institution: 'LNIPE Gwalior', yearOfPassing: 2021, percentageOrGrade: '82.0%', isVerified: true },
-        { degree: 'National Swimming Coaching Diploma (NIS)', institution: 'SAI NSNIS Patiala', yearOfPassing: 2022, percentageOrGrade: 'Grade A', isVerified: true },
-      ],
-      scaleHistory: [
-        { id: 'sc-1', effectiveDate: '2026-06-20', basicPay: 44900, gradePay: 4600, daHraAllowances: 22450, grossPay: 71950, orderNumber: 'MPS/PAY/2026/119', remarks: 'PET Level 7 Scale' },
-      ],
-      promotionHistory: [],
-    },
-  },
-  {
-    id: 'emp-105',
-    tenantId: 'tenant-cbse-dps-01',
-    employeeCode: 'MPS-SUP-012',
-    fullName: 'Rameshwar Yadav',
-    email: 'rameshwar.transport@mpsdelhi.edu.in',
-    phone: '+91 98711 00293',
-    designation: 'Senior Bus Driver & Fleet In-Charge',
-    department: 'Transport & Safety',
-    employeeType: 'support',
-    dateOfJoining: '2020-03-10',
-    employmentStatus: 'confirmed',
-    policeVerificationStatus: 'verified',
-    policeDocUrl: 'https://storage.eduos.io/police/PCC_DEL_2020_012.pdf',
-    policeVerificationDate: '2020-03-25',
-    policeAcknowledgmentNumber: 'PCC/DL-NORTH/2020/19022',
-    gracePeriodExpiryDate: '2020-04-10',
-    isAccessRestricted: false,
-    emergencyContactName: 'Ram Devi (Wife)',
-    emergencyContactPhone: '+91 98711 00299',
-    avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
-    cpdHoursCompleted: 24.0,
-    serviceBook: {
-      appointmentOrderNumber: 'MPS/HR/2020/APP-012',
-      appointmentDate: '2020-03-10',
-      confirmationOrderNumber: 'MPS/HR/2021/CONF-005',
-      confirmationDate: '2021-03-10',
-      providentFundUan: '100441992011',
-      esiInsuranceNumber: '3104419920001',
-      panNumber: 'BNYPY1120K',
-      casualLeaveBalance: 6,
-      earnedLeaveBalance: 32,
-      medicalLeaveBalance: 8,
-      qualificationsList: [
-        { degree: 'Heavy Motor Vehicle Commercial License (HMV)', institution: 'Delhi Transport Authority', yearOfPassing: 2015, percentageOrGrade: 'Endorsed', isVerified: true },
-        { degree: 'First Aid & Passenger Safety Certification', institution: 'St. John Ambulance Association', yearOfPassing: 2023, percentageOrGrade: 'Grade A', isVerified: true },
-      ],
-      scaleHistory: [
-        { id: 'sc-1', effectiveDate: '2020-03-10', basicPay: 21700, gradePay: 2000, daHraAllowances: 10850, grossPay: 34550, orderNumber: 'MPS/PAY/2020/012', remarks: 'Commercial Driver Level 3' },
-        { id: 'sc-2', effectiveDate: '2024-07-01', basicPay: 24500, gradePay: 2400, daHraAllowances: 15925, grossPay: 42825, orderNumber: 'MPS/INC/2024/033', remarks: 'Annual increment + Fleet Lead Allowance' },
-      ],
-      promotionHistory: [
-        { id: 'pr-1', effectiveDate: '2024-07-01', fromDesignation: 'School Bus Driver', toDesignation: 'Senior Bus Driver & Fleet In-Charge', orderNumber: 'MPS/PROM/2024/002', remarks: 'Flawless 4-year zero accident record' },
-      ],
-    },
-  },
-];
-
-export const mockTrainingRecords: TrainingRecord[] = [
-  {
-    id: 'tr-1',
-    employeeId: 'emp-101',
-    trainingTitle: 'CBSE Sahodaya: NEP 2020 Competency-Based Assessment in Physics',
-    providerAgency: 'CBSE Sahodaya Complex, Delhi Chapter',
-    category: 'nep2020',
-    durationHours: 12.0,
-    startDate: '2026-05-10',
-    endDate: '2026-05-12',
-    academicYear: '2026-2027',
-    mode: 'offline_workshop',
-    certificateUrl: 'https://storage.eduos.io/certs/CBSE_NEP_PHYSICS_2026_041.pdf',
-    isVerifiedByPrincipal: true,
-  },
-  {
-    id: 'tr-2',
-    employeeId: 'emp-101',
-    trainingTitle: 'NCERT NISHTHA 3.0: Experiential Learning & Hands-On Science Labs',
-    providerAgency: 'NCERT (DIKSHA Portal)',
-    category: 'pedagogy',
-    durationHours: 18.0,
-    startDate: '2026-06-01',
-    endDate: '2026-06-15',
-    academicYear: '2026-2027',
-    mode: 'online',
-    certificateUrl: 'https://storage.eduos.io/certs/NCERT_NISHTHA_041.pdf',
-    isVerifiedByPrincipal: true,
-  },
-  {
-    id: 'tr-3',
-    employeeId: 'emp-101',
-    trainingTitle: 'Institutional POCSO & Child Sexual Abuse Prevention Sensitization',
-    providerAgency: 'In-House Pedagogy / Legal Cell',
-    category: 'child_safety_pocso',
-    durationHours: 6.0,
-    startDate: '2026-07-04',
-    endDate: '2026-07-04',
-    academicYear: '2026-2027',
-    mode: 'offline_workshop',
-    certificateUrl: 'https://storage.eduos.io/certs/DVN_POCSO_2026_041.pdf',
-    isVerifiedByPrincipal: true,
-  },
-  {
-    id: 'tr-4',
-    employeeId: 'emp-101',
-    trainingTitle: 'AI-Assisted Lesson Planning and Interactive Lab Simulators (PhET)',
-    providerAgency: 'Google for Education / External Partner',
-    category: 'ict_digital',
-    durationHours: 8.5,
-    startDate: '2026-08-05',
-    endDate: '2026-08-06',
-    academicYear: '2026-2027',
-    mode: 'online',
-    certificateUrl: 'https://storage.eduos.io/certs/GOOGLE_AI_EDU_041.pdf',
-    isVerifiedByPrincipal: true,
-  },
-  {
-    id: 'tr-5',
-    employeeId: 'emp-102',
-    trainingTitle: 'Foundational Literacy and Numeracy (FLN) & Phonics Mastery',
-    providerAgency: 'NCERT NISHTHA / NIPUN Bharat',
-    category: 'pedagogy',
-    durationHours: 24.0,
-    startDate: '2026-05-15',
-    endDate: '2026-05-30',
-    academicYear: '2026-2027',
-    mode: 'online',
-    certificateUrl: 'https://storage.eduos.io/certs/NIPUN_FLN_078.pdf',
-    isVerifiedByPrincipal: true,
-  },
-  {
-    id: 'tr-6',
-    employeeId: 'emp-102',
-    trainingTitle: 'Inclusive Classroom Strategies for Children with Special Needs (CWSN)',
-    providerAgency: 'CBSE Sahodaya Complex',
-    category: 'inclusive_education',
-    durationHours: 16.0,
-    startDate: '2026-06-22',
-    endDate: '2026-06-24',
-    academicYear: '2026-2027',
-    mode: 'offline_workshop',
-    certificateUrl: 'https://storage.eduos.io/certs/CBSE_CWSN_078.pdf',
-    isVerifiedByPrincipal: true,
-  },
-  {
-    id: 'tr-7',
-    employeeId: 'emp-102',
-    trainingTitle: 'Institutional POCSO & Mandatory Child Protection Reporting Protocol',
-    providerAgency: 'In-House Pedagogy / Legal Cell',
-    category: 'child_safety_pocso',
-    durationHours: 6.0,
-    startDate: '2026-07-04',
-    endDate: '2026-07-04',
-    academicYear: '2026-2027',
-    mode: 'offline_workshop',
-    certificateUrl: 'https://storage.eduos.io/certs/DVN_POCSO_2026_078.pdf',
-    isVerifiedByPrincipal: true,
-  },
-  {
-    id: 'tr-8',
-    employeeId: 'emp-102',
-    trainingTitle: 'Gamified Storytelling & Experiential Mathematics for Primary Grades',
-    providerAgency: 'State DIET Delhi',
-    category: 'subject_enrichment',
-    durationHours: 6.0,
-    startDate: '2026-08-11',
-    endDate: '2026-08-11',
-    academicYear: '2026-2027',
-    mode: 'offline_workshop',
-    certificateUrl: 'https://storage.eduos.io/certs/DIET_MATH_078.pdf',
-    isVerifiedByPrincipal: true,
-  },
-];
-
-
-
+export const mockJobs: JobOpening[] = [];
+export const mockApplicants: Applicant[] = [];
+export const mockEmployees: EmployeeRecord[] = [];
+export const mockTrainingRecords: TrainingRecord[] = [];

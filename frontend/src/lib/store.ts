@@ -158,272 +158,20 @@ export interface AppState {
   leaveRequests: LeaveRequest[];
 }
 
-const STORAGE_KEY = 'eduos-store-v2';
+const STORAGE_KEY = 'eduos-store-v4-empty';
 
-function seedFeeInvoices(): FeeInvoiceRecord[] {
-  return [
-    {
-      id: 'inv-101',
-      invoiceNumber: 'INV-2026-TERM2-1004',
-      title: 'Term 2 Composite Tuition & CBSE Board Exam Fee',
-      dueDate: '15 Sep 2026',
-      amount: 26000,
-      status: 'pending',
-      studentName: 'Aarav Sharma',
-      studentRoll: 'CBSE-10A-04',
-      batchName: 'Class 10-A (CBSE Kalam Section)',
-      breakdown: [
-        { head: 'Tuition Fee (Term 2 - Class 10)', amount: 18000 },
-        { head: 'CBSE Board Examination & Registration Fee', amount: 3200 },
-        { head: 'Composite Science & Computer Lab Fee', amount: 4800 },
-      ],
-    },
-    {
-      id: 'inv-100',
-      invoiceNumber: 'INV-2026-TERM1-1004',
-      title: 'Term 1 Tuition & Annual Development Charge',
-      dueDate: '10 Apr 2026',
-      amount: 52000,
-      status: 'paid',
-      paidOn: '05 Apr 2026, 11:30 AM',
-      paidAt: Date.now() - 110 * 86_400_000,
-      paymentMethod: 'UPI (Google Pay)',
-      transactionId: 'TXN-UPI-9921402847',
-      receiptNumber: 'MPS-REC-2026-44102',
-      studentName: 'Aarav Sharma',
-      studentRoll: 'CBSE-10A-04',
-      batchName: 'Class 10-A (CBSE Kalam Section)',
-      breakdown: [
-        { head: 'Tuition Fee (Term 1 - Class 10)', amount: 18000 },
-        { head: 'Annual Development & Smart Class Charge', amount: 34000 },
-      ],
-    },
-    {
-      id: 'inv-099',
-      invoiceNumber: 'INV-2025-ANNUAL-0881',
-      title: 'Academic Session 2025-26 Annual Composite Clearance',
-      dueDate: '10 Mar 2025',
-      amount: 72000,
-      status: 'paid',
-      paidOn: '08 Mar 2025, 04:15 PM',
-      paidAt: Date.now() - 365 * 86_400_000,
-      paymentMethod: 'Net Banking (HDFC Bank)',
-      transactionId: 'TXN-NB-7782103991',
-      receiptNumber: 'MPS-REC-2025-88190',
-      studentName: 'Aarav Sharma',
-      studentRoll: 'CBSE-9A-04',
-      batchName: 'Class 9-A',
-      breakdown: [
-        { head: 'Tuition Fee (Full Year Class 9)', amount: 48000 },
-        { head: 'Science Lab & Library Resource Pack', amount: 24000 },
-      ],
-    },
-    {
-      id: 'inv-201',
-      invoiceNumber: 'INV-2026-ANANYA-T2',
-      title: 'Term 2 Foundation Tuition & Activity Fee',
-      dueDate: '20 Sep 2026',
-      amount: 22000,
-      status: 'pending',
-      studentName: 'Ananya Sharma',
-      studentRoll: 'CBSE-9A-02',
-      batchName: 'Class 9-A (CBSE Ramanujan Section)',
-      breakdown: [
-        { head: 'Tuition Fee (Term 2 - Class 9)', amount: 16000 },
-        { head: 'Activity, Sports & Robotics Lab Fee', amount: 6000 },
-      ],
-    },
-    {
-      id: 'inv-200',
-      invoiceNumber: 'INV-2026-ANANYA-T1',
-      title: 'Term 1 Foundation Tuition & Smart Class Charge',
-      dueDate: '15 Apr 2026',
-      amount: 46000,
-      status: 'paid',
-      paidOn: '12 Apr 2026, 02:40 PM',
-      paidAt: Date.now() - 100 * 86_400_000,
-      paymentMethod: 'Credit Card (Visa)',
-      transactionId: 'TXN-CARD-4481902231',
-      receiptNumber: 'MPS-REC-2026-31902',
-      studentName: 'Ananya Sharma',
-      studentRoll: 'CBSE-9A-02',
-      batchName: 'Class 9-A (CBSE Ramanujan Section)',
-      breakdown: [
-        { head: 'Tuition Fee (Term 1 - Class 9)', amount: 16000 },
-        { head: 'Annual Development & Smart Class Charge', amount: 30000 },
-      ],
-    },
-  ];
-}
-
-function seedConsentForms(): DigitalConsentForm[] {
-  const std10a = mockStudentsInBatch;
-  const allStudents = allStudentsInSchool;
-
-  const responses1: ConsentResponse[] = std10a.map((s, idx) => ({
-    studentId: s.id,
-    studentName: s.name,
-    rollNumber: s.rollNumber,
-    batchName: s.batchName,
-    parentName: s.parentName,
-    parentPhone: s.parentPhone,
-    parentEmail: s.parentEmail,
-    status: s.name === 'Aarav Sharma' || idx % 2 === 0 ? 'signed' : 'pending',
-    signedAt: s.name === 'Aarav Sharma' || idx % 2 === 0 ? Date.now() - 86_400_000 : undefined,
-  }));
-
-  const responses2: ConsentResponse[] = std10a.map((s, idx) => ({
-    studentId: s.id,
-    studentName: s.name,
-    rollNumber: s.rollNumber,
-    batchName: s.batchName,
-    parentName: s.parentName,
-    parentPhone: s.parentPhone,
-    parentEmail: s.parentEmail,
-    status: s.name === 'Aarav Sharma' ? 'pending' : idx === 1 ? 'signed' : 'pending',
-    signedAt: idx === 1 ? Date.now() - 43_200_000 : undefined,
-  }));
-
-  const responses3: ConsentResponse[] = allStudents.map((s, idx) => ({
-    studentId: s.id,
-    studentName: s.name,
-    rollNumber: s.rollNumber,
-    batchName: s.batchName,
-    parentName: s.parentName,
-    parentPhone: s.parentPhone,
-    parentEmail: s.parentEmail,
-    status: idx % 3 === 0 ? 'signed' : 'pending',
-    signedAt: idx % 3 === 0 ? Date.now() - 172_800_000 : undefined,
-  }));
-
-  return [
-    {
-      id: 'consent-1',
-      title: 'Consent for CBSE Science Exhibition Field Visit to National Science Centre',
-      description: 'Educational field visit for Class 10 science students. Includes guided workshop on Optics & Robotics at National Science Centre, Pragati Maidan.',
-      category: 'Excursion & Field Visit',
-      targetType: 'batch',
-      targetBatchIds: ['batch-cbse-10a'],
-      targetBatchNames: ['Class 10-A — CBSE Board Champions (Kalam Section)'],
-      authorRole: 'teacher',
-      authorName: 'Mrs. Sunita Rao (Science HOD)',
-      eventDate: '2026-08-28',
-      deadline: '2026-08-27',
-      createdAt: Date.now() - 2 * 86_400_000,
-      instructions: '1. Students must wear full school uniform with ID cards.\n2. Packed lunch and water bottle will be provided.\n3. AC Bus leaves campus at 08:30 AM sharp.',
-      responses: responses1,
-    },
-    {
-      id: 'consent-2',
-      title: 'Consent for After-School Pre-Board Remedial & Doubts Classes (3:00 PM to 4:30 PM)',
-      description: 'Targeted revision sessions for Mathematics & Science board preparation focusing on Section D proving questions and high-weightage topics.',
-      category: 'Academic Remedial',
-      targetType: 'batch',
-      targetBatchIds: ['batch-cbse-10a'],
-      targetBatchNames: ['Class 10-A — CBSE Board Champions (Kalam Section)'],
-      authorRole: 'teacher',
-      authorName: 'Prof. Amit Verma (Maths HOD)',
-      eventDate: '2026-09-01',
-      deadline: '2026-08-30',
-      createdAt: Date.now() - 1 * 86_400_000,
-      instructions: '1. Special evening bus transport provided on designated routes.\n2. Light snacks will be provided prior to class.',
-      responses: responses2,
-    },
-    {
-      id: 'consent-3',
-      title: 'Annual Comprehensive Health, Vision & Dental Checkup Camp 2026',
-      description: 'Mandatory annual medical screening conducted by Fortis Healthcare pediatric team in accordance with CBSE Health & Wellness manual.',
-      category: 'Medical & Health Camp',
-      targetType: 'all_school',
-      targetBatchIds: ['batch-cbse-10a', 'batch-cbse-10b', 'batch-cbse-9a', 'batch-cbse-9b'],
-      targetBatchNames: ['All School Sections (Class 9 & 10)'],
-      authorRole: 'principal',
-      authorName: 'Dr. Rameshwar Nath (Principal)',
-      eventDate: '2026-09-08',
-      deadline: '2026-09-05',
-      createdAt: Date.now() - 3 * 86_400_000,
-      instructions: '1. Digital health card and ophthalmology report will be uploaded to parent portal.\n2. Please mention any ongoing medications or spectacle prescriptions in consent remarks.',
-      responses: responses3,
-    },
-  ];
-}
-
-// Deterministic seed — identical on server and first client render (no hydration
-// mismatch). Seeds the two already-submitted/graded assignments so the teacher's
-// queue isn't empty and the student's statuses stay consistent.
 function seed(): AppState {
-  const assignments: AssignmentRecord[] = mockAssignments.map((a, i) => ({
-    ...a,
-    createdAt: a.createdAt || (Date.now() - (i + 1) * 86_400_000),
-  }));
-
-  const submissions: Submission[] = mockAssignments
-    .filter((a) => a.status !== 'pending')
-    .map((a) => ({
-      id: `sub-seed-${a.id}`,
-      assignmentId: a.id,
-      title: a.title,
-      subject: a.subject,
-      batchName: a.batchName,
-      studentId: 'std-aarav-01',
-      studentName: 'Aarav Sharma',
-      studentRoll: 'CBSE-10A-04',
-      studentAvatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-      maxMarks: a.maxMarks,
-      status: a.status === 'graded' ? 'graded' : 'submitted',
-      obtainedMarks: a.obtainedMarks,
-      feedback: a.feedback,
-      fileName: `aarav_sharma_${a.subject.toLowerCase().replace(/[^a-z0-9]/g, '_')}_submission.pdf`,
-      fileSize: '1.8 MB',
-      fileUrl: `https://storage.eduos.app/submissions/std-1-${a.id}.pdf`,
-      studentNotes: 'Completed all prescribed questions step-by-step.',
-      submittedAt: Date.now() - 86_400_000,
-      gradedAt: a.status === 'graded' ? Date.now() - 43_200_000 : undefined,
-      gradedBy: a.status === 'graded' ? 'Prof. Amit Verma' : undefined,
-    }));
-
-  // Seed the notice board with the existing school circulars, addressed to everyone.
-  const notices: NoticeMessage[] = mockNotices.map((n, i) => ({
-    id: `notice-seed-${n.id}`,
-    title: n.title,
-    content: n.content,
-    category: n.category,
-    audience: ['teacher', 'student', 'parent'],
-    senderRole: 'principal',
-    senderName: n.author,
-    date: n.date,
-    createdAt: Date.now() - (i + 1) * 3_600_000,
-  }));
-
-  // Seed completed exams (with the child's results) so history isn't empty.
-  const exams: ExamRecord[] = mockExamResults.map((er, i) => ({
-    id: `exam-seed-${er.id}`,
-    title: er.examTitle,
-    subject: er.subject,
-    batchName: 'Class 10-A — CBSE Board Champions (Kalam Section)',
-    examType: 'Mock Test',
-    examDate: er.examDate,
-    maxMarks: er.totalMarks,
-    status: 'completed',
-    createdBy: 'Prof. Amit Verma',
-    createdAt: Date.now() - (i + 1) * 172_800_000,
-    studentName: 'Aarav Sharma',
-    marksObtained: er.marksObtained,
-    percentile: er.percentile,
-    rankInBatch: er.rankInBatch,
-  }));
-
   return {
     ptmBookings: [],
-    assignments,
-    submissions,
+    assignments: [],
+    submissions: [],
     parentAlerts: [],
-    notices,
-    exams,
-    consentForms: seedConsentForms(),
-    feeInvoices: seedFeeInvoices(),
+    notices: [],
+    exams: [],
+    consentForms: [],
+    feeInvoices: [],
     attendanceSessions: [],
-    leaveRequests: mockLeaveRequests,
+    leaveRequests: [],
   };
 }
 
@@ -462,17 +210,17 @@ function hydrate() {
         if (parsed.parentAlerts && Array.isArray(parsed.parentAlerts)) {
           parsed.parentAlerts = parsed.parentAlerts.slice(0, MAX_PARENT_ALERTS);
         }
-        if (!parsed.consentForms || !Array.isArray(parsed.consentForms) || parsed.consentForms.length === 0) {
-          parsed.consentForms = seedConsentForms();
+        if (!parsed.consentForms || !Array.isArray(parsed.consentForms)) {
+          parsed.consentForms = [];
         }
-        if (!parsed.feeInvoices || !Array.isArray(parsed.feeInvoices) || parsed.feeInvoices.length === 0) {
-          parsed.feeInvoices = seedFeeInvoices();
+        if (!parsed.feeInvoices || !Array.isArray(parsed.feeInvoices)) {
+          parsed.feeInvoices = [];
         }
         if (!parsed.attendanceSessions || !Array.isArray(parsed.attendanceSessions)) {
           parsed.attendanceSessions = [];
         }
-        if (!parsed.leaveRequests || !Array.isArray(parsed.leaveRequests) || parsed.leaveRequests.length === 0) {
-          parsed.leaveRequests = mockLeaveRequests;
+        if (!parsed.leaveRequests || !Array.isArray(parsed.leaveRequests)) {
+          parsed.leaveRequests = [];
         }
         // Merge over seed defaults so older persisted shapes stay valid.
         state = { ...seed(), ...parsed };

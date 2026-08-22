@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { TeacherBatchProvider } from '@/lib/teacherContext';
-import { teacherBatches, studentsForBatch } from '@/lib/batchData';
+import { teacherBatches, studentsForBatch, defaultTeacherBatch } from '@/lib/batchData';
 import { TeacherBatchGate } from './TeacherBatchGate';
 import { TeacherOverview } from './TeacherOverview';
 import { TeacherAttendance } from './TeacherAttendance';
@@ -31,7 +31,8 @@ const BatchSwitcher: React.FC<{ batchId: string; setBatchId: (id: string | null)
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const batch = teacherBatches.find((b) => b.id === batchId) ?? teacherBatches[0];
+  const batches = teacherBatches || [];
+  const batch = batches.find((b) => b.id === batchId) ?? batches[0] ?? defaultTeacherBatch;
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -49,55 +50,57 @@ const BatchSwitcher: React.FC<{ batchId: string; setBatchId: (id: string | null)
         </span>
         <div>
           <div className="text-micro text-text-tertiary">Current class workspace</div>
-          <div className="text-meta font-semibold text-foreground">{batch.name}</div>
+          <div className="text-meta font-semibold text-foreground">{batch?.name || 'General Workspace'}</div>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         <span className="hidden items-center gap-1.5 text-micro text-text-tertiary sm:inline-flex">
-          <Users size={13} /> {studentsForBatch(batch.id).length} students
+          <Users size={13} /> {batch?.id ? studentsForBatch(batch.id).length : 0} students
         </span>
-        <div className="relative" ref={ref}>
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="btn-secondary py-2"
-          >
-            Switch Class
-            <ChevronsUpDown size={14} className="text-text-tertiary" />
-          </button>
+        {batches.length > 0 && (
+          <div className="relative" ref={ref}>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="btn-secondary py-2"
+            >
+              Switch Class
+              <ChevronsUpDown size={14} className="text-text-tertiary" />
+            </button>
 
-          {open && (
-            <div className="absolute right-0 top-full z-20 mt-1 w-80 rounded-xl border border-border bg-surface p-1.5 shadow-xl animate-scale-in">
-              <div className="px-2.5 py-1.5 text-micro font-semibold uppercase tracking-wider text-text-tertiary">
-                Your Assigned Classes ({teacherBatches.length})
-              </div>
-              {teacherBatches.map((b) => {
-                const active = b.id === batch.id;
-                return (
-                  <button
-                    key={b.id}
-                    onClick={() => {
-                      setBatchId(b.id);
-                      setOpen(false);
-                    }}
-                    className={cn(
-                      'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-meta transition-colors',
-                      active ? 'bg-primary-soft text-primary font-medium' : 'text-foreground hover:bg-muted',
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{b.name}</span>
-                      <span className="block text-micro text-text-tertiary">
-                        {b.code} · {studentsForBatch(b.id).length} students
+            {open && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-80 rounded-xl border border-border bg-surface p-1.5 shadow-xl animate-scale-in">
+                <div className="px-2.5 py-1.5 text-micro font-semibold uppercase tracking-wider text-text-tertiary">
+                  Your Assigned Classes ({batches.length})
+                </div>
+                {batches.map((b) => {
+                  const active = b.id === batch.id;
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={() => {
+                        setBatchId(b.id);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-meta transition-colors',
+                        active ? 'bg-primary-soft text-primary font-medium' : 'text-foreground hover:bg-muted',
+                      )}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{b.name}</span>
+                        <span className="block text-micro text-text-tertiary">
+                          {b.code} · {studentsForBatch(b.id).length} students
+                        </span>
                       </span>
-                    </span>
-                    {active && <Check size={15} className="shrink-0 text-primary" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                      {active && <Check size={15} className="shrink-0 text-primary" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

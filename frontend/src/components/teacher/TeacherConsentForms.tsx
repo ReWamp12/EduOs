@@ -94,15 +94,17 @@ export const TeacherConsentForms: React.FC = () => {
   const [formDescription, setFormDescription] = useState('');
   const [formInstructions, setFormInstructions] = useState('');
 
+  const batchShortName = batch?.name ? batch.name.split(' — ')[0].split(' - ')[0] : 'Class';
+
   // Scoped consent forms: matches active batch or all_school
   const batchConsentForms = useMemo(() => {
-    return consentForms.filter((f) => {
+    return (consentForms || []).filter((f) => {
       if (f.targetType === 'all_school') return true;
-      if (f.targetBatchIds && f.targetBatchIds.includes(batch.id)) return true;
-      if (f.targetBatchNames && f.targetBatchNames.some((b) => b.includes(batch.name.split(' — ')[0]))) return true;
+      if (batch?.id && f.targetBatchIds && f.targetBatchIds.includes(batch.id)) return true;
+      if (batchShortName && f.targetBatchNames && f.targetBatchNames.some((b) => b.includes(batchShortName))) return true;
       return false;
     });
-  }, [consentForms, batch.id, batch.name]);
+  }, [consentForms, batch?.id, batchShortName]);
 
   // Filtered
   const filteredForms = useMemo(() => {
@@ -120,11 +122,11 @@ export const TeacherConsentForms: React.FC = () => {
   const allResponsesInBatch = useMemo(() => {
     const responses: ConsentResponse[] = [];
     batchConsentForms.forEach((f) => {
-      const batchResp = f.responses.filter((r) => r.batchName.includes(batch.name.split(' — ')[0]) || f.targetType === 'all_school');
+      const batchResp = (f.responses || []).filter((r) => (batchShortName && r.batchName.includes(batchShortName)) || f.targetType === 'all_school');
       responses.push(...batchResp);
     });
     return responses;
-  }, [batchConsentForms, batch.name]);
+  }, [batchConsentForms, batchShortName]);
 
   const signedCount = allResponsesInBatch.filter((r) => r.status === 'signed').length;
   const pendingCount = allResponsesInBatch.filter((r) => r.status === 'pending').length;
@@ -153,8 +155,8 @@ export const TeacherConsentForms: React.FC = () => {
       description: formDescription.trim() || 'Parent authorization requested for school activity.',
       category: formCategory,
       targetType: 'batch',
-      targetBatchIds: [selectedBatch.id],
-      targetBatchNames: [selectedBatch.name],
+      targetBatchIds: selectedBatch?.id ? [selectedBatch.id] : [],
+      targetBatchNames: selectedBatch?.name ? [selectedBatch.name] : [],
       authorRole: 'teacher',
       authorName: teacher.name,
       eventDate: formEventDate,
@@ -162,7 +164,7 @@ export const TeacherConsentForms: React.FC = () => {
       instructions: formInstructions.trim() || 'Please submit digital consent via the parent portal prior to the deadline.',
     });
 
-    toast('Consent Form Dispatched', 'success', `"${formTitle}" published to parents of ${selectedBatch.name.split(' — ')[0]}.`);
+    toast('Consent Form Dispatched', 'success', `"${formTitle}" published to parents of ${selectedBatch?.name ? selectedBatch.name.split(' — ')[0] : 'class'}.`);
     setShowCreateModal(false);
 
     // Reset
@@ -223,7 +225,7 @@ export const TeacherConsentForms: React.FC = () => {
         <div>
           <h1 className="text-title font-semibold text-foreground">Digital Consent & Field Trips</h1>
           <p className="text-meta text-text-secondary">
-            Create, distribute, and track legally timestamped digital parent e-signatures for {batch.name.split(' — ')[0]}.
+            Create, distribute, and track legally timestamped digital parent e-signatures for {batchShortName}.
           </p>
         </div>
 
@@ -241,7 +243,7 @@ export const TeacherConsentForms: React.FC = () => {
         <div className="rounded-xl border border-border/80 bg-surface p-4 shadow-xs">
           <div className="text-micro font-medium text-text-tertiary">Active Consent Forms</div>
           <div className="mt-1 text-title font-bold text-foreground">{totalForms}</div>
-          <div className="mt-1 text-micro text-text-tertiary">{batch.name.split(' — ')[0]}</div>
+          <div className="mt-1 text-micro text-text-tertiary">{batchShortName}</div>
         </div>
 
         <div className="rounded-xl border border-border/80 bg-surface p-4 shadow-xs">
@@ -533,7 +535,7 @@ export const TeacherConsentForms: React.FC = () => {
                 </span>
                 <div>
                   <h3 className="text-section font-semibold text-foreground">Dispatch Digital Consent Circular</h3>
-                  <p className="text-micro text-text-tertiary">Create legal e-consent form for parents of {batch.name.split(' — ')[0]}</p>
+                  <p className="text-micro text-text-tertiary">Create legal e-consent form for parents of {batchShortName}</p>
                 </div>
               </div>
               <button
@@ -576,7 +578,7 @@ export const TeacherConsentForms: React.FC = () => {
                     className="input"
                   >
                     {batches.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name.split(' — ')[0]}</option>
+                      <option key={b.id} value={b.id}>{b.name ? b.name.split(' — ')[0] : 'Class'}</option>
                     ))}
                   </select>
                 </div>

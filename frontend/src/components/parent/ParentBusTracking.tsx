@@ -197,29 +197,35 @@ export const ParentBusTracking: React.FC = () => {
 
       {/* RFID Boarding Timeline */}
       <SectionCard title="Today's Student RFID Boarding Events" icon={<CheckCircle2 size={18} />}>
-        <ol className="relative flex flex-col gap-5 pl-6">
-          <span className="absolute left-[9px] top-1 bottom-1 w-px bg-border" aria-hidden />
-          {bus.rfidLogs.map((log, i) => (
-            <li key={i} className="relative">
-              <span className="absolute -left-6 top-0.5 grid h-[18px] w-[18px] place-items-center rounded-full border-2 border-surface bg-success text-white shadow-2xs">
-                <CheckCircle2 size={11} />
-              </span>
-              <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border/80 bg-surface p-3 shadow-2xs">
-                <div>
-                  <div className="text-meta font-semibold text-foreground">{log.event}</div>
-                  <div className="text-micro text-text-tertiary">
-                    <MapPin size={11} className="mr-1 inline align-[-1px] text-primary" />
-                    {log.location}
+        {(!bus.rfidLogs || bus.rfidLogs.length === 0) ? (
+          <div className="py-6 text-center text-sm text-text-secondary">
+            No RFID bus boarding or de-boarding logs recorded today.
+          </div>
+        ) : (
+          <ol className="relative flex flex-col gap-5 pl-6">
+            <span className="absolute left-[9px] top-1 bottom-1 w-px bg-border" aria-hidden />
+            {bus.rfidLogs.map((log, i) => (
+              <li key={i} className="relative">
+                <span className="absolute -left-6 top-0.5 grid h-[18px] w-[18px] place-items-center rounded-full border-2 border-surface bg-success text-white shadow-2xs">
+                  <CheckCircle2 size={11} />
+                </span>
+                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border/80 bg-surface p-3 shadow-2xs">
+                  <div>
+                    <div className="text-meta font-semibold text-foreground">{log.event}</div>
+                    <div className="text-micro text-text-tertiary">
+                      <MapPin size={11} className="mr-1 inline align-[-1px] text-primary" />
+                      {log.location}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {log.verified && <Badge tone="success">RFID Verified</Badge>}
+                    <span className="text-meta font-mono font-semibold text-info">{log.time}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {log.verified && <Badge tone="success">RFID Verified</Badge>}
-                  <span className="text-meta font-mono font-semibold text-info">{log.time}</span>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+              </li>
+            ))}
+          </ol>
+        )}
       </SectionCard>
     </div>
   );

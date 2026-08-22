@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { UserRole } from '@/lib/types';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { DemoModeBanner } from '@/components/common/DemoModeBanner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Toaster } from '@/components/ui/toast';
@@ -62,17 +65,60 @@ import { HRPoliceVerificationGate } from '@/components/hr/HRPoliceVerificationGa
 import { HRTeacherCPDRegister } from '@/components/hr/HRTeacherCPDRegister';
 
 export default function Home() {
-  const [activeRole, setActiveRole] = useState<UserRole>('student');
+  // EDUOS-102 — the viewing role now comes from the authenticated session
+  // instead of `useState<UserRole>('student')`, which let any visitor pick
+  // Principal or Super Admin out of the sidebar.
+  const { session, status, isDemo, setDemoRole } = useAuth();
+
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Teacher workspace is scoped to a selected batch; kept for the whole session.
   const [teacherBatchId, setTeacherBatchId] = useState<string | null>(null);
 
+  const activeRole: UserRole = session?.roles[0] ?? 'student';
+
   const handleRoleChange = (role: UserRole) => {
-    setActiveRole(role);
+    // Only meaningful in the fixture sandbox. With a real session the sidebar
+    // offers just the roles the user actually holds, and `setDemoRole` is a
+    // no-op — EDUOS-107 removes the control from the authenticated UI entirely.
+    setDemoRole(role);
     setActiveTab('overview');
     setMobileNavOpen(false);
   };
+
+  // Middleware already redirects unauthenticated requests, so this covers the
+  // window before the client has resolved its session, plus the signed-in user
+  // whose profile was deactivated mid-session.
+  if (status === 'loading') {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <div className="flex items-center gap-2.5 text-body text-text-secondary">
+          <Loader2 size={16} className="animate-spin" />
+          Loading your workspace…
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background px-4">
+        <div className="max-w-sm text-center">
+          <h1 className="text-title text-foreground">No access</h1>
+          <p className="mt-2 text-body text-text-secondary">
+            This account is not linked to an active institution profile. Ask your
+            administrator to invite you.
+          </p>
+          <a
+            href="/login"
+            className="mt-4 inline-block rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover"
+          >
+            Back to sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (activeRole) {
@@ -218,6 +264,7 @@ export default function Home() {
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
+        {isDemo && <DemoModeBanner />}
         <Navbar activeRole={activeRole} activeTab={activeTab} onOpenMobile={() => setMobileNavOpen(true)} />
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

@@ -6,6 +6,7 @@ import { useTeacherBatch } from '@/lib/teacherContext';
 import { timetableForBatch } from '@/lib/batchData';
 import { StatCard, SectionCard, Badge, EmptyState } from '@/components/ui';
 import { TeacherInbox } from './TeacherInbox';
+import { TimetableSlot } from '@/lib/types';
 import {
   CalendarCheck2,
   Sparkles,
@@ -20,10 +21,12 @@ import {
 export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const teacher = mockProfiles.teacher;
   const { batch, students, batches } = useTeacherBatch();
-  const slots = timetableForBatch(batch.id);
+  const slots: TimetableSlot[] = batch?.id ? timetableForBatch(batch.id) : [];
   const avgAttendance = students.length
     ? (students.reduce((a, s) => a + s.attendancePct, 0) / students.length).toFixed(1)
     : '—';
+
+  const batchShortName = batch?.name ? batch.name.split(' - ')[0].split(' — ')[0] : 'No Batch';
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,20 +37,18 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
           style={{ background: 'linear-gradient(120deg, var(--secondary-soft), var(--surface) 62%)' }}
         >
           <div className="flex items-center gap-4">
-            <img
-              src={teacher.avatarUrl}
-              alt={teacher.firstName}
-              className="h-16 w-16 rounded-lg object-cover ring-2 ring-surface shadow-sm"
-            />
+            <div className="grid h-16 w-16 place-items-center rounded-lg bg-primary text-primary-foreground font-semibold text-xl ring-2 ring-surface shadow-sm">
+              {teacher?.firstName ? teacher.firstName[0] : 'T'}
+            </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-title text-foreground">
-                  Welcome, {teacher.firstName} {teacher.lastName}
+                  Welcome, {teacher?.firstName || 'Faculty'} {teacher?.lastName || ''}
                 </h2>
-                <Badge tone="primary">{batch.name.split(' - ')[0]}</Badge>
+                <Badge tone="primary">{batchShortName}</Badge>
               </div>
               <p className="mt-1 text-body text-text-secondary">
-                Mentor · <span className="font-semibold text-foreground">{batch.name}</span> · {batch.targetExam}
+                Mentor · <span className="font-semibold text-foreground">{batch?.name || 'No Batch Assigned'}</span> · {batch?.targetExam || ''}
               </p>
             </div>
           </div>
@@ -64,7 +65,7 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
           value={students.length}
           tone="info"
           icon={<Users size={16} />}
-          hint={`${batch.name.split(' - ')[0]} · View Roster`}
+          hint={`${batchShortName} · View Roster`}
           onClick={() => onNavigate('students')}
         />
         <StatCard
@@ -107,10 +108,10 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
             <EmptyState
               icon={<CalendarOff size={22} />}
               title="No lectures scheduled"
-              description="This class has no periods today. Enjoy the prep time."
+              description="This class has no periods scheduled today."
             />
           ) : (
-            slots.map((slot, i) => (
+            slots.map((slot: TimetableSlot, i: number) => (
               <div
                 key={slot.id}
                 className={[
@@ -121,43 +122,62 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
                 <div className="flex min-w-0 items-center gap-3">
                   <span
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-micro font-bold text-white"
-                    style={{ background: slot.subjectColor }}
+                    style={{ background: slot.subjectColor || '#2563EB' }}
                   >
                     P{slot.periodNumber}
                   </span>
                   <div className="min-w-0">
                     <div className="truncate text-meta font-semibold text-foreground">{slot.subjectName}</div>
                     <div className="mt-0.5 truncate text-micro text-text-tertiary">
-                      {slot.roomNumber} · {slot.startTime}–{slot.endTime}
+                      {slot.roomNumber} · {slot.startTime} – {slot.endTime}
                     </div>
                   </div>
                 </div>
-                {i === 0 ? (
-                  <button onClick={() => onNavigate('attendance')} className="btn-primary shrink-0 px-3 py-2 text-micro">
-                    Mark attendance
-                  </button>
-                ) : (
-                  <Badge tone="neutral" className="shrink-0">Scheduled</Badge>
-                )}
+                <button
+                  onClick={() => onNavigate('attendance')}
+                  className="inline-flex shrink-0 items-center gap-1 text-meta font-medium text-primary hover:underline"
+                >
+                  Take Attendance <ChevronRight size={14} />
+                </button>
               </div>
             ))
           )}
         </SectionCard>
 
-        {/* AI diagnostic */}
-        <SectionCard title="AI Classroom Diagnostic" icon={<Sparkles size={18} />} bodyClassName="flex flex-col gap-4">
-          <div className="rounded-md border border-info/20 bg-info-soft p-4">
-            <div className="text-micro font-semibold uppercase tracking-wide text-info">Attention flag · {batch.name.split(' - ')[0]}</div>
-            <p className="mt-1.5 text-meta leading-relaxed text-text-secondary">
-              &ldquo;Several students show calculation slips rather than conceptual gaps in the latest test. Consider a focused revision session.&rdquo;
-            </p>
+        {/* Quick action card */}
+        <SectionCard title="Batch Actions" icon={<ClipboardList size={18} />}>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => onNavigate('attendance')}
+              className="flex items-center justify-between rounded-md border border-border bg-surface p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft/50"
+            >
+              <div>
+                <div className="text-meta font-semibold text-foreground">Mark Attendance</div>
+                <div className="text-micro text-text-tertiary">Log daily period presence & sync alerts</div>
+              </div>
+              <ChevronRight size={16} className="text-text-tertiary" />
+            </button>
+            <button
+              onClick={() => onNavigate('assignments')}
+              className="flex items-center justify-between rounded-md border border-border bg-surface p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft/50"
+            >
+              <div>
+                <div className="text-meta font-semibold text-foreground">Create Assignment</div>
+                <div className="text-micro text-text-tertiary">Distribute homework, DPPs, and practical sheets</div>
+              </div>
+              <ChevronRight size={16} className="text-text-tertiary" />
+            </button>
+            <button
+              onClick={() => onNavigate('consent')}
+              className="flex items-center justify-between rounded-md border border-border bg-surface p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft/50"
+            >
+              <div>
+                <div className="text-meta font-semibold text-foreground">Dispatch Consent Form</div>
+                <div className="text-micro text-text-tertiary">Publish field trip & remedial permissions</div>
+              </div>
+              <ChevronRight size={16} className="text-text-tertiary" />
+            </button>
           </div>
-          <p className="text-meta leading-relaxed text-text-secondary">
-            <span className="font-semibold text-foreground">Recommendation:</span> Allocate 15 min at the start of the next period for a targeted derivation before new content.
-          </p>
-          <button onClick={() => onNavigate('ai_question_studio')} className="btn-secondary mt-auto w-full">
-            Generate practice worksheet <ChevronRight size={16} />
-          </button>
         </SectionCard>
       </div>
     </div>

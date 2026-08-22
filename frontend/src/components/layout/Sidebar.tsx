@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from '@/lib/types';
 import { NAV_CONFIG, ROLE_LABEL } from '@/lib/navigation';
 import { mockTenant, mockProfiles } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import {
   GraduationCap,
   Users,
@@ -46,7 +47,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
   const groups = NAV_CONFIG[activeRole];
-  const profile = mockProfiles[activeRole];
+  const { session, isDemo, signOut } = useAuth();
+
+  // EDUOS-102 — the switcher offers every stakeholder view in the fixture
+  // sandbox (that is the point of the demo), but a real session may only view
+  // the roles it actually holds. `session.roles` carries one entry today; when
+  // EDUOS-105 lands multi-role, a genuine Teacher-and-Parent gets both here
+  // with no change to this component.
+  const availableRoles = isDemo
+    ? ROLE_META
+    : ROLE_META.filter(({ role }) => session?.roles.includes(role));
+
+  const canSwitch = availableRoles.length > 1;
+
+  // Identity in the sandbox comes from fixtures; a real session shows the
+  // signed-in person, not a stand-in for their role.
+  const mockProfile = mockProfiles[activeRole];
+  const profile = isDemo
+    ? mockProfile
+    : {
+        firstName: session?.firstName ?? '',
+        lastName: session?.lastName ?? '',
+        email: session?.email ?? '',
+        // Fixture portrait as a fallback so a profile with no uploaded avatar
+        // does not render a broken image. EDUOS-114 adds real avatar storage.
+        avatarUrl: session?.avatarUrl ?? mockProfile?.avatarUrl,
+      };
+
+  const switcherLabel = isDemo
+    ? ROLE_LABEL[activeRole]
+    : `${profile.firstName} ${profile.lastName}`.trim() || ROLE_LABEL[activeRole];
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -114,8 +144,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="px-3 pt-3" ref={switcherRef}>
           <div className="relative">
             <button
-              onClick={() => setSwitcherOpen((v) => !v)}
-              className="flex w-full items-center gap-2.5 rounded-md border border-border bg-surface-muted px-2.5 py-2 text-left transition-colors hover:border-border-strong"
+              onClick={() => canSwitch && setSwitcherOpen((v) => !v)}
+              disabled={!canSwitch}
+              className="flex w-full items-center gap-2.5 rounded-md border border-border bg-surface-muted px-2.5 py-2 text-left transition-colors enabled:hover:border-border-strong disabled:cursor-default"
               aria-haspopup="listbox"
               aria-expanded={switcherOpen}
             >
@@ -125,15 +156,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="h-8 w-8 rounded-md object-cover"
               />
               <div className="min-w-0 flex-1">
-                <div className="text-micro text-text-tertiary">Viewing as</div>
-                <div className="truncate text-meta font-semibold text-foreground">
-                  {ROLE_LABEL[activeRole]}
+                <div className="text-micro text-text-tertiary">
+                  {isDemo ? 'Viewing as' : 'Signed in as'}
                 </div>
+                <div className="truncate text-meta font-semibold text-foreground">
+                  {switcherLabel}
+                </div>
+                {!isDemo && (
+                  <div className="truncate text-micro text-text-tertiary">
+                    {ROLE_LABEL[activeRole]}
+                  </div>
+                )}
               </div>
-              <ChevronsUpDown size={15} className="shrink-0 text-text-tertiary" />
+              {canSwitch && <ChevronsUpDown size={15} className="shrink-0 text-text-tertiary" />}
             </button>
 
-            {switcherOpen && (
+            {switcherOpen && canSwitch && (
               <div
                 role="listbox"
                 className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-lg animate-scale-in origin-top"
@@ -141,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="px-2.5 py-1.5 text-micro font-semibold uppercase tracking-wide text-text-tertiary">
                   Switch stakeholder view
                 </div>
-                {ROLE_META.map(({ role, icon }) => {
+                {availableRoles.map(({ role, icon }) => {
                   const active = role === activeRole;
                   return (
                     <button
@@ -244,7 +282,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button className="grid h-8 w-8 place-items-center rounded-md text-text-tertiary hover:bg-muted hover:text-foreground" aria-label="Settings">
                 <Settings size={16} />
               </button>
-              <button className="grid h-8 w-8 place-items-center rounded-md text-text-tertiary hover:bg-muted hover:text-foreground" aria-label="Sign out">
+              <button
+                onClick={() => void signOut()}
+                disabled={isDemo}
+                title={isDemo ? 'No session to end in the demo sandbox' : 'Sign out'}
+                className="grid h-8 w-8 place-items-center rounded-md text-text-tertiary transition-colors enabled:hover:bg-muted enabled:hover:text-foreground disabled:opacity-40"
+                aria-label="Sign out"
+              >
                 <LogOut size={16} />
               </button>
             </div>

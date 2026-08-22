@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/lib/auth/AuthProvider';
 
 export const metadata: Metadata = {
   title: 'EduOS — Multi-Tenant Education Operating System',
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {/* EDUOS-102 — every route resolves identity through one provider. */}
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

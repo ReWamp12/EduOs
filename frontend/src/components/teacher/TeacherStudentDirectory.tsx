@@ -77,7 +77,7 @@ export const TeacherStudentDirectory: React.FC = () => {
           value={students.length}
           tone="primary"
           icon={<Users size={16} />}
-          hint={`${batch.name.split(' - ')[0]}`}
+          hint={batch?.name ? batch.name.split(' - ')[0] : 'Batch Roster'}
         />
         <StatCard
           label="Class Avg Attendance"

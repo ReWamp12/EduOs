@@ -32,13 +32,14 @@ type PayMethod = 'UPI' | 'Card' | 'Net Banking';
 
 export const ParentFees: React.FC = () => {
   const { feeInvoices } = useAppStore();
-  const activeChild = mockParentChildren[0]; // Aarav Sharma by default
+  const defaultChild = { id: '', name: 'Student', rollNumber: '', grade: 'Class N/A', batchName: 'Class N/A', branch: '', targetExam: '', avatarUrl: '', attendance: 0, attendancePct: 0, latestScore: '', rankInBatch: 0, unreadAlerts: 0 };
+  const activeChild = mockParentChildren[0] || defaultChild;
   const [selectedChildId, setSelectedChildId] = useState(activeChild.id);
   const currentChild = mockParentChildren.find((c) => c.id === selectedChildId) || activeChild;
 
   // Filter invoices for current selected child
-  const childInvoices = feeInvoices.filter(
-    (i) => i.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
+  const childInvoices = (feeInvoices || []).filter(
+    (i) => i.studentName && currentChild.name && i.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
   );
 
   const pendingInvoices = childInvoices.filter((i) => i.status !== 'paid');
@@ -111,29 +112,31 @@ export const ParentFees: React.FC = () => {
           subtitle={
             <>
               Academic Session 2026-27 · Student:{' '}
-              <span className="font-semibold text-foreground">{currentChild.name}</span> ({currentChild.grade.split(' - ')[0]})
+              <span className="font-semibold text-foreground">{currentChild?.name || 'Student'}</span> ({currentChild?.grade ? currentChild.grade.split(' - ')[0] : 'Class N/A'})
             </>
           }
         />
 
         {/* Multi-child switcher */}
-        <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
-          <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
-          {mockParentChildren.map((ch) => (
-            <button
-              key={ch.id}
-              onClick={() => setSelectedChildId(ch.id)}
-              className={cn(
-                'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
-                selectedChildId === ch.id
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'text-text-secondary hover:bg-muted',
-              )}
-            >
-              {ch.name.split(' ')[0]} ({ch.grade.split(' - ')[0]})
-            </button>
-          ))}
-        </div>
+        {mockParentChildren && mockParentChildren.length > 0 && (
+          <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
+            <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
+            {mockParentChildren.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => setSelectedChildId(ch.id)}
+                className={cn(
+                  'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
+                  selectedChildId === ch.id
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'text-text-secondary hover:bg-muted',
+                )}
+              >
+                {ch.name ? ch.name.split(' ')[0] : 'Child'} ({ch.grade ? ch.grade.split(' - ')[0] : ''})
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Summary Stat Cards */}

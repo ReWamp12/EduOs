@@ -138,10 +138,7 @@ export const dataService = {
     } catch (e) {
       console.warn('Failed to query student attendance from NestJS backend.', e);
     }
-    return Promise.resolve([
-      { id: 'att-1', date: '2026-08-17', status: 'present', remarks: 'On time' },
-      { id: 'att-2', date: '2026-08-18', status: 'present', remarks: 'On time' },
-    ]);
+    return Promise.resolve([]);
   },
 
   // --- Assignments ---
@@ -154,16 +151,7 @@ export const dataService = {
     } catch (e) {
       console.warn('Failed to fetch assignments from NestJS backend.', e);
     }
-    return Promise.resolve([
-      {
-        id: 'asg-1',
-        title: 'Rotational Dynamics Problem Sheet',
-        description: 'Solve problems 1 to 15. Show step-by-step vector products.',
-        dueDate: '2026-08-22T23:59:00Z',
-        maxMarks: 50,
-        subjectName: 'Physics',
-      },
-    ]);
+    return Promise.resolve([]);
   },
 
   async createAssignment(assignment: any): Promise<any> {
@@ -225,20 +213,7 @@ export const dataService = {
     } catch (e) {
       console.warn('Failed to fetch exam results from NestJS backend.', e);
     }
-    return Promise.resolve([
-      {
-        id: 'er-1',
-        examTitle: 'JEE Advanced Mock Test 02',
-        examType: 'mock_test',
-        totalMarks: 300,
-        examDate: '2026-08-10',
-        marksObtained: 245,
-        percentile: 98.4,
-        rankInBatch: 3,
-        weakTopics: ['Rotational Mechanics', 'Ionic Equilibrium'],
-        mistakeSummary: '2 silly errors in physics calculation.',
-      },
-    ]);
+    return Promise.resolve([]);
   },
 
   // --- Notices ---
@@ -251,16 +226,7 @@ export const dataService = {
     } catch (e) {
       console.warn('Failed to fetch notices from NestJS backend.', e);
     }
-    return Promise.resolve([
-      {
-        id: 'n-1',
-        title: 'Independence Day Celebrations',
-        content: 'Flag hoisting ceremony will commence at 8:00 AM in the central courtyard. Attendance is mandatory.',
-        category: 'event',
-        priority: 'normal',
-        createdAt: '2026-08-14T09:00:00Z',
-      },
-    ]);
+    return Promise.resolve([]);
   },
 
   // ==========================================
@@ -291,33 +257,16 @@ export const dataService = {
         nonTeachingStaffCount: totalStaff - teachingStaff.length,
         openPositions: mock.mockJobs.filter(j => j.status === 'published').length,
         activeApplicants: mock.mockApplicants.length,
-        policeVerificationCompliancePct: Math.round((verifiedStaff / totalStaff) * 100),
+        policeVerificationCompliancePct: totalStaff > 0 ? Math.round((verifiedStaff / totalStaff) * 100) : 100,
         verifiedStaffCount: verifiedStaff,
         pendingGraceCount: pendingGrace,
         missingPoliceCount: missingPolice,
         restrictedAccessStaffCount: restricted,
         cpdMandatoryHoursTarget: 50,
-        cpdCompletionRatePct: Math.round((fullyCompletedCPD / teachingStaff.length) * 100),
+        cpdCompletionRatePct: teachingStaff.length > 0 ? Math.round((fullyCompletedCPD / teachingStaff.length) * 100) : 100,
         totalCpdHoursLogged: teachingStaff.reduce((s, e) => s + (e.cpdHoursCompleted || 0), 0),
       },
-      criticalAlerts: [
-        {
-          id: 'alt-1',
-          type: 'danger',
-          title: 'Police Verification Grace Window Expired',
-          message: 'Mohd. Imran Khan (PET Coach) has exceeded the 30-day statutory grace period with missing verification. Unsupervised role access is restricted.',
-          employeeId: 'emp-104',
-          employeeCode: 'MPS-FAC-119',
-        },
-        {
-          id: 'alt-2',
-          type: 'warning',
-          title: 'Grace Window Expiring in 3 Days',
-          message: 'Vikramaditya Bose (TGT Computer Science) has 3 days remaining in the 30-day police clearance window.',
-          employeeId: 'emp-103',
-          employeeCode: 'MPS-FAC-112',
-        },
-      ],
+      criticalAlerts: [],
       recentApplicants: mock.mockApplicants.slice(0, 5),
     });
   },

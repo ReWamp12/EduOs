@@ -8,12 +8,13 @@ import { Trophy, TrendingUp, ClipboardList, CalendarClock, FileText } from 'luci
 
 export const ParentExamHistory: React.FC = () => {
   const { exams } = useAppStore();
-  const [childId, setChildId] = useState(mockParentChildren[0].id);
-  const child = mockParentChildren.find((c) => c.id === childId) || mockParentChildren[0];
+  const defaultChild = { id: '', name: 'Student', rollNumber: '', grade: 'Class N/A', batchName: 'Class N/A', branch: '', targetExam: '', avatarUrl: '', attendance: 0, attendancePct: 0, latestScore: '', rankInBatch: 0, unreadAlerts: 0 };
+  const [childId, setChildId] = useState(mockParentChildren[0]?.id || '');
+  const child = mockParentChildren.find((c) => c.id === childId) || mockParentChildren[0] || defaultChild;
 
   // Exams for this child: matched by batch (child.grade / child.batchName) or explicit result name.
-  const childExams = exams.filter(
-    (e) => e.batchName === child.grade || e.batchName === child.batchName || e.studentName === child.name,
+  const childExams = (exams || []).filter(
+    (e) => (child.grade && e.batchName === child.grade) || (child.batchName && e.batchName === child.batchName) || (child.name && e.studentName === child.name),
   );
   const completed = childExams.filter((e) => e.status === 'completed');
   const upcoming = childExams.filter((e) => e.status === 'scheduled');
@@ -27,20 +28,22 @@ export const ParentExamHistory: React.FC = () => {
         title="Exam history"
         subtitle="Your child's assessments, scores and upcoming exams."
         actions={
-          <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
-            {mockParentChildren.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setChildId(c.id)}
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-meta transition-colors',
-                  c.id === childId ? 'bg-primary-soft font-semibold text-primary' : 'font-medium text-text-secondary hover:bg-muted',
-                )}
-              >
-                {c.name.split(' ')[0]}
-              </button>
-            ))}
-          </div>
+          mockParentChildren && mockParentChildren.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
+              {mockParentChildren.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setChildId(c.id)}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-meta transition-colors',
+                    c.id === childId ? 'bg-primary-soft font-semibold text-primary' : 'font-medium text-text-secondary hover:bg-muted',
+                  )}
+                >
+                  {c.name ? c.name.split(' ')[0] : 'Child'}
+                </button>
+              ))}
+            </div>
+          ) : undefined
         }
       />
 
@@ -80,7 +83,7 @@ export const ParentExamHistory: React.FC = () => {
             <EmptyState
               icon={<FileText size={22} />}
               title="No results yet"
-              description={`Completed exam results for ${child.name.split(' ')[0]} will appear here once graded.`}
+              description={`Completed exam results for ${child?.name ? child.name.split(' ')[0] : 'your child'} will appear here once graded.`}
             />
           </Card>
         ) : (

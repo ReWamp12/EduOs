@@ -200,7 +200,7 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
             />
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="text-title text-foreground">Welcome back, {student.name.split(' ')[0]}</h2>
+                <h2 className="text-title text-foreground">Welcome back, {student?.name ? student.name.split(' ')[0] : 'Student'}</h2>
                 <Badge tone="warning">
                   <Flame size={12} /> 14-day streak
                 </Badge>

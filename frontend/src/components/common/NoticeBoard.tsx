@@ -78,7 +78,7 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
       category,
       audience: list,
       senderRole: role as 'principal' | 'teacher',
-      senderName: `${mockProfiles[role].firstName} ${mockProfiles[role].lastName}`,
+      senderName: mockProfiles[role] ? `${mockProfiles[role].firstName} ${mockProfiles[role].lastName}`.trim() || 'Staff' : 'Staff',
     });
     toast('Notice broadcast', 'success', `Sent to ${list.map((a) => AUDIENCE_LABEL[a]).join(', ')}`);
     setTitle('');

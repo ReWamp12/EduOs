@@ -1,8 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { Batch, Student } from './types';
-import { teacherBatches, studentsForBatch, timetableForBatch } from './batchData';
+import { Batch, Student, TimetableSlot } from './types';
+import { teacherBatches, studentsForBatch, timetableForBatch, defaultTeacherBatch } from './batchData';
 import { mockProfiles } from './mockData';
 
 export interface TeacherProfile {
@@ -36,30 +36,30 @@ export const TeacherBatchProvider: React.FC<{
   setBatchId: (id: string) => void;
   children: React.ReactNode;
 }> = ({ batchId, setBatchId, children }) => {
-  const batches = teacherBatches;
-  const batch = batches.find((b) => b.id === batchId) ?? batches[0];
-  const students = studentsForBatch(batch.id);
+  const batches = teacherBatches || [];
+  const batch = batches.find((b) => b.id === batchId) ?? batches[0] ?? defaultTeacherBatch;
+  const students = batch?.id ? studentsForBatch(batch.id) : [];
 
   const teacher: TeacherProfile = useMemo(() => {
     const t = mockProfiles.teacher;
     return {
-      id: t.id,
-      name: `${t.firstName} ${t.lastName}`,
-      email: t.email,
-      designation: 'Mathematics Department HOD',
-      subjects: ['Mathematics', 'Applied Mathematics', 'Quantitative Aptitude'],
+      id: t?.id || 'teacher-0',
+      name: t ? `${t.firstName} ${t.lastName}`.trim() : 'Teacher',
+      email: t?.email || '',
+      designation: 'Faculty Educator',
+      subjects: ['Mathematics', 'Science', 'English'],
     };
   }, []);
 
   // Compute dynamic subjects available in this batch and for this teacher
   const subjects = useMemo(() => {
-    const slots = timetableForBatch(batch.id);
-    const slotSubjects = slots.map((s) => s.subjectName.replace(/\s*\([^)]*\)/g, '').trim());
+    const slots = batch?.id ? timetableForBatch(batch.id) : [];
+    const slotSubjects = (slots || []).map((s: TimetableSlot) => s.subjectName ? s.subjectName.replace(/\s*\([^)]*\)/g, '').trim() : '');
     return Array.from(new Set([...teacher.subjects, ...slotSubjects])).filter(Boolean);
-  }, [batch.id, teacher.subjects]);
+  }, [batch?.id, teacher.subjects]);
 
   return (
-    <TeacherBatchContext.Provider value={{ batchId: batch.id, batch, students, batches, teacher, subjects, setBatchId }}>
+    <TeacherBatchContext.Provider value={{ batchId: batch?.id || '', batch, students, batches, teacher, subjects, setBatchId }}>
       {children}
     </TeacherBatchContext.Provider>
   );

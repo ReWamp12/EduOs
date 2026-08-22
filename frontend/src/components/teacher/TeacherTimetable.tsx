@@ -54,9 +54,9 @@ export const TeacherTimetable: React.FC = () => {
     },
   ]);
 
-  const currentSlots = timetable
-    .filter((s) => s.dayOfWeek === selectedDay)
-    .sort((a, b) => a.periodNumber - b.periodNumber);
+  const currentSlots: TimetableSlot[] = (timetable || [])
+    .filter((s: TimetableSlot) => s.dayOfWeek === selectedDay)
+    .sort((a: TimetableSlot, b: TimetableSlot) => a.periodNumber - b.periodNumber);
 
   const handleRequestSub = (slot: TimetableSlot) => {
     setRequestedSlots((prev) => ({ ...prev, [slot.id]: true }));
@@ -72,15 +72,15 @@ export const TeacherTimetable: React.FC = () => {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Faculty Timetable"
-        subtitle={`${batch.name} · weekly schedule with peer class coverage & substitutions`}
-        actions={<Badge tone="primary">Week of Aug 17</Badge>}
+        subtitle={`${batch?.name || 'Faculty Timetable'} · weekly schedule with peer class coverage & substitutions`}
+        actions={<Badge tone="primary">Academic Year 2026-27</Badge>}
       />
 
       {/* Day switcher */}
       <div className="flex flex-wrap gap-2">
         {DAYS.map((d) => {
           const isSelected = selectedDay === d.dayNumber;
-          const count = timetable.filter((s) => s.dayOfWeek === d.dayNumber).length;
+          const count = (timetable || []).filter((s: TimetableSlot) => s.dayOfWeek === d.dayNumber).length;
           return (
             <button
               key={d.dayNumber}
@@ -113,7 +113,7 @@ export const TeacherTimetable: React.FC = () => {
           bodyClassName="flex flex-col gap-3"
         >
           {currentSlots.length > 0 ? (
-            currentSlots.map((slot) => {
+            currentSlots.map((slot: TimetableSlot) => {
               const requested = requestedSlots[slot.id];
               return (
                 <div

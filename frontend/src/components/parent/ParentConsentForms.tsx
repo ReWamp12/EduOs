@@ -25,22 +25,23 @@ const CONSENT_VERSION = 'v2.4';
 
 export const ParentConsentForms: React.FC = () => {
   const { consentForms } = useAppStore();
-  const activeChild = mockParentChildren[0]; // Aarav Sharma by default
+  const defaultChild = { id: '', name: 'Student', rollNumber: '', grade: 'Class N/A', batchName: 'Class N/A', branch: '', targetExam: '', avatarUrl: '', attendance: 0, attendancePct: 0, latestScore: '', rankInBatch: 0, unreadAlerts: 0 };
+  const activeChild = mockParentChildren[0] || defaultChild;
   const [selectedChildId, setSelectedChildId] = useState(activeChild.id);
   const currentChild = mockParentChildren.find((c) => c.id === selectedChildId) || activeChild;
 
   // E-Signature Modal State
   const [signingModalForm, setSigningModalForm] = useState<DigitalConsentForm | null>(null);
-  const [parentFullName, setParentFullName] = useState('Mr. Rajesh Kumar Sharma');
+  const [parentFullName, setParentFullName] = useState('Parent / Guardian');
   const [parentRelation, setParentRelation] = useState<'Father' | 'Mother' | 'Legal Guardian'>('Father');
-  const [parentEmergencyPhone, setParentEmergencyPhone] = useState('+91 98111 22334');
+  const [parentEmergencyPhone, setParentEmergencyPhone] = useState('');
   const [declarationAgreed, setDeclarationAgreed] = useState(false);
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
 
   // Derive status of each consent form for the current selected child
-  const formsWithChildStatus = consentForms.map((form) => {
-    const childResponse = form.responses.find(
-      (r) => r.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
+  const formsWithChildStatus = (consentForms || []).map((form) => {
+    const childResponse = (form.responses || []).find(
+      (r) => r.studentName && currentChild.name && r.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
     );
     const status: 'signed' | 'declined' | 'pending' = childResponse ? childResponse.status : 'pending';
     const signedOn = childResponse?.signedAt
@@ -125,23 +126,25 @@ export const ParentConsentForms: React.FC = () => {
         />
 
         {/* Multi-child switcher */}
-        <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
-          <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
-          {mockParentChildren.map((ch) => (
-            <button
-              key={ch.id}
-              onClick={() => setSelectedChildId(ch.id)}
-              className={cn(
-                'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
-                selectedChildId === ch.id
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'text-text-secondary hover:bg-muted',
-              )}
-            >
-              {ch.name.split(' ')[0]} ({ch.grade.split(' - ')[0]})
-            </button>
-          ))}
-        </div>
+        {mockParentChildren && mockParentChildren.length > 0 && (
+          <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
+            <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
+            {mockParentChildren.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => setSelectedChildId(ch.id)}
+                className={cn(
+                  'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
+                  selectedChildId === ch.id
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'text-text-secondary hover:bg-muted',
+                )}
+              >
+                {ch.name ? ch.name.split(' ')[0] : 'Child'} ({ch.grade ? ch.grade.split(' - ')[0] : ''})
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -150,7 +153,7 @@ export const ParentConsentForms: React.FC = () => {
           value={pendingCount}
           icon={<Clock size={16} />}
           tone={pendingCount > 0 ? 'destructive' : 'success'}
-          hint={pendingCount > 0 ? `Please review for ${currentChild.name.split(' ')[0]}` : 'All caught up'}
+          hint={pendingCount > 0 ? `Please review for ${currentChild?.name ? currentChild.name.split(' ')[0] : 'your child'}` : 'All caught up'}
         />
         <StatCard label="Signed & Authorized" value={signedCount} icon={<ShieldCheck size={16} />} tone="success" hint="E-Consent on legal record" />
         <StatCard
