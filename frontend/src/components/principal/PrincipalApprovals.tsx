@@ -24,10 +24,14 @@ import {
   CheckCircle2,
   XCircle,
   MessageSquare,
+  Award,
+  ShieldCheck,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 type Decision = 'approved' | 'rejected';
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
+type ApprovalCategory = 'leave' | 'gradebook';
 
 const statusTone: Record<LeaveRequest['status'], 'warning' | 'success' | 'danger'> = {
   pending: 'warning',
@@ -35,10 +39,49 @@ const statusTone: Record<LeaveRequest['status'], 'warning' | 'success' | 'danger
   rejected: 'danger',
 };
 
+interface GradebookApprovalItem {
+  id: string;
+  examTitle: string;
+  batchName: string;
+  teacherName: string;
+  subject: string;
+  submittedAt: string;
+  studentCount: number;
+  averagePct: number;
+  status: 'pending_signoff' | 'signed_published';
+}
+
+const INITIAL_GRADEBOOK_QUEUE: GradebookApprovalItem[] = [
+  {
+    id: 'gb-1',
+    examTitle: 'CBSE Pre-Board Assessment 1 (Full Syllabus)',
+    batchName: 'Class 10 - Section A (Board Batch)',
+    teacherName: 'Prof. Amit Verma',
+    subject: 'Mathematics (Standard)',
+    submittedAt: 'Today, 02:30 PM',
+    studentCount: 38,
+    averagePct: 86.4,
+    status: 'pending_signoff',
+  },
+  {
+    id: 'gb-2',
+    examTitle: 'All-India Science Olympiad Mock 03',
+    batchName: 'Class 10 - Section A (Board Batch)',
+    teacherName: 'Mrs. Sunita Rao',
+    subject: 'Science (Physics & Chemistry)',
+    submittedAt: 'Yesterday, 04:15 PM',
+    studentCount: 38,
+    averagePct: 81.2,
+    status: 'pending_signoff',
+  },
+];
+
 export const PrincipalApprovals: React.FC = () => {
   const { leaveRequests } = useAppStore();
+  const [activeCategory, setActiveCategory] = useState<ApprovalCategory>('leave');
   const [comments, setComments] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<StatusFilter>('all');
+  const [gradebookQueue, setGradebookQueue] = useState<GradebookApprovalItem[]>(INITIAL_GRADEBOOK_QUEUE);
 
   const counts = useMemo(
     () => ({
@@ -73,6 +116,17 @@ export const PrincipalApprovals: React.FC = () => {
     }
   };
 
+  const handleSignoffGradebook = (item: GradebookApprovalItem) => {
+    setGradebookQueue((prev) =>
+      prev.map((g) => (g.id === item.id ? { ...g, status: 'signed_published' } : g)),
+    );
+    toast(
+      'Gradebook Signed & Published',
+      'success',
+      `${item.examTitle} · Digital seal applied · Report cards visible to parents.`,
+    );
+  };
+
   const setComment = (id: string, value: string) =>
     setComments((prev) => ({ ...prev, [id]: value }));
 
@@ -83,14 +137,100 @@ export const PrincipalApprovals: React.FC = () => {
     { key: 'rejected', label: 'Rejected', count: counts.rejected },
   ];
 
+  const pendingGradebookCount = gradebookQueue.filter((g) => g.status === 'pending_signoff').length;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Staff Leave Approvals Queue"
-        subtitle="Executive authority sign-off for teaching & non-teaching staff"
+        title="Institutional Approvals & Governance Queue"
+        subtitle="Executive authority sign-off for staff leave applications and academic report cards"
       />
 
-      {/* Summary KPIs */}
+      {/* Category Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-1">
+        <button
+          onClick={() => setActiveCategory('leave')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 transition-all',
+            activeCategory === 'leave'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-text-secondary hover:text-foreground',
+          )}
+        >
+          <UserCheck size={16} /> Staff Leave Requests
+          {counts.pending > 0 && <Badge tone="warning">{counts.pending}</Badge>}
+        </button>
+        <button
+          onClick={() => setActiveCategory('gradebook')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 transition-all',
+            activeCategory === 'gradebook'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-text-secondary hover:text-foreground',
+          )}
+        >
+          <Award size={16} /> Gradebook &amp; Report Card Sign-off
+          {pendingGradebookCount > 0 && <Badge tone="warning">{pendingGradebookCount} Pending</Badge>}
+        </button>
+      </div>
+
+      {activeCategory === 'gradebook' ? (
+        /* Gradebook & Report Card Sign-off Queue */
+        <div className="space-y-4 animate-fade-in">
+          <SectionCard
+            title="Academic Assessment Sign-off Queue"
+            icon={<FileSpreadsheet size={18} />}
+            action={<Badge tone="warning">{pendingGradebookCount} Awaiting Signature</Badge>}
+            bodyClassName="flex flex-col gap-4"
+          >
+            <p className="text-xs text-text-secondary">
+              Review teacher-submitted scorecards and apply the Principal Digital Seal to publish official CBSE Report Cards to Student and Parent dashboards.
+            </p>
+
+            <div className="space-y-3">
+              {gradebookQueue.map((item) => (
+                <Card key={item.id} className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-foreground text-sm">{item.examTitle}</h4>
+                      <Badge tone={item.status === 'signed_published' ? 'success' : 'warning'}>
+                        {item.status === 'signed_published' ? 'Signed & Live' : 'Pending Principal Seal'}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-text-secondary flex flex-wrap items-center gap-3">
+                      <span>Batch: <strong className="text-foreground">{item.batchName}</strong></span>
+                      <span>Subject: <strong className="text-foreground">{item.subject}</strong></span>
+                      <span>Evaluator: <strong>{item.teacherName}</strong></span>
+                      <span>Submitted: <strong>{item.submittedAt}</strong></span>
+                    </div>
+                    <div className="text-xs text-text-tertiary">
+                      {item.studentCount} Students evaluated · Batch Average: <strong className="text-primary">{item.averagePct}%</strong>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-2">
+                    {item.status === 'signed_published' ? (
+                      <div className="flex items-center gap-1.5 text-xs text-success font-semibold px-3 py-2 bg-success-soft rounded-lg">
+                        <ShieldCheck size={16} /> Digitally Signed
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleSignoffGradebook(item)}
+                        className="btn-primary text-xs flex items-center gap-1.5 shadow-xs"
+                      >
+                        <ShieldCheck size={15} /> Sign &amp; Publish Report Cards
+                      </button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+      ) : (
+        /* Leave Requests Queue */
+        <>
+          {/* Summary KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           label="Awaiting Decision"
@@ -246,6 +386,8 @@ export const PrincipalApprovals: React.FC = () => {
           ))
         )}
       </SectionCard>
+      </>
+      )}
     </div>
   );
 };

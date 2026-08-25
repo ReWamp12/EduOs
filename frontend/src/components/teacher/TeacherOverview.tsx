@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { mockProfiles } from '@/lib/mockData';
 import { useTeacherBatch } from '@/lib/teacherContext';
 import { timetableForBatch } from '@/lib/batchData';
 import { StatCard, SectionCard, Badge, EmptyState } from '@/components/ui';
@@ -19,14 +18,13 @@ import {
 } from 'lucide-react';
 
 export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
-  const teacher = mockProfiles.teacher;
-  const { batch, students, batches } = useTeacherBatch();
+  const { batch, students, batches, teacher } = useTeacherBatch();
   const slots: TimetableSlot[] = batch?.id ? timetableForBatch(batch.id) : [];
   const avgAttendance = students.length
     ? (students.reduce((a, s) => a + s.attendancePct, 0) / students.length).toFixed(1)
     : '—';
 
-  const batchShortName = batch?.name ? batch.name.split(' - ')[0].split(' — ')[0] : 'No Batch';
+  const batchShortName = batch?.name ? batch.name.split(' - ')[0].split(' — ')[0] : 'Class 10-A';
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,12 +36,12 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
         >
           <div className="flex items-center gap-4">
             <div className="grid h-16 w-16 place-items-center rounded-lg bg-primary text-primary-foreground font-semibold text-xl ring-2 ring-surface shadow-sm">
-              {teacher?.firstName ? teacher.firstName[0] : 'T'}
+              {teacher?.name ? teacher.name[0] : 'M'}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-title text-foreground">
-                  Welcome, {teacher?.firstName || 'Faculty'} {teacher?.lastName || ''}
+                  Welcome, {teacher?.name || 'Meera Iyer'}
                 </h2>
                 <Badge tone="primary">{batchShortName}</Badge>
               </div>

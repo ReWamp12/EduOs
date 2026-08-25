@@ -9,10 +9,12 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Toaster } from '@/components/ui/toast';
 import { NoticeBoard } from '@/components/common/NoticeBoard';
+import { SettingsView } from '@/components/common/SettingsView';
 import { TeacherWorkspace } from '@/components/teacher/TeacherWorkspace';
 
 // Student Components
 import { StudentOverview } from '@/components/student/StudentOverview';
+import { StudentAIChatbot } from '@/components/student/StudentAIChatbot';
 import { StudentAttendance } from '@/components/student/StudentAttendance';
 import { StudentLMS } from '@/components/student/StudentLMS';
 import { StudentAssignments } from '@/components/student/StudentAssignments';
@@ -49,6 +51,7 @@ import { PrincipalStudentDirectory } from '@/components/principal/PrincipalStude
 import { PrincipalConsentForms } from '@/components/principal/PrincipalConsentForms';
 import { PrincipalApprovals } from '@/components/principal/PrincipalApprovals';
 import { PrincipalInspection } from '@/components/principal/PrincipalInspection';
+import { FinanceWorkspace } from '@/components/finance/FinanceWorkspace';
 
 // Super Admin Components
 import { AdminOverview } from '@/components/admin/AdminOverview';
@@ -75,13 +78,22 @@ export default function Home() {
   // Teacher workspace is scoped to a selected batch; kept for the whole session.
   const [teacherBatchId, setTeacherBatchId] = useState<string | null>(null);
 
-  const activeRole: UserRole = session?.roles[0] ?? 'student';
+  // Testing/evaluation view-as: lets an authenticated session preview any
+  // stakeholder dashboard without signing out. Client-side only — RLS and the
+  // API still enforce the session's real permissions, and per-user views show
+  // richest data when signed in as a matching seeded account.
+  const [roleOverride, setRoleOverride] = useState<UserRole | null>(null);
+
+  const activeRole: UserRole = roleOverride ?? session?.roles[0] ?? 'student';
 
   const handleRoleChange = (role: UserRole) => {
-    // Only meaningful in the fixture sandbox. With a real session the sidebar
-    // offers just the roles the user actually holds, and `setDemoRole` is a
-    // no-op — EDUOS-107 removes the control from the authenticated UI entirely.
-    setDemoRole(role);
+    if (isDemo) {
+      // Fixture sandbox swaps the whole demo session.
+      setDemoRole(role);
+    } else {
+      // Real session keeps its identity; only the viewed dashboard changes.
+      setRoleOverride(role);
+    }
     setActiveTab('overview');
     setMobileNavOpen(false);
   };
@@ -121,11 +133,17 @@ export default function Home() {
   }
 
   const renderContent = () => {
+    if (activeTab === 'settings') {
+      return <SettingsView onNavigate={setActiveTab} />;
+    }
+
     switch (activeRole) {
       case 'student':
         switch (activeTab) {
           case 'overview':
             return <StudentOverview onNavigate={setActiveTab} />;
+          // case 'ai_chatbot': // Flagged/hidden until RAG feature rollout is complete
+          //   return <StudentAIChatbot />;
           case 'attendance':
             return <StudentAttendance />;
           case 'lms':
@@ -200,6 +218,8 @@ export default function Home() {
         switch (activeTab) {
           case 'overview':
             return <PrincipalOverview onNavigate={setActiveTab} />;
+          case 'finance':
+            return <FinanceWorkspace />;
           case 'students':
             return <PrincipalStudentDirectory />;
           case 'consent':
@@ -224,6 +244,8 @@ export default function Home() {
             return <TenantManager />;
           case 'feature_matrix':
             return <FeatureMatrix />;
+          case 'finance':
+            return <FinanceWorkspace />;
           case 'branding_studio':
             return <BrandingStudio />;
           case 'compliance_lib':
@@ -247,6 +269,12 @@ export default function Home() {
           default:
             return <HROverview onNavigate={setActiveTab} />;
         }
+
+      case 'finance_officer':
+        return <FinanceWorkspace />;
+
+      case 'accountant':
+        return <FinanceWorkspace />;
     }
   };
 
@@ -264,8 +292,12 @@ export default function Home() {
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {isDemo && <DemoModeBanner />}
-        <Navbar activeRole={activeRole} activeTab={activeTab} onOpenMobile={() => setMobileNavOpen(true)} />
+        <Navbar
+          activeRole={activeRole}
+          setActiveRole={handleRoleChange}
+          activeTab={activeTab}
+          onOpenMobile={() => setMobileNavOpen(true)}
+        />
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div key={`${activeRole}-${activeTab}`} className="mx-auto max-w-[1360px] animate-fade-in">

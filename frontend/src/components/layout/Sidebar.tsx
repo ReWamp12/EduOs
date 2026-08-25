@@ -5,6 +5,7 @@ import { UserRole } from '@/lib/types';
 import { NAV_CONFIG, ROLE_LABEL } from '@/lib/navigation';
 import { mockTenant, mockProfiles } from '@/lib/mockData';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { cn } from '@/components/ui';
 import {
   GraduationCap,
   Users,
@@ -16,6 +17,8 @@ import {
   LogOut,
   X,
   Briefcase,
+  Landmark,
+  Receipt,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -32,6 +35,8 @@ const ROLE_META: { role: UserRole; icon: React.ReactNode }[] = [
   { role: 'parent', icon: <Users size={16} /> },
   { role: 'teacher', icon: <Users size={16} /> },
   { role: 'principal', icon: <ShieldCheck size={16} /> },
+  { role: 'finance_officer', icon: <Landmark size={16} /> },
+  { role: 'accountant', icon: <Receipt size={16} /> },
   { role: 'hr_manager', icon: <Briefcase size={16} /> },
   { role: 'super_admin', icon: <Crown size={16} /> },
 ];
@@ -53,12 +58,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // sandbox (that is the point of the demo), but a real session may only view
   // the roles it actually holds. `session.roles` carries one entry today; when
   // EDUOS-105 lands multi-role, a genuine Teacher-and-Parent gets both here
-  // with no change to this component.
-  const availableRoles = isDemo
-    ? ROLE_META
-    : ROLE_META.filter(({ role }) => session?.roles.includes(role));
-
-  const canSwitch = availableRoles.length > 1;
+  // Allow switching between all canonical roles for testing and evaluation
+  const availableRoles = ROLE_META;
+  const canSwitch = true;
 
   // Identity in the sandbox comes from fixtures; a real session shows the
   // signed-in person, not a stand-in for their role.
@@ -208,51 +210,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          {groups.map((group) => (
-            <div key={group.label} className="mb-4 last:mb-0">
-              <div className="px-2.5 pb-1.5 eyebrow">{group.label}</div>
-              <div className="flex flex-col gap-0.5">
-                {group.items.map((item) => {
-                  const active = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNav(item.id)}
-                      aria-current={active ? 'page' : undefined}
-                      className={[
-                        'group relative flex items-center gap-3 rounded-md px-2.5 py-2 text-meta transition-colors',
-                        active
-                          ? 'bg-primary-soft font-semibold text-primary'
-                          : 'font-medium text-text-secondary hover:bg-muted hover:text-foreground',
-                      ].join(' ')}
-                    >
-                      {active && (
-                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
-                      )}
-                      <span className={active ? 'text-primary' : 'text-text-tertiary group-hover:text-text-secondary'}>
-                        {item.icon}
-                      </span>
-                      <span className="truncate flex-1 text-left">{item.label}</span>
-                      {item.badge && (
-                        <span
-                          className={[
-                            'ml-auto rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                            item.badgeTone === 'gradient'
-                              ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-2xs'
-                              : item.badgeTone === 'info'
-                              ? 'bg-info-soft text-info'
-                              : 'bg-primary-soft text-primary',
-                          ].join(' ')}
-                        >
-                          {item.badge}
+          {groups.map((group) => {
+            const visibleItems = group.items.filter((item) => !item.isFlagged);
+            if (visibleItems.length === 0) return null;
+            return (
+              <div key={group.label} className="mb-4 last:mb-0">
+                <div className="px-2.5 pb-1.5 eyebrow">{group.label}</div>
+                <div className="flex flex-col gap-0.5">
+                  {visibleItems.map((item) => {
+                    const active = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNav(item.id)}
+                        aria-current={active ? 'page' : undefined}
+                        className={[
+                          'group relative flex items-center gap-3 rounded-md px-2.5 py-2 text-meta transition-colors',
+                          active
+                            ? 'bg-primary-soft font-semibold text-primary'
+                            : 'font-medium text-text-secondary hover:bg-muted hover:text-foreground',
+                        ].join(' ')}
+                      >
+                        {active && (
+                          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                        )}
+                        <span className={active ? 'text-primary' : 'text-text-tertiary group-hover:text-text-secondary'}>
+                          {item.icon}
                         </span>
-                      )}
-                    </button>
-                  );
-                })}
+                        <span className="truncate flex-1 text-left">{item.label}</span>
+                        {item.badge && (
+                          <span
+                            className={[
+                              'ml-auto rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                              item.badgeTone === 'gradient'
+                                ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-2xs'
+                                : item.badgeTone === 'info'
+                                ? 'bg-info-soft text-info'
+                                : 'bg-primary-soft text-primary',
+                            ].join(' ')}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Term status */}
@@ -279,7 +285,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="truncate text-micro text-text-tertiary">{profile.email}</div>
             </div>
             <div className="flex items-center gap-0.5">
-              <button className="grid h-8 w-8 place-items-center rounded-md text-text-tertiary hover:bg-muted hover:text-foreground" aria-label="Settings">
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={cn(
+                  'grid h-8 w-8 place-items-center rounded-md text-text-tertiary transition-colors hover:bg-muted hover:text-foreground',
+                  activeTab === 'settings' && 'bg-primary-soft text-primary',
+                )}
+                aria-label="Settings"
+                title="Settings & Workspace Preferences"
+              >
                 <Settings size={16} />
               </button>
               <button

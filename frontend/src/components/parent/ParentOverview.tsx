@@ -19,18 +19,21 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
   const [selectedChildId, setSelectedChildId] = useState(mockParentChildren[0]?.id || 'child-1');
   const activeChild = mockParentChildren.find((c) => c.id === selectedChildId) || mockParentChildren[0];
 
-  const childInvoices = feeInvoices.filter(
-    (i) => i.studentName.toLowerCase().trim() === activeChild.name.toLowerCase().trim(),
-  );
+  // Guarded: with no linked children the widgets simply show empty, they
+  // must never crash the whole Parent dashboard on `.name` of undefined.
+  const childName = activeChild?.name?.toLowerCase().trim() || '';
+  const childInvoices = childName
+    ? feeInvoices.filter((i) => i.studentName.toLowerCase().trim() === childName)
+    : [];
   const unpaidInvoice = childInvoices.find((i) => i.status !== 'paid');
 
-  const pendingConsent = consentForms.filter((f) =>
-    f.responses.some(
-      (r) =>
-        r.studentName.toLowerCase().trim() === activeChild.name.toLowerCase().trim() &&
-        r.status === 'pending',
-    ),
-  );
+  const pendingConsent = childName
+    ? consentForms.filter((f) =>
+        f.responses.some(
+          (r) => r.studentName.toLowerCase().trim() === childName && r.status === 'pending',
+        ),
+      )
+    : [];
 
   return (
     <div className="flex flex-col gap-6">

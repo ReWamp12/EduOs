@@ -100,6 +100,34 @@ function LoginForm() {
           )}
 
           <form onSubmit={handleSubmit} noValidate>
+            {/* Quick Demo Credentials */}
+            <div className="mb-4 rounded-xl border border-border/60 bg-surface-muted p-2.5">
+              <span className="mb-1.5 block text-[11px] font-bold text-text-tertiary uppercase tracking-wider">
+                Quick Role Credentials:
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { label: 'Student', email: 'student@gmail.com' },
+                  { label: 'Teacher', email: 'teacher@gmail.com' },
+                  { label: 'Parent', email: 'parent@gmail.com' },
+                  { label: 'Admin', email: 'admin@gmail.com' },
+                ].map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => {
+                      setEmail(acc.email);
+                      setPassword('EduOS@2026');
+                    }}
+                    className="flex flex-col rounded-lg border border-border/80 bg-surface p-1.5 text-left transition-all hover:border-primary hover:bg-primary-soft hover:text-primary shadow-2xs"
+                  >
+                    <span className="text-xs font-bold text-foreground">{acc.label}</span>
+                    <span className="text-[10px] text-text-tertiary truncate">{acc.email}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="mb-4">
               <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-foreground">
                 Email

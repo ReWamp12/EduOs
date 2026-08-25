@@ -5,12 +5,13 @@ import { useAppStore, markParentAlertsRead, clearSingleParentAlert, ParentAlert 
 import { mockParentChildren } from '@/lib/mockData';
 import { SectionCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
-import { BellRing, CheckCheck, UserX, UserCheck, Clock, Award, CalendarClock, CheckCircle2, X } from 'lucide-react';
+import { BellRing, CheckCheck, UserX, UserCheck, Clock, Award, CalendarClock, CheckCircle2, X, IndianRupee } from 'lucide-react';
 
 const childNames = mockParentChildren.map((c) => c.name);
 const MAX_QUEUE_SIZE = 3;
 
 const iconFor = (a: ParentAlert) => {
+  if (a.type === 'fee') return <IndianRupee size={15} />;
   if (a.type === 'result') return <Award size={15} />;
   if (a.type === 'exam') return <CalendarClock size={15} />;
   if (a.tone === 'danger') return <UserX size={15} />;
@@ -19,7 +20,7 @@ const iconFor = (a: ParentAlert) => {
 };
 
 const badgeLabel = (a: ParentAlert) =>
-  a.type === 'result' ? 'Result' : a.type === 'exam' ? 'Exam' : a.title.replace('Marked ', '');
+  a.type === 'fee' ? 'Fees' : a.type === 'result' ? 'Result' : a.type === 'exam' ? 'Exam' : a.title.replace('Marked ', '');
 
 const iconBg = (tone: ParentAlert['tone']) =>
   tone === 'danger'

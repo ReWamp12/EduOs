@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Student } from '@/lib/types';
 import { AssignmentRecord, Submission, gradeStudentAssignment, sendStudentReminder, sendAssignmentReminder } from '@/lib/store';
+import { dataService } from '@/lib/dataService';
 import { Card, Badge, EmptyState, ProgressBar, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { StudentProfileDetailModal } from '@/components/common/StudentProfileDetailModal';
@@ -336,8 +337,22 @@ export const AssignmentStudentRosterWidget: React.FC<Props> = ({
                               <span className="text-text-tertiary">({sub.fileSize || '1.5 MB'})</span>
                             </span>
                             <button
-                              onClick={() => {
-                                toast('Document Preview', 'info', `Viewing solution file: ${sub.fileName || 'Solution.pdf'} (${student.name})`);
+                              onClick={async () => {
+                                // Private bucket (EDUOS-127): mint a 5-minute
+                                // signed link rather than following a
+                                // permanent public URL.
+                                if (sub.filePath) {
+                                  const url = await dataService.getSubmissionSignedUrl(sub.filePath);
+                                  if (url) {
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                  } else {
+                                    toast('Access denied', 'error', 'Could not open this submission document.');
+                                  }
+                                } else if (sub.fileUrl) {
+                                  window.open(sub.fileUrl, '_blank', 'noopener,noreferrer');
+                                } else {
+                                  toast('No document attached', 'info', `${student.name} submitted without an uploaded file.`);
+                                }
                               }}
                               className="text-micro font-medium text-primary hover:underline inline-flex items-center gap-0.5"
                             >

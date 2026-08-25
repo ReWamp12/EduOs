@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { mockExamResults, mockCurrentStudent } from '@/lib/mockData';
 import { ExamResult } from '@/lib/types';
+import { dataService } from '@/lib/dataService';
 import { useAppStore } from '@/lib/store';
 import { PageHeader, SectionCard, Card, Badge, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -21,12 +22,25 @@ import {
 export const StudentExams: React.FC = () => {
   const { exams } = useAppStore();
   const upcoming = exams.filter(
-    (e) => e.status === 'scheduled' && e.batchName === mockCurrentStudent.batchName,
+    (e) => e.status === 'scheduled' && (!e.batchName || e.batchName.includes('Class 10') || e.batchName === mockCurrentStudent.batchName),
   );
-  const [results] = useState<ExamResult[]>(() => mockExamResults.map((e) => ({ ...e })));
+  const [results, setResults] = useState<ExamResult[]>(() => mockExamResults.map((e) => ({ ...e })));
   const [expandedId, setExpandedId] = useState<string | null>(results[0]?.id ?? null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    dataService.getExamResults().then((res) => {
+      if (active && res && res.length > 0) {
+        setResults(res);
+        setExpandedId(res[0]?.id ?? null);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleDownloadScorecard = async (exam: ExamResult) => {
     setDownloadingId(exam.id);

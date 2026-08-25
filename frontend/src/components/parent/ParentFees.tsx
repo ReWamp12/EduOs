@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import { mockParentChildren, mockTenant } from '@/lib/mockData';
+import React, { useEffect, useState } from 'react';
+import { mockTenant } from '@/lib/mockData';
 import { useAppStore, payFeeInvoice, FeeInvoiceRecord } from '@/lib/store';
+import { dataService } from '@/lib/dataService';
+import { Student } from '@/lib/types';
+import { downloadFeeReceipt } from '@/lib/receipt';
 import { Card, SectionCard, StatCard, Badge, PageHeader, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import confetti from 'canvas-confetti';
@@ -17,7 +20,6 @@ import {
   X,
   IndianRupee,
   Receipt,
-  Printer,
   Calendar,
   Building2,
   Lock,
@@ -26,21 +28,47 @@ import {
   AlertCircle,
   FileCheck,
   Check,
+  Loader2,
 } from 'lucide-react';
 
 type PayMethod = 'UPI' | 'Card' | 'Net Banking';
 
 export const ParentFees: React.FC = () => {
   const { feeInvoices } = useAppStore();
-  const defaultChild = { id: '', name: 'Student', rollNumber: '', grade: 'Class N/A', batchName: 'Class N/A', branch: '', targetExam: '', avatarUrl: '', attendance: 0, attendancePct: 0, latestScore: '', rankInBatch: 0, unreadAlerts: 0 };
-  const activeChild = mockParentChildren[0] || defaultChild;
-  const [selectedChildId, setSelectedChildId] = useState(activeChild.id);
-  const currentChild = mockParentChildren.find((c) => c.id === selectedChildId) || activeChild;
+  // EDUOS-129: children and the fee ledger both come from Supabase, scoped by
+  // RLS to this guardian. The local store is used only when Supabase is not
+  // configured at all — never merged, so invoice IDs can never mix.
+  const [children, setChildren] = useState<Student[] | null>(null);
+  const [dbInvoices, setDbInvoices] = useState<FeeInvoiceRecord[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedChildId, setSelectedChildId] = useState<string>('');
 
-  // Filter invoices for current selected child
-  const childInvoices = (feeInvoices || []).filter(
-    (i) => i.studentName && currentChild.name && i.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
-  );
+  useEffect(() => {
+    let active = true;
+    Promise.all([dataService.getParentChildren(), dataService.getFeeInvoices()]).then(([kids, rows]) => {
+      if (!active) return;
+      setChildren(kids);
+      setDbInvoices(rows);
+      if (kids?.length) setSelectedChildId((prev) => prev || kids[0].id);
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const liveMode = dbInvoices !== null;
+  const childList = children ?? [];
+  const currentChild = childList.find((c) => c.id === selectedChildId) || childList[0] || null;
+
+  // Filter invoices for the selected child. RLS already limits the rows to
+  // this guardian's children; the name match picks one child of several.
+  const sourceInvoices = dbInvoices ?? feeInvoices ?? [];
+  const childInvoices = currentChild
+    ? sourceInvoices.filter(
+        (i) => i.studentName?.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
+      )
+    : [];
 
   const pendingInvoices = childInvoices.filter((i) => i.status !== 'paid');
   const paidInvoices = childInvoices.filter((i) => i.status === 'paid');
@@ -62,46 +90,88 @@ export const ParentFees: React.FC = () => {
     setSelectedMethod('UPI');
   };
 
-  const handleConfirmPayment = (e: React.FormEvent) => {
+  const handleConfirmPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingInvoice) return;
 
     setIsProcessing(true);
     const chosenMethod = selectedMethod === 'UPI' ? `UPI (${upiId.split('@')[1] || 'BHIM'})` : selectedMethod;
 
-    setTimeout(() => {
-      const paidResult = payFeeInvoice(payingInvoice.id, chosenMethod);
-      setIsProcessing(false);
-      setPayingInvoice(null);
+    // Brief hold so the processing state is perceivable.
+    await new Promise((r) => setTimeout(r, 900));
 
-      // Trigger celebratory confetti
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      } catch {}
+    let paidResult: FeeInvoiceRecord | null = null;
+    if (liveMode) {
+      // Ledger of record: single ACID transaction in Postgres — row-locked,
+      // double-payment rejected, receipt stamped atomically.
+      paidResult = await dataService.collectFeePayment(payingInvoice.id, chosenMethod);
+      if (!paidResult) {
+        setIsProcessing(false);
+        toast('Payment failed', 'error', 'The ledger rejected this payment (already paid or unreachable). Refresh and try again.');
+        return;
+      }
+      setDbInvoices((prev) => (prev ? prev.map((i) => (i.id === paidResult!.id ? paidResult! : i)) : prev));
+    } else {
+      // Offline/demo fallback.
+      paidResult = payFeeInvoice(payingInvoice.id, chosenMethod);
+    }
 
-      toast(
-        'Payment Successful!',
-        'success',
-        `₹${payingInvoice.amount.toLocaleString('en-IN')} paid for "${payingInvoice.title}". Receipt #${paidResult?.receiptNumber || 'REC-2026'} generated.`,
-      );
-    }, 900);
-  };
+    setIsProcessing(false);
+    setPayingInvoice(null);
 
-  const handleDownloadReceipt = (inv: FeeInvoiceRecord) => {
+    // Trigger celebratory confetti
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    } catch {}
+
     toast(
-      'Receipt Downloaded',
+      'Payment Successful!',
       'success',
-      `Official Fee Receipt ${inv.receiptNumber || inv.invoiceNumber} for ${inv.studentName} downloaded.`,
+      `₹${payingInvoice.amount.toLocaleString('en-IN')} paid for "${payingInvoice.title}". Receipt #${paidResult?.receiptNumber || 'REC-2026'} generated.`,
     );
   };
 
-  const handlePrintReceipt = () => {
-    window.print();
+  const handleDownloadReceipt = async (inv: FeeInvoiceRecord) => {
+    try {
+      await downloadFeeReceipt(inv, {
+        name: mockTenant.name,
+        affiliation: 'CBSE Affiliation No. 1030492 · School Code: 20491',
+        address: 'Main Senior Wing Campus, Institutional Area, New Delhi - 110058',
+      });
+      toast(
+        'Receipt Downloaded',
+        'success',
+        `Official Fee Receipt ${inv.receiptNumber || inv.invoiceNumber} saved as PDF.`,
+      );
+    } catch {
+      toast('Download failed', 'error', 'Could not generate the receipt PDF. Please try again.');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2.5 py-16 text-xs text-text-secondary">
+        <Loader2 size={15} className="animate-spin" /> Loading fee ledger…
+      </div>
+    );
+  }
+
+  if (!currentChild) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Fees & Payment Receipts" subtitle="Academic Session 2026-27" />
+        <EmptyState
+          icon={<IndianRupee size={20} />}
+          title="No linked student"
+          description="This guardian account is not linked to any enrolled student yet. The school office links a guardian by setting the student's guardian email."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,16 +182,16 @@ export const ParentFees: React.FC = () => {
           subtitle={
             <>
               Academic Session 2026-27 · Student:{' '}
-              <span className="font-semibold text-foreground">{currentChild?.name || 'Student'}</span> ({currentChild?.grade ? currentChild.grade.split(' - ')[0] : 'Class N/A'})
+              <span className="font-semibold text-foreground">{currentChild.name}</span> ({currentChild.batchName || 'Class N/A'})
             </>
           }
         />
 
         {/* Multi-child switcher */}
-        {mockParentChildren && mockParentChildren.length > 0 && (
+        {childList.length > 1 && (
           <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
             <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
-            {mockParentChildren.map((ch) => (
+            {childList.map((ch) => (
               <button
                 key={ch.id}
                 onClick={() => setSelectedChildId(ch.id)}
@@ -132,7 +202,7 @@ export const ParentFees: React.FC = () => {
                     : 'text-text-secondary hover:bg-muted',
                 )}
               >
-                {ch.name ? ch.name.split(' ')[0] : 'Child'} ({ch.grade ? ch.grade.split(' - ')[0] : ''})
+                {ch.name.split(' ')[0]} ({ch.batchName})
               </button>
             ))}
           </div>
@@ -524,12 +594,6 @@ export const ParentFees: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePrintReceipt}
-                  className="btn-secondary gap-1.5 text-meta py-1.5"
-                >
-                  <Printer size={15} /> Print Receipt
-                </button>
                 <button
                   onClick={() => handleDownloadReceipt(viewingReceipt)}
                   className="btn-primary gap-1.5 text-meta py-1.5"

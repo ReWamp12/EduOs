@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { dataService } from '@/lib/dataService';
+import { authClient } from '@/lib/auth/client';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { mockCurrentStudent } from '@/lib/mockData';
 import { Assignment, AssignmentAttachment } from '@/lib/types';
 import { useAppStore, addSubmission, AssignmentRecord, Submission } from '@/lib/store';
@@ -74,10 +76,39 @@ export const StudentAssignments: React.FC = () => {
 
   // Submission Modal state
   const [activeSubmittingAssignment, setActiveSubmittingAssignment] = useState<AssignmentRecord | null>(null);
-  const [solutionFileName, setSolutionFileName] = useState<string>('');
+  const [solutionFile, setSolutionFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [studentNotes, setStudentNotes] = useState<string>('');
   const [confirmedHonorCode, setConfirmedHonorCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Real device file, validated against the storage bucket's contract.
+  const ACCEPTED_TYPES = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
+  const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+  const pickSolutionFile = (f: File | undefined | null) => {
+    if (!f) return;
+    if (f.size > MAX_UPLOAD_BYTES) {
+      toast('File too large', 'error', `"${f.name}" is ${(f.size / 1024 / 1024).toFixed(1)} MB — the limit is 25 MB.`);
+      return;
+    }
+    if (f.type && !ACCEPTED_TYPES.includes(f.type)) {
+      toast('Unsupported file type', 'error', 'Upload a PDF, image (JPG/PNG/WebP) or Word document.');
+      return;
+    }
+    setSolutionFile(f);
+  };
+
+  const fileSizeLabel = (bytes: number) =>
+    bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
   // Available subjects for filtering
   const subjectsList = useMemo(() => {
@@ -115,7 +146,9 @@ export const StudentAssignments: React.FC = () => {
     const existing = submissions.find(
       (s) => s.assignmentId === assignment.id && s.studentName === mockCurrentStudent.name,
     );
-    setSolutionFileName(existing?.fileName || `${mockCurrentStudent.name.toLowerCase().replace(/\s+/g, '_')}_${assignment.subject.toLowerCase().replace(/[^a-z0-9]/g, '_')}_solution.pdf`);
+    // A fresh submission always attaches the student's own device file —
+    // never a pre-filled placeholder name.
+    setSolutionFile(null);
     setStudentNotes(existing?.studentNotes || '');
     setConfirmedHonorCode(true);
   };
@@ -129,12 +162,40 @@ export const StudentAssignments: React.FC = () => {
       return;
     }
 
+    if (!solutionFile) {
+      toast('Attach your solution', 'warning', 'Browse or drag-and-drop your solution document before submitting.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      // Upload the real device file. Supabase Storage (bucket `submissions`,
+      // EDUOS-126) is the document store of record; a local object URL keeps
+      // the demo usable offline (valid for this browser session only).
+      let fileUrl = '';
+      let filePath = '';
+      if (isSupabaseConfigured()) {
+        const safeName = solutionFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${mockCurrentStudent.admissionNumber || mockCurrentStudent.id}/${activeSubmittingAssignment.id}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await authClient.storage
+          .from('submissions')
+          .upload(path, solutionFile, { contentType: solutionFile.type || 'application/octet-stream', upsert: true });
+        if (uploadError) {
+          toast('Upload failed', 'error', uploadError.message);
+          setIsSubmitting(false);
+          return;
+        }
+        // Private bucket (EDUOS-127): keep the object path, not a public URL.
+        // Viewers mint a short-lived signed link when they open the document.
+        filePath = path;
+      } else {
+        fileUrl = URL.createObjectURL(solutionFile);
+      }
+
       await dataService.submitAssignment({
         assignmentId: activeSubmittingAssignment.id,
         studentId: mockCurrentStudent.id,
-        submissionUrl: `https://storage.eduos.app/submissions/std-1-${activeSubmittingAssignment.id}.pdf`,
+        submissionUrl: filePath || fileUrl,
       });
 
       // Write to shared reactive store
@@ -148,9 +209,10 @@ export const StudentAssignments: React.FC = () => {
         studentRoll: mockCurrentStudent.rollNumber,
         studentAvatar: mockCurrentStudent.avatarUrl,
         maxMarks: activeSubmittingAssignment.maxMarks,
-        fileName: solutionFileName || `${mockCurrentStudent.name.toLowerCase().replace(/\s+/g, '_')}_solution.pdf`,
-        fileSize: '2.1 MB',
-        fileUrl: `https://storage.eduos.app/submissions/std-1-${activeSubmittingAssignment.id}.pdf`,
+        fileName: solutionFile.name,
+        fileSize: fileSizeLabel(solutionFile.size),
+        filePath,
+        fileUrl,
         studentNotes: studentNotes.trim() || 'Solution uploaded for teacher evaluation.',
       });
 
@@ -501,34 +563,70 @@ export const StudentAssignments: React.FC = () => {
                 </div>
               </div>
 
-              {/* Upload Dropzone */}
+              {/* Upload Dropzone — real device file, uploaded to Supabase Storage */}
               <div>
                 <label className="label">Upload Solution Document (PDF, Image, or Doc)</label>
-                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border hover:border-primary/50 bg-surface-muted/60 p-6 text-center transition-colors">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,application/pdf,image/jpeg,image/png,image/webp,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={(e) => {
+                    pickSolutionFile(e.target.files?.[0]);
+                    e.target.value = ''; // allow re-picking the same file
+                  }}
+                />
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    pickSolutionFile(e.dataTransfer.files?.[0]);
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                  className={cn(
+                    'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors',
+                    dragOver
+                      ? 'border-primary bg-primary-soft/40'
+                      : 'border-border bg-surface-muted/60 hover:border-primary/50',
+                  )}
+                >
                   <FileUp size={32} className="text-primary mb-2" />
-                  <div className="text-meta font-medium text-foreground">
-                    Selected File: <strong className="text-primary">{solutionFileName || 'solution_work.pdf'}</strong>
-                  </div>
-                  <p className="text-micro text-text-tertiary mt-1">
-                    Drag and drop your scanned homework PDF or browse device (Max 25 MB)
+                  {solutionFile ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5">
+                      <FileText size={15} className="shrink-0 text-primary" />
+                      <span className="max-w-[260px] truncate text-meta font-semibold text-foreground">
+                        {solutionFile.name}
+                      </span>
+                      <span className="shrink-0 text-micro text-text-tertiary">{fileSizeLabel(solutionFile.size)}</span>
+                      <button
+                        type="button"
+                        aria-label="Remove selected file"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSolutionFile(null);
+                        }}
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-text-tertiary hover:bg-muted hover:text-foreground"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-meta font-medium text-foreground">
+                      Drag &amp; drop your solution here, or{' '}
+                      <span className="font-semibold text-primary underline underline-offset-2">browse device</span>
+                    </div>
+                  )}
+                  <p className="text-micro text-text-tertiary mt-2">
+                    PDF, JPG/PNG/WebP or Word · Max 25 MB · stored securely in the school document vault
                   </p>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Rename file…"
-                      value={solutionFileName}
-                      onChange={(e) => setSolutionFileName(e.target.value)}
-                      className="input py-1 text-meta max-w-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => toast('File Selected', 'info', 'File ready for upload.')}
-                      className="btn-secondary py-1 text-meta"
-                    >
-                      Browse Files
-                    </button>
-                  </div>
                 </div>
               </div>
 

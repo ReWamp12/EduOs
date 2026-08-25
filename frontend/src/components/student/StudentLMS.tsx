@@ -15,6 +15,8 @@ import {
   Clock,
   RotateCcw,
   Check,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 type ContentType = LMSLesson['contentType'];

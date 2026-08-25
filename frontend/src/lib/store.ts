@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { mockAssignments, mockNotices, mockExamResults, mockStudentsInBatch, mockLeaveRequests } from './mockData';
 import { Assignment, AssignmentAttachment, DigitalConsentForm, ConsentResponse, Student, LeaveRequest } from './types';
 import { allStudentsInSchool, studentsByBatch } from './batchData';
+import { authClient } from './auth/client';
+import { isSupabaseConfigured } from './supabase';
 
 export type { DigitalConsentForm, ConsentResponse, LeaveRequest };
 
@@ -45,6 +47,12 @@ export interface Submission {
   feedback?: string;
   fileName?: string;
   fileSize?: string;
+  /**
+   * Object path inside the private `submissions` bucket (EDUOS-127). Viewers
+   * mint a short-lived signed URL from this on demand; there is no permanent
+   * public link. `fileUrl` only carries a blob: URL in the offline demo.
+   */
+  filePath?: string;
   fileUrl?: string;
   studentNotes?: string;
   submittedAt: number;
@@ -59,7 +67,7 @@ export interface AssignmentRecord extends Assignment {
 /** Unified parent notification feed — attendance + published results. */
 export interface ParentAlert {
   id: string;
-  type: 'attendance' | 'result' | 'exam' | 'assignment';
+  type: 'attendance' | 'result' | 'exam' | 'assignment' | 'fee';
   studentName: string;
   title: string;
   message: string;
@@ -158,7 +166,10 @@ export interface AppState {
   leaveRequests: LeaveRequest[];
 }
 
-const STORAGE_KEY = 'eduos-store-v4-empty';
+// Bumped for EDUOS-129: v4 persisted client-generated fee invoices whose ids
+// do not exist in Supabase. Loading them alongside the live ledger let a
+// parent click "Pay" on a phantom invoice, which the database then rejected.
+const STORAGE_KEY = 'eduos-store-v5';
 
 function seed(): AppState {
   return {
@@ -918,6 +929,41 @@ export function payFeeInvoice(invoiceId: string, method: string): FeeInvoiceReco
   return updatedInvoices.find((i) => i.id === invoiceId) || null;
 }
 
+// Fee data is owned entirely by Supabase (EDUOS-125/129): fee_invoices is the
+// ledger of record, collect_fee_payment() settles atomically, and
+// issue_term_invoices() opens new installments. No fixtures are generated
+// client-side — a locally-invented invoice id could never be settled by the
+// database and would silently fail at payment time.
+
+/**
+ * Finance office nudges a guardian about an unpaid balance — lands in the
+ * Parent portal's notification feed.
+ */
+export function sendFeeReminder(input: {
+  studentName: string;
+  dueAmount: number;
+  dueDate?: string;
+  overdue?: boolean;
+}): void {
+  const now = Date.now();
+  pushAlerts([
+    {
+      id: `alert-fee-reminder-${now}`,
+      type: 'fee',
+      studentName: input.studentName,
+      title: input.overdue ? 'Fee Payment Overdue' : 'Fee Payment Reminder',
+      message: `A balance of ₹${input.dueAmount.toLocaleString('en-IN')} is ${
+        input.overdue ? 'overdue' : 'outstanding'
+      } for ${input.studentName}${input.dueDate ? ` (due ${input.dueDate})` : ''}. Kindly pay via the Fees section or the school counter to avoid late charges.`,
+      tone: input.overdue ? 'danger' : 'warning',
+      date: todayLabel(),
+      source: 'Accounts & Fee Office',
+      read: false,
+      createdAt: now,
+    },
+  ]);
+}
+
 /** Teacher applies for leave → lands in Principal's approval queue */
 export function applyForLeave(input: Omit<LeaveRequest, 'id' | 'status' | 'appliedAt'>): LeaveRequest {
   const now = new Date();
@@ -995,12 +1041,139 @@ export function updateLeaveStatus(
   return true;
 }
 
+/* ------------------------------ Supabase live sync ------------------------------ */
+
+export async function syncStoreWithSupabase() {
+  if (!isSupabaseConfigured()) return;
+
+  try {
+    const [noticesRes, asgRes, examsRes, leavesRes] = await Promise.all([
+      authClient
+        .from('notices')
+        .select(`
+          id, tenant_id, title, content, category, target_role, priority, created_at,
+          user_profiles:created_by (first_name, last_name, role)
+        `)
+        .order('created_at', { ascending: false }),
+      authClient
+        .from('assignments')
+        .select(`
+          id, tenant_id, batch_id, subject_id, teacher_id, title, description, due_date, max_marks, created_at,
+          subjects:subject_id (name),
+          batches:batch_id (name),
+          user_profiles:teacher_id (first_name, last_name)
+        `)
+        .order('created_at', { ascending: false }),
+      authClient
+        .from('exams')
+        .select(`
+          id, tenant_id, batch_id, title, exam_type, total_marks, duration_minutes, exam_date,
+          batches:batch_id (name)
+        `)
+        .order('exam_date', { ascending: false }),
+      authClient
+        .from('leave_requests')
+        .select(`
+          id, tenant_id, employee_id, leave_type, start_date, end_date, reason, status, created_at,
+          user_profiles:employee_id (id, first_name, last_name, email, role)
+        `)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    const updates: Partial<AppState> = {};
+
+    if (noticesRes.data && noticesRes.data.length > 0) {
+      updates.notices = noticesRes.data.map((n: any) => {
+        const creator = n.user_profiles;
+        const senderName = creator ? `${creator.first_name} ${creator.last_name}`.trim() : 'Principal';
+        const aud: NoticeAudience[] = n.target_role === 'all'
+          ? ['student', 'parent', 'teacher']
+          : [n.target_role as NoticeAudience];
+        return {
+          id: n.id,
+          title: n.title,
+          content: n.content,
+          category: (n.category as any) || 'general',
+          audience: aud,
+          senderRole: (creator?.role as any) || 'principal',
+          senderName,
+          date: new Date(n.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+          createdAt: new Date(n.created_at).getTime(),
+        };
+      });
+    }
+
+    if (asgRes.data && asgRes.data.length > 0) {
+      updates.assignments = asgRes.data.map((a: any) => {
+        const t = a.user_profiles;
+        const teacherName = t ? `${t.first_name} ${t.last_name}`.trim() : 'Meera Iyer';
+        return {
+          id: a.id,
+          title: a.title,
+          subject: a.subjects?.name || 'English Literature',
+          batchName: a.batches?.name || 'Class 10 - A',
+          dueDate: new Date(a.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+          maxMarks: a.max_marks || 50,
+          description: a.description || '',
+          category: 'homework',
+          status: 'pending',
+          teacherName,
+          createdAt: new Date(a.created_at).getTime(),
+        };
+      });
+    }
+
+    if (examsRes.data && examsRes.data.length > 0) {
+      updates.exams = examsRes.data.map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        subject: e.title.includes('Math') ? 'Mathematics' : e.title.includes('Science') ? 'Science' : 'CBSE',
+        batchName: e.batches?.name || 'Class 10 - A',
+        examType: e.exam_type || 'mid_term',
+        examDate: new Date(e.exam_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        maxMarks: e.total_marks || 80,
+        status: 'scheduled',
+        createdBy: 'Examination Controller',
+        createdAt: Date.now(),
+      }));
+    }
+
+    if (leavesRes.data && leavesRes.data.length > 0) {
+      updates.leaveRequests = leavesRes.data.map((l: any) => {
+        const emp = l.user_profiles;
+        const empName = emp ? `${emp.first_name} ${emp.last_name}`.trim() : 'Faculty Member';
+        return {
+          id: l.id,
+          employeeId: l.employee_id,
+          employeeName: empName,
+          designation: 'Senior Faculty',
+          leaveType: l.leave_type || 'Casual Leave',
+          startDate: l.start_date,
+          endDate: l.end_date,
+          daysCount: 1,
+          reason: l.reason || '',
+          status: l.status || 'pending',
+          appliedAt: new Date(l.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+          balanceRemaining: 12,
+        };
+      });
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setState(updates);
+    }
+  } catch (err) {
+    console.warn('Failed to sync store with Supabase:', err);
+  }
+}
+
 /* ------------------------------ hook ------------------------------ */
 
 export function useAppStore(): AppState {
   const [snapshot, setSnapshot] = useState<AppState>(state);
   useEffect(() => {
     hydrate();
+    void syncStoreWithSupabase();
     const l = (s: AppState) => setSnapshot(s);
     listeners.push(l);
     setSnapshot(state); // pick up any state hydrated before this effect ran

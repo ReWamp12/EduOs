@@ -14,6 +14,7 @@ import { TeacherExams } from './TeacherExams';
 import { TeacherTimetable } from './TeacherTimetable';
 import { TeacherAIQuestions } from './TeacherAIQuestions';
 import { TeacherLeavePortal } from './TeacherLeavePortal';
+import { CurriculumTracker } from './CurriculumTracker';
 import { NoticeBoard } from '@/components/common/NoticeBoard';
 import { Users, ChevronsUpDown, Check, LayoutGrid } from 'lucide-react';
 import { cn } from '@/components/ui';
@@ -119,6 +120,8 @@ export const TeacherWorkspace: React.FC<Props> = ({ activeTab, setActiveTab, bat
         return <TeacherAttendance />;
       case 'students':
         return <TeacherStudentDirectory />;
+      case 'curriculum':
+        return <CurriculumTracker />;
       case 'assignments':
         return <TeacherAssignments />;
       case 'consent':

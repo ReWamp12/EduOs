@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore, saveAttendanceSession, AttendanceEntry } from '@/lib/store';
 import { useTeacherBatch } from '@/lib/teacherContext';
+import { dataService } from '@/lib/dataService';
 import {
   Send,
   Users,
@@ -46,16 +47,40 @@ const PERIODS = [
 ];
 
 export const TeacherAttendance: React.FC = () => {
-  const { batch, students } = useTeacherBatch();
+  const { batch, students, teacher } = useTeacherBatch();
   const { attendanceSessions } = useAppStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [selectedDate, setSelectedDate] = useState<string>(
-    () => new Date().toISOString().split('T')[0], // e.g. "2026-08-20"
+    () => new Date().toISOString().split('T')[0],
   );
   const [selectedPeriod, setSelectedPeriod] = useState<string>('p1');
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [dbDefaulters, setDbDefaulters] = useState<any[]>([]);
+
+  useEffect(() => {
+    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (batch?.id) {
+      dataService.getAttendanceDefaulters(batch.id).then((res) => {
+        if (res && res.length > 0) {
+          setDbDefaulters(res.filter((r: any) => r.is_defaulter));
+        }
+      });
+    }
+  }, [batch?.id, selectedDate]);
 
   // Local draft changes before saving
   const [draftStatuses, setDraftStatuses] = useState<Record<string, Status>>({});
@@ -101,15 +126,25 @@ export const TeacherAttendance: React.FC = () => {
     setDraftRemarks((prev) => ({ ...prev, [key]: remark }));
   };
 
+  // EDUOS-105: "Mark All Present" only sets students who don't already have a status explicitly set
   const markAllPresent = () => {
+    let filledCount = 0;
     setDraftStatuses((prev) => {
       const next = { ...prev };
       students.forEach((s) => {
-        next[`${selectedDate}_${selectedPeriod}_${s.id}`] = 'present';
+        const key = `${selectedDate}_${selectedPeriod}_${s.id}`;
+        if (!prev[key]) {
+          next[key] = 'present';
+          filledCount++;
+        }
       });
       return next;
     });
-    toast('All Marked Present', 'info', `Marked all ${students.length} students as Present.`);
+    toast(
+      'Unmarked Students Set to Present',
+      'info',
+      `Filled ${filledCount} unrecorded student(s) as Present without altering existing individual marks.`,
+    );
   };
 
   // Date Navigation
@@ -158,13 +193,20 @@ export const TeacherAttendance: React.FC = () => {
 
   // CBSE Defaulters (<75% Attendance)
   const defaulters = useMemo(() => {
+    if (dbDefaulters.length > 0) return dbDefaulters;
     return students.filter((s) => s.attendancePct < 75);
-  }, [students]);
+  }, [students, dbDefaulters]);
 
-  // Save Attendance to Store
-  const handleSubmit = () => {
+  // Save Attendance to Store & Live Supabase Database
+  const handleSubmit = async () => {
+    if (!isOnline) {
+      toast('Offline Marking Disabled', 'warning', 'You are currently offline. Attendance submission is paused until reconnected.');
+      return;
+    }
+
     setSubmitting(true);
     const activePeriodObj = PERIODS.find((p) => p.id === selectedPeriod) || PERIODS[0];
+    const periodNum = parseInt(selectedPeriod.replace('p', ''), 10) || 1;
 
     const records: AttendanceEntry[] = students.map((s) => ({
       studentId: s.id,
@@ -174,25 +216,46 @@ export const TeacherAttendance: React.FC = () => {
       remarks: getStudentRemark(s.id),
     }));
 
-    setTimeout(() => {
+    try {
+      // 1. Post to live Supabase / Backend Attendance Engine
+      const res = await dataService.markAttendance(
+        batch.id,
+        records.map((r) => ({
+          studentId: r.studentId,
+          status: r.status,
+          isExcusedMedical: r.status === 'medical',
+          remarks: r.remarks,
+        })),
+        {
+          date: selectedDate,
+          periodNumber: periodNum,
+          callerId: teacher?.id,
+          callerRole: 'teacher',
+        }
+      );
+
+      // 2. Update reactive local store
       saveAttendanceSession({
         batchId: batch.id,
         batchName: batch.name,
         date: selectedDate,
         periodId: selectedPeriod,
         periodName: activePeriodObj.name.split(' (')[0],
-        markedBy: 'Prof. Amit Verma',
+        markedBy: teacher?.name || 'Faculty',
         records,
       });
 
-      setSubmitting(false);
-      const notified = absentCount + lateCount;
       toast(
         'Attendance Saved & Synced',
         'success',
-        `${presentCount} Present · ${absentCount} Absent recorded for ${selectedDate}. Real-time alerts dispatched${notified ? ` to ${notified} parents` : ''}.`,
+        `${presentCount} Present · ${absentCount} Absent. Alerted ${res.notified} parent(s) (${res.skipped_unchanged} already notified).`,
       );
-    }, 400);
+    } catch (err: any) {
+      console.error('Attendance submission error:', err);
+      toast('Submission Rejected', 'error', err.message || 'Validation failed.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Export CSV Sheet
@@ -320,6 +383,16 @@ export const TeacherAttendance: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Offline Alert Banner */}
+      {!isOnline && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft p-4 text-warning">
+          <AlertTriangle size={18} className="shrink-0" />
+          <div className="text-meta">
+            <span className="font-bold">Offline Mode Active:</span> Your browser has lost internet connection. Attendance marking and parental alert dispatch are paused until connectivity is restored.
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* VIEW MODE 1: DAY REGISTER (DAILY ATTENDANCE) */}

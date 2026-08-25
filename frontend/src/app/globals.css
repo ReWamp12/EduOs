@@ -361,7 +361,11 @@ h1, h2, h3, h4, h5, h6 {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+/* No `forwards` fill: retaining the final `transform: translateY(0)` frame
+   made every animated wrapper a containing block for position:fixed children,
+   so modals opened inside page content were clipped under the navbar and
+   their backdrops never covered the sidebar. */
+.animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
 /* Focus-visible ring for accessibility across interactive elements */
 a:focus-visible,

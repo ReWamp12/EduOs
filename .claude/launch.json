@@ -8,6 +8,13 @@
       "cwd": "frontend",
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "eduos-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:dev"],
+      "cwd": "backend",
+      "port": 4000
     }
   ]
 }

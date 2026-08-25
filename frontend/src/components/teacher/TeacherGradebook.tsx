@@ -4,9 +4,11 @@ import React, { useState, useMemo } from 'react';
 import { dataService } from '@/lib/dataService';
 import { useAppStore, recordResults } from '@/lib/store';
 import { useTeacherBatch } from '@/lib/teacherContext';
-import { ShieldCheck, Lock, Unlock, ClipboardList, Users, FileText } from 'lucide-react';
+import { Student } from '@/lib/types';
+import { ShieldCheck, Lock, Unlock, ClipboardList, Users, FileText, Award, CheckCircle2 } from 'lucide-react';
 import { PageHeader, SectionCard, StatCard, Badge, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
+import { ReportCardGeneratorModal } from './ReportCardGeneratorModal';
 
 interface Row {
   marks: number;
@@ -30,13 +32,17 @@ export const TeacherGradebook: React.FC = () => {
 
   const [selectedExamId, setSelectedExamId] = useState<string>(() => batchExams[0]?.id ?? '');
   const [publishedExams, setPublishedExams] = useState<Set<string>>(new Set());
+  const [pendingApprovalExams, setPendingApprovalExams] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState(false);
+  const [selectedStudentForReport, setSelectedStudentForReport] = useState<Student | null>(null);
+
   // Marks entry state kept per exam so switching tests preserves each one's grades.
   const [rowsByExam, setRowsByExam] = useState<Record<string, Record<string, Row>>>({});
 
   const exam = batchExams.find((e) => e.id === selectedExamId) ?? batchExams[0];
   const maxMarks = exam?.maxMarks ?? 100;
   const published = exam ? publishedExams.has(exam.id) : false;
+  const isPendingApproval = exam ? pendingApprovalExams.has(exam.id) : false;
   const rows = (exam && rowsByExam[exam.id]) || buildRows();
 
   const setRows = (updater: (prev: Record<string, Row>) => Record<string, Row>) => {
@@ -45,13 +51,13 @@ export const TeacherGradebook: React.FC = () => {
   };
 
   const updateMarks = (id: string, val: number) => {
-    if (published) return;
+    if (published || isPendingApproval) return;
     const clamped = Math.max(0, Math.min(maxMarks, val || 0));
     setRows((prev) => ({ ...prev, [id]: { ...prev[id], marks: clamped } }));
   };
 
   const updateFeedback = (id: string, val: string) => {
-    if (published) return;
+    if (published || isPendingApproval) return;
     setRows((prev) => ({ ...prev, [id]: { ...prev[id], feedback: val } }));
   };
 
@@ -66,13 +72,8 @@ export const TeacherGradebook: React.FC = () => {
     [rows],
   );
 
-  const handlePublish = async () => {
-    if (!exam || published) return;
-    const confirmed = window.confirm(
-      `Publish grades for "${exam.title}" (${students.length} students)? Results become visible to students and parents.`,
-    );
-    if (!confirmed) return;
-
+  const handleSubmitForSignoff = async () => {
+    if (!exam || published || isPendingApproval) return;
     setPublishing(true);
     try {
       await Promise.all(
@@ -80,16 +81,14 @@ export const TeacherGradebook: React.FC = () => {
           dataService.gradeSubmission(s.id, rows[s.id]?.marks ?? 0, rows[s.id]?.feedback ?? ''),
         ),
       );
-      recordResults({
-        assessmentTitle: exam.title,
-        maxMarks,
-        markedBy: 'Prof. Amit Verma',
-        results: students.map((s) => ({ studentName: s.name, obtainedMarks: rows[s.id]?.marks ?? 0 })),
-      });
-      setPublishedExams((prev) => new Set(prev).add(exam.id));
-      toast('Grades published', 'success', `${exam.title} · parents notified · avg ${average.toFixed(1)}%`);
+      setPendingApprovalExams((prev) => new Set(prev).add(exam.id));
+      toast(
+        'Submitted for Principal Sign-off',
+        'success',
+        `${exam.title} (${students.length} students) queued for Principal verification & digital seal.`,
+      );
     } catch {
-      toast('Publish failed', 'error', 'Could not publish grades. Try again.');
+      toast('Submission failed', 'error', 'Could not submit grades. Try again.');
     } finally {
       setPublishing(false);
     }
@@ -113,17 +112,37 @@ export const TeacherGradebook: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Gradebook"
+        title="Gradebook & Evaluation"
         subtitle={`${exam.title} · ${exam.batchName}`}
         actions={
-          <button
-            onClick={handlePublish}
-            disabled={published || publishing}
-            className={published ? 'btn-secondary' : 'btn-primary'}
-          >
-            {published ? <Unlock size={16} /> : <Lock size={16} />}
-            {published ? 'Grades published' : publishing ? 'Publishing…' : 'Publish grades'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedStudentForReport(students[0] || null)}
+              className="btn-secondary text-xs flex items-center gap-1.5 shadow-xs"
+            >
+              <Award size={14} /> Preview CBSE Report Card
+            </button>
+            <button
+              onClick={handleSubmitForSignoff}
+              disabled={published || isPendingApproval || publishing}
+              className={published ? 'btn-secondary' : 'btn-primary'}
+            >
+              {published ? (
+                <Unlock size={16} />
+              ) : isPendingApproval ? (
+                <CheckCircle2 size={16} />
+              ) : (
+                <Lock size={16} />
+              )}
+              {published
+                ? 'Signed & Published'
+                : isPendingApproval
+                ? 'Pending Principal Sign-off'
+                : publishing
+                ? 'Submitting…'
+                : 'Submit for Principal Sign-off'}
+            </button>
+          </div>
         }
       />
 
@@ -206,6 +225,7 @@ export const TeacherGradebook: React.FC = () => {
                 <th>Marks (/{maxMarks})</th>
                 <th>Feedback</th>
                 <th className="text-right">%</th>
+                <th className="text-right">Transcript</th>
               </tr>
             </thead>
             <tbody>
@@ -227,7 +247,7 @@ export const TeacherGradebook: React.FC = () => {
                         min={0}
                         max={maxMarks}
                         value={row.marks}
-                        disabled={published}
+                        disabled={published || isPendingApproval}
                         onChange={(e) => updateMarks(student.id, Number(e.target.value))}
                         className="input w-20 disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label={`Marks for ${student.name}`}
@@ -237,7 +257,7 @@ export const TeacherGradebook: React.FC = () => {
                       <input
                         type="text"
                         value={row.feedback}
-                        disabled={published}
+                        disabled={published || isPendingApproval}
                         placeholder="Optional note…"
                         onChange={(e) => updateFeedback(student.id, e.target.value)}
                         className="input min-w-[12rem] disabled:cursor-not-allowed disabled:opacity-60"
@@ -254,6 +274,14 @@ export const TeacherGradebook: React.FC = () => {
                         {pct}%
                       </span>
                     </td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => setSelectedStudentForReport(student)}
+                        className="text-xs text-primary hover:underline font-semibold inline-flex items-center gap-1"
+                      >
+                        <Award size={13} /> Report Card
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -261,6 +289,17 @@ export const TeacherGradebook: React.FC = () => {
           </table>
         </div>
       </SectionCard>
+
+      {/* Report Card Modal */}
+      {selectedStudentForReport && (
+        <ReportCardGeneratorModal
+          student={selectedStudentForReport}
+          examTitle={exam.title}
+          batchName={batch.name}
+          isPrincipalSigned={published}
+          onClose={() => setSelectedStudentForReport(null)}
+        />
+      )}
     </div>
   );
 };

@@ -32,6 +32,8 @@ import {
   Award,
   BookMarked,
   FolderLock,
+  Settings,
+  Bot,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -52,9 +54,6 @@ const ICON = 18;
 
 /**
  * Canonical navigation config per stakeholder role.
- * Item ids/labels are unchanged from the original build so routing/state stay intact —
- * they are only organised into labelled sections for the redesigned sidebar, and reused
- * by the topbar breadcrumb so there is a single source of truth.
  */
 export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
   student: [
@@ -62,6 +61,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'overview', label: 'My Dashboard', icon: <LayoutDashboard size={ICON} /> },
     ]},
     { label: 'Academics', items: [
+      { id: 'ai_chatbot', label: 'AI Study Chatbot', icon: <Bot size={ICON} />, badge: 'RAG AI', badgeTone: 'primary', isFlagged: true },
       { id: 'attendance', label: 'Attendance', icon: <CalendarCheck2 size={ICON} /> },
       { id: 'lms', label: 'LMS Classroom', icon: <BookOpen size={ICON} /> },
       { id: 'assignments', label: 'Assignments / DPP', icon: <FileText size={ICON} /> },
@@ -71,6 +71,9 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'id_card', label: 'Digital QR ID', icon: <QrCode size={ICON} /> },
       { id: 'support', label: 'Support & Counseling', icon: <HelpCircle size={ICON} /> },
       { id: 'notices', label: 'Circulars & Notices', icon: <BellRing size={ICON} /> },
+    ]},
+    { label: 'Account', items: [
+      { id: 'settings', label: 'Settings & Preferences', icon: <Settings size={ICON} /> },
     ]},
   ],
   parent: [
@@ -89,6 +92,9 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'ptm', label: 'PTM Scheduler', icon: <Calendar size={ICON} /> },
       { id: 'feedback', label: 'Profile & Feedback', icon: <HeartPulse size={ICON} /> },
     ]},
+    { label: 'Account', items: [
+      { id: 'settings', label: 'Settings & Preferences', icon: <Settings size={ICON} /> },
+    ]},
   ],
   teacher: [
     { label: 'Overview', items: [
@@ -97,6 +103,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
     { label: 'Teaching', items: [
       { id: 'attendance', label: 'Mark Attendance', icon: <CalendarCheck2 size={ICON} /> },
       { id: 'students', label: 'Student Directory & IDs', icon: <Users size={ICON} /> },
+      { id: 'curriculum', label: 'Curriculum & Syllabus', icon: <BookOpen size={ICON} /> },
       { id: 'assignments', label: 'Assignments & DPPs', icon: <FileText size={ICON} /> },
       { id: 'consent', label: 'Digital Consent & Trips', icon: <FileSignature size={ICON} /> },
       { id: 'gradebook', label: 'Gradebook & Publish', icon: <ClipboardList size={ICON} /> },
@@ -108,12 +115,16 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'leave', label: 'Apply Leave & History', icon: <UserCheck size={ICON} /> },
       { id: 'notices', label: 'Notices', icon: <BellRing size={ICON} /> },
     ]},
+    { label: 'Account', items: [
+      { id: 'settings', label: 'Settings & Preferences', icon: <Settings size={ICON} /> },
+    ]},
   ],
   principal: [
     { label: 'Overview', items: [
       { id: 'overview', label: 'Operations Command', icon: <LayoutDashboard size={ICON} /> },
     ]},
-    { label: 'Operations', items: [
+    { label: 'Operations & Finance', items: [
+      { id: 'finance', label: 'Finance, Fees & Ledger', icon: <CreditCard size={ICON} /> },
       { id: 'students', label: 'Institutional Student Directory', icon: <Users size={ICON} /> },
       { id: 'consent', label: 'Digital Consent Hub', icon: <FileSignature size={ICON} /> },
       { id: 'approvals', label: 'Staff Leave Approvals', icon: <ClipboardList size={ICON} /> },
@@ -122,6 +133,9 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
     { label: 'Governance', items: [
       { id: 'inspection_mode', label: 'Board Inspection Mode', icon: <ShieldAlert size={ICON} /> },
       { id: 'notices', label: 'Broadcast Notices', icon: <BellRing size={ICON} /> },
+    ]},
+    { label: 'System', items: [
+      { id: 'settings', label: 'Settings & Controls', icon: <Settings size={ICON} /> },
     ]},
   ],
   super_admin: [
@@ -133,8 +147,12 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'feature_matrix', label: 'Feature Flag Matrix', icon: <Sliders size={ICON} /> },
     ]},
     { label: 'Configuration', items: [
+      { id: 'finance', label: 'Institutional Finance', icon: <CreditCard size={ICON} /> },
       { id: 'branding_studio', label: 'Branding Studio', icon: <Palette size={ICON} /> },
       { id: 'compliance_lib', label: 'Compliance Library', icon: <Scale size={ICON} /> },
+    ]},
+    { label: 'System', items: [
+      { id: 'settings', label: 'Platform Settings', icon: <Settings size={ICON} /> },
     ]},
   ],
   hr_manager: [
@@ -148,6 +166,34 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'service_books', label: 'Statutory Service Books', icon: <BookMarked size={ICON} /> },
       { id: 'police_gate', label: 'Police Verification Gate', icon: <ShieldCheck size={ICON} />, badge: '1 Overdue', badgeTone: 'danger' },
     ]},
+    { label: 'System', items: [
+      { id: 'settings', label: 'HR & Workspace Settings', icon: <Settings size={ICON} /> },
+    ]},
+  ],
+  finance_officer: [
+    { label: 'Overview', items: [
+      { id: 'overview', label: 'Financial Command Center', icon: <LayoutDashboard size={ICON} /> },
+    ]},
+    { label: 'Institutional Accounts', items: [
+      { id: 'general_ledger', label: 'General Ledger & Statements', icon: <FileText size={ICON} /> },
+      { id: 'fee_structures', label: 'Fee Structures & Blueprints', icon: <CreditCard size={ICON} /> },
+      { id: 'payroll', label: 'Staff Payroll & Taxes', icon: <Users size={ICON} /> },
+    ]},
+    { label: 'System', items: [
+      { id: 'settings', label: 'Finance Preferences', icon: <Settings size={ICON} /> },
+    ]},
+  ],
+  accountant: [
+    { label: 'Overview', items: [
+      { id: 'overview', label: 'Cashier & Counter Overview', icon: <LayoutDashboard size={ICON} /> },
+    ]},
+    { label: 'Fee Counter Operations', items: [
+      { id: 'cashier_pos', label: 'Counter POS & Invoicing', icon: <CreditCard size={ICON} /> },
+      { id: 'fee_structures', label: 'Fee Structure Schedules', icon: <FileText size={ICON} /> },
+    ]},
+    { label: 'System', items: [
+      { id: 'settings', label: 'Accounts Preferences', icon: <Settings size={ICON} /> },
+    ]},
   ],
 };
 
@@ -158,12 +204,18 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   principal: 'Principal',
   super_admin: 'Super Admin',
   hr_manager: 'HR Manager',
+  finance_officer: 'Finance Officer (CFO)',
+  accountant: 'Accountant / Cashier',
 };
 
 /** Section + item label lookup for the current tab (used by breadcrumbs & page title). */
 export function getNavMeta(role: UserRole, tabId: string): { section: string; label: string; item?: NavItem } {
-  for (const group of NAV_CONFIG[role]) {
-    const item = group.items.find((i) => i.id === tabId);
+  if (tabId === 'settings') {
+    return { section: 'Preferences', label: 'Settings & Workspace Preferences' };
+  }
+  const groups = NAV_CONFIG[role] || [];
+  for (const group of groups) {
+    const item = group.items.find((i) => i.id === tabId && !i.isFlagged);
     if (item) return { section: group.label, label: item.label, item };
   }
   return { section: 'Overview', label: 'Overview' };

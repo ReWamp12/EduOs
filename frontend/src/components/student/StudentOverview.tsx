@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
 import { Student } from '@/lib/types';
 import { mockCurrentStudent } from '@/lib/mockData';
@@ -134,6 +135,7 @@ const WEEKLY_SCHEDULE: DaySchedule[] = [
 ];
 
 export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
+  const { session } = useAuth();
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const { assignments, submissions } = useAppStore();
@@ -146,17 +148,17 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
 
   const pendingAssignments = useMemo(() => {
     return assignments.filter((a) => {
-      const isMyBatch = !a.batchName || a.batchName === mockCurrentStudent.batchName;
+      const isMyBatch = !a.batchName || a.batchName === (student?.batchName || mockCurrentStudent.batchName);
       const isSubmitted = submissions.some(
-        (s) => s.assignmentId === a.id && s.studentName === mockCurrentStudent.name,
+        (s) => s.assignmentId === a.id && s.studentName === (student?.name || mockCurrentStudent.name),
       );
       return isMyBatch && !isSubmitted;
     });
-  }, [assignments, submissions]);
+  }, [assignments, submissions, student]);
 
   useEffect(() => {
     let active = true;
-    dataService.getStudentOverview('s-1').then((res) => {
+    dataService.getStudentOverview(session?.userId).then((res) => {
       if (active) {
         setStudent(res);
         setLoading(false);
@@ -165,7 +167,7 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
     return () => {
       active = false;
     };
-  }, []);
+  }, [session?.userId]);
 
   if (loading || !student) {
     return (

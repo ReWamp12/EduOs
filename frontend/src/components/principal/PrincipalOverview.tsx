@@ -1,7 +1,10 @@
 'use client';
 
-import React from 'react';
-import { mockBatches, mockLeaveRequests } from '@/lib/mockData';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { dataService } from '@/lib/dataService';
+import { teacherBatches } from '@/lib/batchData';
+import { Batch, LeaveRequest } from '@/lib/types';
 import { StatCard, SectionCard, Badge } from '@/components/ui';
 import {
   Users,
@@ -14,7 +17,28 @@ import {
 } from 'lucide-react';
 
 export const PrincipalOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
-  const pendingLeaves = mockLeaveRequests.filter((l) => l.status === 'pending');
+  const { session } = useAuth();
+  const [batches, setBatches] = useState<Batch[]>(teacherBatches);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      dataService.getBatches(),
+      dataService.getLeaveRequests(),
+    ]).then(([bRes, lRes]) => {
+      if (active) {
+        if (bRes && bRes.length > 0) setBatches(bRes);
+        if (lRes && lRes.length > 0) setLeaveRequests(lRes);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const pendingLeaves = leaveRequests.filter((l) => l.status === 'pending');
+  const principalName = session ? `${session.firstName} ${session.lastName}`.trim() : 'Asha Rao';
 
   const compliance = [
     { label: 'Fire Safety NOC', status: 'Valid · Nov 2026' },
@@ -33,10 +57,10 @@ export const PrincipalOverview: React.FC<{ onNavigate: (tab: string) => void }> 
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <h2 className="text-title text-foreground">Operations Command Center</h2>
-              <Badge tone="success">Ahmedabad Main Campus</Badge>
+              <Badge tone="success">Main Campus · Delhi</Badge>
             </div>
             <p className="mt-1 text-body text-text-secondary">
-              Executive Directorate · Dr. Rajesh Iyer · Session 2026–2027
+              Executive Directorate · {principalName} (Principal) · Session 2026–2027
             </p>
           </div>
           <button onClick={() => onNavigate('inspection_mode')} className="btn-primary shrink-0 self-start sm:self-auto">
@@ -49,33 +73,33 @@ export const PrincipalOverview: React.FC<{ onNavigate: (tab: string) => void }> 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Morning Attendance"
-          value="93.8%"
+          value="94.2%"
           tone="success"
           icon={<CalendarCheck size={16} />}
-          trend={{ value: '+0.6%', direction: 'up' }}
-          hint="103 of 110 students present · View Directory"
+          trend={{ value: '+0.8%', direction: 'up' }}
+          hint="Class 10-A verified · View Directory"
           onClick={() => onNavigate('students')}
         />
         <StatCard
           label="Staff On Duty"
-          value={<>18<span className="text-base font-medium text-text-tertiary"> / 20</span></>}
+          value={<>5<span className="text-base font-medium text-text-tertiary"> / 5</span></>}
           tone="info"
           icon={<Users size={16} />}
-          hint="2 faculty on approved leave"
+          hint="5 Faculty active in Session"
         />
         <StatCard
           label="Today's Fee Collection"
           value="₹2.45L"
           tone="warning"
           icon={<IndianRupee size={16} />}
-          hint="14 term installment transactions"
+          hint="Term 1 installment transactions"
         />
         <StatCard
           label="Pending Approvals"
-          value={<>{pendingLeaves.length}<span className="text-base font-medium text-text-tertiary"> request</span></>}
+          value={<>{pendingLeaves.length}<span className="text-base font-medium text-text-tertiary"> request{pendingLeaves.length === 1 ? '' : 's'}</span></>}
           tone="primary"
           icon={<CheckCircle2 size={16} />}
-          hint="Prof. Vikram Roy · casual leave"
+          hint={pendingLeaves[0] ? `${pendingLeaves[0].employeeName} · ${pendingLeaves[0].leaveType}` : 'All requests cleared'}
           onClick={() => onNavigate('approvals')}
         />
       </div>
@@ -92,7 +116,7 @@ export const PrincipalOverview: React.FC<{ onNavigate: (tab: string) => void }> 
           }
           bodyClassName="flex flex-col gap-2.5"
         >
-          {mockBatches.map((b) => (
+          {batches.map((b) => (
             <div
               key={b.id}
               onClick={() => onNavigate('students')}

@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { SupabaseService } from './supabase.service';
+import { RagService } from './rag/rag.service';
 
 // Entities
 import { Tenant } from './entities/tenant.entity';
@@ -23,6 +24,9 @@ import { EmployeeServiceRecord } from './entities/employee-service-record.entity
 import { TrainingRecord } from './entities/training-record.entity';
 import { DnsSslModule } from './dns-ssl/dns-ssl.module';
 import { HrModule } from './hr/hr.module';
+import { AuthModule } from './auth/auth.module';
+import { CommonServicesModule } from './common/common.module';
+import { FinanceModule } from './finance/finance.module';
 
 @Module({
   imports: [
@@ -35,11 +39,14 @@ import { HrModule } from './hr/hr.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
+        // Same DB_* names the seed/RAG scripts and .env use — the old
+        // SUPABASE_DB_* names resolved to undefined, so pg silently dialed
+        // localhost:5432 and crashed the boot with SSL retry errors.
         host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT', 5432),
+        port: parseInt(config.get<string>('DB_PORT', '5432'), 10),
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_NAME'),
+        database: config.get<string>('DB_NAME', 'postgres'),
         entities: [
           Tenant,
           Subject,
@@ -58,7 +65,12 @@ import { HrModule } from './hr/hr.module';
           EmployeeServiceRecord,
           TrainingRecord,
         ],
-        synchronize: true, // Auto-scaffold new tables / columns in dev mode
+        // EDUOS-106: synchronize DISABLED. Against the live Supabase schema
+        // (created by SQL migrations), TypeORM diffing tried destructive
+        // column rebuilds at every boot (e.g. drop/re-add job_openings.title,
+        // employee_records.employee_code) and crashed the server. Schema
+        // changes belong in supabase/migrations/*.sql.
+        synchronize: false,
         ssl: {
           rejectUnauthorized: false, // Required for Supabase SSL connections
         },
@@ -66,8 +78,11 @@ import { HrModule } from './hr/hr.module';
     }),
     DnsSslModule,
     HrModule,
+    AuthModule,
+    CommonServicesModule,
+    FinanceModule,
   ],
   controllers: [AppController],
-  providers: [SupabaseService],
+  providers: [RagService],
 })
 export class AppModule {}

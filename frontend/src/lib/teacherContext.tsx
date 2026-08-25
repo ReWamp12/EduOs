@@ -1,9 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import { Batch, Student, TimetableSlot } from './types';
-import { teacherBatches, studentsForBatch, timetableForBatch, defaultTeacherBatch } from './batchData';
-import { mockProfiles } from './mockData';
+import { teacherBatches, studentsForBatch, timetableForBatch, defaultTeacherBatch, syncBatchDataFromSupabase } from './batchData';
+import { useAuth } from './auth/AuthProvider';
 
 export interface TeacherProfile {
   id: string;
@@ -36,20 +36,35 @@ export const TeacherBatchProvider: React.FC<{
   setBatchId: (id: string) => void;
   children: React.ReactNode;
 }> = ({ batchId, setBatchId, children }) => {
-  const batches = teacherBatches || [];
+  const { session } = useAuth();
+  const [batches, setBatches] = useState<Batch[]>(teacherBatches || [defaultTeacherBatch]);
+
+  useEffect(() => {
+    let active = true;
+    syncBatchDataFromSupabase().then((res) => {
+      if (active && res.batches.length > 0) {
+        setBatches(res.batches);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const batch = batches.find((b) => b.id === batchId) ?? batches[0] ?? defaultTeacherBatch;
   const students = batch?.id ? studentsForBatch(batch.id) : [];
 
   const teacher: TeacherProfile = useMemo(() => {
-    const t = mockProfiles.teacher;
+    const name = session ? `${session.firstName} ${session.lastName}`.trim() : 'Meera Iyer';
+    const email = session?.email || 'meera.iyer@mpsdelhi.eduos.app';
     return {
-      id: t?.id || 'teacher-0',
-      name: t ? `${t.firstName} ${t.lastName}`.trim() : 'Teacher',
-      email: t?.email || '',
-      designation: 'Faculty Educator',
-      subjects: ['Mathematics', 'Science', 'English'],
+      id: session?.userId || 'tch-seeded-01',
+      name: name || 'Meera Iyer',
+      email,
+      designation: 'Senior Faculty Educator',
+      subjects: ['English', 'Mathematics', 'Science', 'Hindi', 'Social Science'],
     };
-  }, []);
+  }, [session]);
 
   // Compute dynamic subjects available in this batch and for this teacher
   const subjects = useMemo(() => {

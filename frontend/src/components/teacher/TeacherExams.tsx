@@ -5,7 +5,8 @@ import { useAppStore, addExam } from '@/lib/store';
 import { useTeacherBatch } from '@/lib/teacherContext';
 import { PageHeader, SectionCard, StatCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
-import { CalendarPlus, ClipboardList, CheckCircle2, Clock, FileText } from 'lucide-react';
+import { CalendarPlus, ClipboardList, CheckCircle2, Clock, FileText, Grid3X3 } from 'lucide-react';
+import { ExamSeatingAdmitCardModal } from './ExamSeatingAdmitCardModal';
 
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Full Syllabus (PCM)'];
 const EXAM_TYPES = ['Unit Test', 'Mock Test', 'Practice Test', 'Mid-Term', 'Final Exam'];
@@ -22,6 +23,7 @@ export const TeacherExams: React.FC = () => {
   const [examType, setExamType] = useState(EXAM_TYPES[0]);
   const [examDate, setExamDate] = useState('');
   const [maxMarks, setMaxMarks] = useState('100');
+  const [selectedExamForSeating, setSelectedExamForSeating] = useState<(typeof exams)[0] | null>(null);
 
   const scheduled = batchExams.filter((e) => e.status === 'scheduled').length;
   const completed = batchExams.filter((e) => e.status === 'completed').length;
@@ -116,6 +118,7 @@ export const TeacherExams: React.FC = () => {
                     <th>Date</th>
                     <th className="text-right">Max</th>
                     <th>Status</th>
+                    <th className="text-right">Operations</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -133,6 +136,14 @@ export const TeacherExams: React.FC = () => {
                           {e.status === 'completed' ? 'Completed' : 'Scheduled'}
                         </Badge>
                       </td>
+                      <td className="text-right">
+                        <button
+                          onClick={() => setSelectedExamForSeating(e)}
+                          className="btn-secondary text-micro px-2 py-1 inline-flex items-center gap-1 shadow-2xs"
+                        >
+                          <Grid3X3 size={12} /> Seating / Admit Cards
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -141,6 +152,14 @@ export const TeacherExams: React.FC = () => {
           )}
         </SectionCard>
       </div>
+
+      {selectedExamForSeating && (
+        <ExamSeatingAdmitCardModal
+          examTitle={selectedExamForSeating.title}
+          batchName={selectedExamForSeating.batchName}
+          onClose={() => setSelectedExamForSeating(null)}
+        />
+      )}
     </div>
   );
 };

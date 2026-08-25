@@ -10,3 +10,14 @@ frontend/build/
 .env.local
 frontend/.env.local
 backend/.env
+
+seed-credentials.md
+
+# RAG local artifacts
+backend/.model-cache/
+backend/.rag-cache/
+
+# Held back pending secret cleanup (contain hardcoded DB password) — EDUOS
+backend/scripts/
+backend/_pdftest.mjs
+class 10 all boards resources.txt

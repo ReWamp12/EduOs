@@ -1,4 +1,12 @@
-export type UserRole = 'student' | 'teacher' | 'principal' | 'parent' | 'super_admin' | 'hr_manager';
+export type UserRole =
+  | 'student'
+  | 'teacher'
+  | 'principal'
+  | 'parent'
+  | 'super_admin'
+  | 'hr_manager'
+  | 'finance_officer'
+  | 'accountant';
 
 export interface UserProfile {
   id: string;
@@ -59,6 +67,7 @@ export interface Student {
   emergencyContact?: string;
   qrCodeId: string;
   avatarUrl: string;
+  tenantName?: string;
   feeStatus?: 'paid' | 'partial' | 'due';
   medicalNotes?: string;
 }

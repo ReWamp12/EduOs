@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { mockBatches, mockTenant } from '@/lib/mockData';
-import { allStudentsInSchool } from '@/lib/batchData';
-import { Student } from '@/lib/types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { mockTenant } from '@/lib/mockData';
+import { allStudentsInSchool, teacherBatches } from '@/lib/batchData';
+import { dataService } from '@/lib/dataService';
+import { Student, Batch } from '@/lib/types';
 import { PageHeader, SectionCard, StatCard, Card, Badge, EmptyState, ProgressBar, cn } from '@/components/ui';
 import { StudentProfileDetailModal } from '@/components/common/StudentProfileDetailModal';
 import { toast } from '@/components/ui/toast';
@@ -29,6 +30,8 @@ import {
 } from 'lucide-react';
 
 export const PrincipalStudentDirectory: React.FC = () => {
+  const [students, setStudents] = useState<Student[]>(allStudentsInSchool);
+  const [batches, setBatches] = useState<Batch[]>(teacherBatches);
   const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'risk' | 'fee_due' | 'top'>('all');
@@ -37,9 +40,25 @@ export const PrincipalStudentDirectory: React.FC = () => {
 
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<Student | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      dataService.getStudents(),
+      dataService.getBatches(),
+    ]).then(([sRes, bRes]) => {
+      if (active) {
+        if (sRes && sRes.length > 0) setStudents(sRes);
+        if (bRes && bRes.length > 0) setBatches(bRes);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Filter students across the whole institution
   const filteredStudents = useMemo(() => {
-    return allStudentsInSchool.filter((st) => {
+    return students.filter((st) => {
       const matchBatch = selectedBatchId === 'all' || st.batchId === selectedBatchId;
       const matchGrade =
         selectedGradeFilter === 'all' ||
@@ -62,12 +81,12 @@ export const PrincipalStudentDirectory: React.FC = () => {
 
       return matchBatch && matchGrade && matchSearch && matchStatus;
     });
-  }, [selectedBatchId, selectedGradeFilter, searchQuery, statusFilter]);
+  }, [students, selectedBatchId, selectedGradeFilter, searchQuery, statusFilter]);
 
   // Overall institutional statistics
-  const totalEnrolled = allStudentsInSchool.length;
+  const totalEnrolled = students.length;
   const overallAvgAttendance = (
-    allStudentsInSchool.reduce((acc, curr) => acc + curr.attendancePct, 0) / (totalEnrolled || 1)
+    students.reduce((acc, curr) => acc + curr.attendancePct, 0) / (totalEnrolled || 1)
   ).toFixed(1);
 
   const atRiskStudentsCount = allStudentsInSchool.filter((s) => s.attendancePct < 75).length;
@@ -182,7 +201,7 @@ export const PrincipalStudentDirectory: React.FC = () => {
               className="input py-1.5 text-meta sm:w-52"
             >
               <option value="all">All School Classes ({totalEnrolled})</option>
-              {mockBatches.map((b) => (
+              {batches.map((b) => (
                 <option key={b.id} value={b.id}>{b.name.split(' — ')[0]}</option>
               ))}
             </select>

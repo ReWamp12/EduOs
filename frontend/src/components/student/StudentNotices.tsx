@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { mockNotices } from '@/lib/mockData';
+import { useAppStore } from '@/lib/store';
 import { Notice } from '@/lib/types';
 import { PageHeader, Card, Badge, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -33,10 +33,23 @@ const categoryBorder: Record<Category, string> = {
 };
 
 export const StudentNotices: React.FC = () => {
+  const { notices: storeNotices } = useAppStore();
   const [filter, setFilter] = useState<Filter>('all');
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
-  const notices = mockNotices;
+  const notices: Notice[] = useMemo(() => {
+    return storeNotices.map((n) => ({
+      id: n.id,
+      title: n.title,
+      content: n.content,
+      category: (n.category === 'general' ? 'event' : n.category) as Category,
+      date: n.date,
+      author: n.senderName || 'Academic Directorate',
+      targetRole: 'all',
+      priority: n.category === 'urgent' ? 'urgent' : 'normal',
+    }));
+  }, [storeNotices]);
+
   const unreadCount = notices.filter((n) => !readIds.has(n.id)).length;
 
   const filtered = useMemo(
@@ -107,11 +120,11 @@ export const StudentNotices: React.FC = () => {
                 key={n.id}
                 interactive
                 onClick={() => markRead(n.id)}
-                className={cn('border-l-4 p-5', categoryBorder[n.category])}
+                className={cn('border-l-4 p-5', categoryBorder[n.category] || 'border-l-primary')}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <Badge tone={categoryTone[n.category]}>
+                    <Badge tone={categoryTone[n.category] || 'primary'}>
                       <Megaphone size={12} /> {n.category.toUpperCase()}
                     </Badge>
                     {!isRead && (

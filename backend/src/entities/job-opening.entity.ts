@@ -8,22 +8,22 @@ export class JobOpening {
   @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'text' })
   title: string;
 
-  @Column()
+  @Column({ type: 'text' })
   department: string;
 
-  @Column({ name: 'job_type', default: 'Full-time' })
+  @Column({ name: 'job_type', type: 'text', default: 'Full-time' })
   jobType: string;
 
-  @Column({ name: 'designation_category', default: 'Teaching' })
+  @Column({ name: 'designation_category', type: 'text', default: 'Teaching' })
   designationCategory: 'Teaching' | 'Non-Teaching' | 'Administrative' | 'Leadership';
 
-  @Column({ name: 'experience_required', default: '2-5 years' })
+  @Column({ name: 'experience_required', type: 'text', default: '2-5 years' })
   experienceRequired: string;
 
-  @Column({ name: 'salary_range', nullable: true })
+  @Column({ name: 'salary_range', type: 'text', nullable: true })
   salaryRange: string;
 
   @Column({ type: 'text' })
@@ -32,16 +32,16 @@ export class JobOpening {
   @Column({ type: 'text', nullable: true })
   requirements: string;
 
-  @Column({ default: 'published' })
+  @Column({ type: 'text', default: 'published' })
   status: 'draft' | 'published' | 'closed' | 'filled';
 
-  @Column({ name: 'location', default: 'Main Campus' })
+  @Column({ name: 'location', type: 'text', default: 'Main Campus' })
   location: string;
 
   @Column({ name: 'positions_count', default: 1 })
   positionsCount: number;
 
-  @Column({ name: 'deadline', nullable: true })
+  @Column({ name: 'deadline', type: 'date', nullable: true })
   deadline: string;
 
   @CreateDateColumn({ name: 'created_at' })
