@@ -54,8 +54,21 @@ export interface Student {
   batchId: string;
   batchName: string;
   targetExam: string;
-  attendancePct: number;
-  rankInBatch: number;
+  /**
+   * EDUOS-108 — nullable on purpose.
+   *
+   * These are computed from the attendance register and the results table
+   * (`v_student_academic_summary`). A student with no register entries has no
+   * attendance percentage, and one who has sat no exam has no rank. They were
+   * previously typed non-null and filled with literals (94.2 / rank 4, or a
+   * value derived from the array index), which is what let invented figures
+   * render beside genuine name and roll-number data.
+   *
+   * Render them through `formatPct` / `formatRank` in `lib/format.ts` so an
+   * absent value shows as "—" rather than "0%" or "Rank #0".
+   */
+  attendancePct: number | null;
+  rankInBatch: number | null;
   parentName: string;
   parentPhone: string;
   parentEmail?: string;

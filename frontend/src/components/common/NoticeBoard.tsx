@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { UserRole } from '@/lib/types';
-import { mockProfiles } from '@/lib/mockData';
 import { useAppStore, sendNotice, NoticeAudience, NoticeMessage } from '@/lib/store';
+import { dataService } from '@/lib/dataService';
+import { useSession } from '@/lib/auth/AuthProvider';
 import { PageHeader, SectionCard, Card, Badge, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { Send, Megaphone, Inbox, Users, GraduationCap, UserRound, ChevronRight } from 'lucide-react';
@@ -38,6 +39,7 @@ const ALLOWED: Partial<Record<UserRole, NoticeAudience[]>> = {
 
 export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
   const { notices } = useAppStore();
+  const session = useSession();
   const canCompose = role === 'principal' || role === 'teacher';
   const allowed = ALLOWED[role] ?? [];
 
@@ -62,7 +64,7 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
     });
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!title.trim() || !content.trim()) {
       toast('Add a title and message', 'info');
       return;
@@ -72,13 +74,33 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
       return;
     }
     const list = Array.from(audience);
+
+    // EDUOS-108 — persist to the notices table first. This used to call the
+    // store's sendNotice() only (localStorage), so a broadcast never reached a
+    // recipient on another device, and the author was stamped from
+    // mockProfiles[role] — i.e. every principal's notice was signed
+    // "Dr. Meenakshi Sundaram" regardless of who actually sent it. The author
+    // is now the signed-in user, and created_by defaults to their own row.
+    const senderName = session ? `${session.firstName} ${session.lastName}`.trim() : 'Staff';
+    const created = await dataService.createNotice({
+      title: title.trim(),
+      content: content.trim(),
+      category,
+      audience: list,
+      createdBy: session?.userId,
+    });
+    if (!created) {
+      toast('Could not broadcast notice', 'error', 'The notice board rejected this, or you lack permission. Nothing was sent.');
+      return;
+    }
+
     sendNotice({
       title: title.trim(),
       content: content.trim(),
       category,
       audience: list,
       senderRole: role as 'principal' | 'teacher',
-      senderName: mockProfiles[role] ? `${mockProfiles[role].firstName} ${mockProfiles[role].lastName}`.trim() || 'Staff' : 'Staff',
+      senderName: senderName || 'Staff',
     });
     toast('Notice broadcast', 'success', `Sent to ${list.map((a) => AUDIENCE_LABEL[a]).join(', ')}`);
     setTitle('');

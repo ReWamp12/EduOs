@@ -78,22 +78,26 @@ export default function Home() {
   // Teacher workspace is scoped to a selected batch; kept for the whole session.
   const [teacherBatchId, setTeacherBatchId] = useState<string | null>(null);
 
-  // Testing/evaluation view-as: lets an authenticated session preview any
-  // stakeholder dashboard without signing out. Client-side only — RLS and the
-  // API still enforce the session's real permissions, and per-user views show
-  // richest data when signed in as a matching seeded account.
-  const [roleOverride, setRoleOverride] = useState<UserRole | null>(null);
-
-  const activeRole: UserRole = roleOverride ?? session?.roles[0] ?? 'student';
+  // EDUOS-108 — the viewed dashboard is the session's own role, full stop.
+  //
+  // This used to be `const [roleOverride, setRoleOverride] = useState<UserRole
+  // | null>(null)`, a "testing/evaluation view-as" that let any authenticated
+  // session render any stakeholder dashboard. Its comment claimed RLS still
+  // enforced the real permissions; it did not — every tenant table carried a
+  // single `FOR ALL USING (tenant_id = current_tenant_id())` policy, so the
+  // chosen dashboard queried real data with real write access. EDUOS-108's
+  // role-scoped policies close the data half; removing the override closes the
+  // UI half, which is what keeps the two from disagreeing again.
+  //
+  // Demo mode keeps its switcher: with no Supabase there is no session to
+  // escalate, and previewing every persona is the sandbox's entire purpose.
+  const activeRole: UserRole = session?.roles[0] ?? 'student';
 
   const handleRoleChange = (role: UserRole) => {
-    if (isDemo) {
-      // Fixture sandbox swaps the whole demo session.
-      setDemoRole(role);
-    } else {
-      // Real session keeps its identity; only the viewed dashboard changes.
-      setRoleOverride(role);
-    }
+    // Only reachable in the fixture sandbox — Sidebar and Navbar both render
+    // the switcher solely for sessions holding more than one role.
+    if (!isDemo) return;
+    setDemoRole(role);
     setActiveTab('overview');
     setMobileNavOpen(false);
   };

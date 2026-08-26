@@ -6,6 +6,7 @@ import { Student } from '@/lib/types';
 import { PageHeader, SectionCard, StatCard, Card, Badge, EmptyState, cn } from '@/components/ui';
 import { StudentProfileDetailModal } from '@/components/common/StudentProfileDetailModal';
 import { toast } from '@/components/ui/toast';
+import { formatPct, averageOf } from '@/lib/format';
 import {
   Users,
   Search,
@@ -41,17 +42,17 @@ export const TeacherStudentDirectory: React.FC = () => {
 
       const matchAttendance =
         attendanceFilter === 'all' ||
-        (attendanceFilter === 'regular' && st.attendancePct >= 85) ||
-        (attendanceFilter === 'risk' && st.attendancePct < 75);
+        (attendanceFilter === 'regular' && (st.attendancePct ?? -1) >= 85) ||
+        (attendanceFilter === 'risk' && st.attendancePct !== null && st.attendancePct < 75);
 
       return matchSearch && matchAttendance;
     });
   }, [students, searchQuery, attendanceFilter]);
 
-  const atRiskCount = students.filter((s) => s.attendancePct < 75).length;
-  const avgAttendance = students.length
-    ? (students.reduce((acc, curr) => acc + curr.attendancePct, 0) / students.length).toFixed(1)
-    : '0';
+  // Students with no register entry are neither at risk nor counted in the
+  // average — averaging them in as 0 would drag the batch figure down.
+  const atRiskCount = students.filter((s) => s.attendancePct !== null && s.attendancePct < 75).length;
+  const avgAttendance = formatPct(averageOf(students.map((s) => s.attendancePct)));
 
   const handlePrintBatchIds = () => {
     toast('Print Queue Prepared', 'info', `Sending ${students.length} student ID cards for ${batch.name} to printer.`);
@@ -81,7 +82,7 @@ export const TeacherStudentDirectory: React.FC = () => {
         />
         <StatCard
           label="Class Avg Attendance"
-          value={<>{avgAttendance}<span className="text-base font-medium text-text-tertiary">%</span></>}
+          value={avgAttendance}
           tone="success"
           icon={<Clock size={16} />}
           hint="Board threshold: >75%"
@@ -162,8 +163,11 @@ export const TeacherStudentDirectory: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
                       <h4 className="truncate text-section font-bold text-foreground">{st.name}</h4>
-                      <Badge tone={st.attendancePct >= 75 ? 'success' : 'warning'} className="text-[10px] py-0.5">
-                        {st.attendancePct}% Att
+                      <Badge
+                        tone={st.attendancePct === null ? 'neutral' : st.attendancePct >= 75 ? 'success' : 'warning'}
+                        className="text-[10px] py-0.5"
+                      >
+                        {formatPct(st.attendancePct)} Att
                       </Badge>
                     </div>
                     <div className="text-micro text-text-tertiary">

@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAppStore, applyForLeave, LeaveRequest } from '@/lib/store';
+import { dataService } from '@/lib/dataService';
+import { useSession } from '@/lib/auth/AuthProvider';
 import { PageHeader, SectionCard, Card, StatCard, Badge, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import {
@@ -36,8 +38,10 @@ const TEACHER_COLLEAGUES = [
 
 export const TeacherLeavePortal: React.FC = () => {
   const { leaveRequests } = useAppStore();
-  const teacherName = 'Prof. Amit Verma';
-  const teacherDesignation = 'HOD Mathematics (Class 9 & 10)';
+  const session = useSession();
+  // EDUOS-108 — real signed-in faculty, not the hardcoded "Prof. Amit Verma".
+  const teacherName = session ? `${session.firstName} ${session.lastName}`.trim() : 'Faculty';
+  const teacherDesignation = 'Faculty';
 
   const myLeaves = useMemo(() => {
     return leaveRequests.filter(
@@ -95,8 +99,31 @@ export const TeacherLeavePortal: React.FC = () => {
       return;
     }
 
+    if (!session?.userId) {
+      toast('Not signed in', 'error', 'Your session has expired. Sign in again.');
+      return;
+    }
+
     setSubmitting(true);
-    setTimeout(() => {
+    // EDUOS-108 — persist to leave_requests first (was a setTimeout + store
+    // write only, so a Principal on another device never saw the application).
+    void (async () => {
+      const created = await dataService.applyForLeave({
+        employeeId: session.userId,
+        leaveType,
+        startDate,
+        endDate,
+        reason: reason.trim(),
+        designation: teacherDesignation,
+        daysCount: calculatedDays,
+      });
+
+      if (!created) {
+        setSubmitting(false);
+        toast('Could not submit application', 'error', 'The leave register rejected this request. Nothing was saved.');
+        return;
+      }
+
       applyForLeave({
         employeeName: teacherName,
         designation: teacherDesignation,
@@ -117,7 +144,7 @@ export const TeacherLeavePortal: React.FC = () => {
         'success',
         `Application for ${calculatedDays} day(s) of ${leaveType} submitted to Principal for review.`,
       );
-    }, 400);
+    })();
   };
 
   return (

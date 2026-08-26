@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { PageHeader, SectionCard, StatCard, Card, Badge, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
+import { formatPct } from '@/lib/format';
 
 type Status = 'present' | 'absent' | 'late' | 'medical';
 type ViewMode = 'daily' | 'calendar' | 'defaulters';
@@ -194,7 +195,7 @@ export const TeacherAttendance: React.FC = () => {
   // CBSE Defaulters (<75% Attendance)
   const defaulters = useMemo(() => {
     if (dbDefaulters.length > 0) return dbDefaulters;
-    return students.filter((s) => s.attendancePct < 75);
+    return students.filter((s) => s.attendancePct !== null && s.attendancePct < 75);
   }, [students, dbDefaulters]);
 
   // Save Attendance to Store & Live Supabase Database
@@ -270,7 +271,7 @@ export const TeacherAttendance: React.FC = () => {
         `"${selectedDate}"`,
         `"${activePeriodObj.name}"`,
         `"${getStudentStatus(s.id).toUpperCase()}"`,
-        `"${s.attendancePct}%"`,
+        `"${formatPct(s.attendancePct)}"`,
         `"${getStudentRemark(s.id)}"`,
       ]);
       const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -602,14 +603,16 @@ export const TeacherAttendance: React.FC = () => {
                           <span
                             className={cn(
                               'font-mono font-bold text-meta',
-                              student.attendancePct >= 90
+                              student.attendancePct === null
+                                ? 'text-text-tertiary'
+                                : student.attendancePct >= 90
                                 ? 'text-success'
                                 : student.attendancePct >= 75
                                 ? 'text-warning'
                                 : 'text-destructive',
                             )}
                           >
-                            {student.attendancePct}%
+                            {formatPct(student.attendancePct)}
                           </span>
                         </td>
 

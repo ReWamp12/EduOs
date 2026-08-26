@@ -6,6 +6,7 @@ import { mockTenant } from '@/lib/mockData';
 import { useAppStore } from '@/lib/store';
 import { Badge, ProgressBar, Card, SectionCard, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
+import { formatPct, formatRank, meetsThreshold } from '@/lib/format';
 import {
   X,
   IdCard,
@@ -63,6 +64,10 @@ export const StudentProfileDetailModal: React.FC<Props> = ({ student, onClose, v
   const handlePrint = () => {
     toast('Print Queue', 'info', `Printing Digital Identity Card for ${student.name}.`);
   };
+
+  // null when there is no attendance record at all — distinct from "below the
+  // CBSE 75% threshold". See lib/format.ts.
+  const boardEligible = meetsThreshold(student.attendancePct, 75);
 
   const handleContactAction = (channel: 'call' | 'whatsapp' | 'email') => {
     if (channel === 'call') {
@@ -301,16 +306,24 @@ export const StudentProfileDetailModal: React.FC<Props> = ({ student, onClose, v
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Card className="p-4">
                   <div className="eyebrow">Attendance Rate</div>
-                  <div className="mt-2 text-2xl font-bold text-foreground">{student.attendancePct}%</div>
-                  <Badge tone={student.attendancePct >= 75 ? 'success' : 'warning'} className="mt-1">
-                    {student.attendancePct >= 75 ? 'Board Eligible' : 'At Risk (<75%)'}
-                  </Badge>
+                  <div className="mt-2 text-2xl font-bold text-foreground">{formatPct(student.attendancePct)}</div>
+                  {/* No register yet is not "At Risk" — an unearned warning on a
+                      real child's profile is worse than showing nothing. */}
+                  {boardEligible === null ? (
+                    <Badge tone="neutral" className="mt-1">No register yet</Badge>
+                  ) : (
+                    <Badge tone={boardEligible ? 'success' : 'warning'} className="mt-1">
+                      {boardEligible ? 'Board Eligible' : 'At Risk (<75%)'}
+                    </Badge>
+                  )}
                 </Card>
 
                 <Card className="p-4">
                   <div className="eyebrow">Batch Standing</div>
-                  <div className="mt-2 text-2xl font-bold text-foreground">Rank #{student.rankInBatch}</div>
-                  <span className="text-micro text-text-tertiary">Top 5% in Kalam Section</span>
+                  <div className="mt-2 text-2xl font-bold text-foreground">{formatRank(student.rankInBatch)}</div>
+                  <span className="text-micro text-text-tertiary">
+                    {student.rankInBatch === null ? 'No exam results recorded' : `Within ${student.batchName || 'batch'}`}
+                  </span>
                 </Card>
 
                 <Card className="p-4">
@@ -333,15 +346,31 @@ export const StudentProfileDetailModal: React.FC<Props> = ({ student, onClose, v
                 bodyClassName="flex flex-col gap-3"
               >
                 <div className="flex items-center justify-between text-meta">
-                  <span className="font-semibold text-foreground">Cumulative Term Attendance: {student.attendancePct}%</span>
+                  <span className="font-semibold text-foreground">Cumulative Term Attendance: {formatPct(student.attendancePct)}</span>
                   <span className="text-text-tertiary">CBSE Minimum Requirement: 75%</span>
                 </div>
                 <ProgressBar
-                  value={student.attendancePct}
-                  tone={student.attendancePct >= 85 ? 'success' : student.attendancePct >= 75 ? 'primary' : 'warning'}
+                  value={student.attendancePct ?? 0}
+                  tone={
+                    student.attendancePct === null
+                      ? 'neutral'
+                      : student.attendancePct >= 85
+                      ? 'success'
+                      : student.attendancePct >= 75
+                      ? 'primary'
+                      : 'warning'
+                  }
                 />
                 <p className="text-micro text-text-secondary">
-                  Student has fulfilled 168 of 180 required classroom sessions. Fully cleared for practical labs and final board examinations.
+                  {/* Was a hardcoded "fulfilled 168 of 180 required classroom
+                      sessions. Fully cleared for practical labs and final board
+                      examinations." — a compliance statement about a real
+                      student, asserted for every student regardless of record. */}
+                  {student.attendancePct === null
+                    ? 'No attendance has been recorded for this student yet.'
+                    : boardEligible
+                    ? 'Meets the CBSE 75% minimum for board eligibility.'
+                    : 'Below the CBSE 75% minimum. Board eligibility is at risk.'}
                 </p>
               </SectionCard>
 

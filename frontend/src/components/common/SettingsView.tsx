@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { authClient } from '@/lib/auth/client';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/lib/types';
 import { PageHeader, SectionCard, Card, Badge, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -38,7 +40,7 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
-  const { session } = useAuth();
+  const { session, refresh } = useAuth();
   const role: UserRole = session?.roles[0] ?? 'student';
 
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'preferences' | 'notifications' | 'security'>('profile');
@@ -100,10 +102,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Persists to user_profiles. The self-update RLS policy (EDUOS-108) lets a
+    // user edit their own row, while the guard_user_profile_privileges trigger
+    // blocks any attempt to change role / status / tenant through this form.
+    if (!isSupabaseConfigured() || !session?.userId) {
+      toast('Not available', 'warning', 'Profile changes require a live account.');
+      return;
+    }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setSaving(false);
-    toast('Profile updated', 'success', 'Your contact details and preferences have been synchronized.');
+    try {
+      const { error } = await authClient
+        .from('user_profiles')
+        .update({ first_name: firstName.trim(), last_name: lastName.trim() })
+        .eq('id', session.userId);
+      if (error) {
+        toast('Could not update profile', 'error', error.message);
+        return;
+      }
+      await refresh();
+      toast('Profile updated', 'success', 'Your name has been saved.');
+    } catch (err: any) {
+      toast('Could not update profile', 'error', err?.message || 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSavePreferences = async () => {
@@ -128,13 +150,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
       return;
     }
 
+    // EDUOS-108 — this used to be `await new Promise(r => setTimeout(r, 800))`
+    // followed by "Password changed successfully". It never called Supabase, so
+    // the credential was unchanged and the user believed otherwise: the single
+    // most dangerous fake-success in the audit.
+    if (!isSupabaseConfigured()) {
+      toast('Not available in demo', 'warning', 'Password changes require a live account.');
+      return;
+    }
+    if (!session?.email) {
+      toast('Not signed in', 'error', 'Your session has expired. Sign in again.');
+      return;
+    }
+
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    toast('Password changed successfully', 'success', 'Your authentication credentials have been securely updated.');
+    try {
+      // Re-authenticate with the current password first. updateUser() alone
+      // would let anyone at an unlocked screen set a new password without
+      // knowing the old one.
+      const { error: reauthError } = await authClient.auth.signInWithPassword({
+        email: session.email,
+        password: currentPassword,
+      });
+      if (reauthError) {
+        toast('Current password is incorrect', 'error', 'Re-enter your existing password and try again.');
+        return;
+      }
+
+      const { error: updateError } = await authClient.auth.updateUser({ password: newPassword });
+      if (updateError) {
+        toast('Could not change password', 'error', updateError.message);
+        return;
+      }
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      toast('Password changed', 'success', 'Your password has been updated. Use it next time you sign in.');
+    } catch (err: any) {
+      toast('Could not change password', 'error', err?.message || 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const fullName = session ? `${session.firstName} ${session.lastName}`.trim() : 'User';

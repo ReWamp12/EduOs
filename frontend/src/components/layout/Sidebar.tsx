@@ -54,13 +54,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const groups = NAV_CONFIG[activeRole];
   const { session, isDemo, signOut } = useAuth();
 
-  // EDUOS-102 — the switcher offers every stakeholder view in the fixture
+  // EDUOS-108 — the switcher offers every stakeholder view in the fixture
   // sandbox (that is the point of the demo), but a real session may only view
-  // the roles it actually holds. `session.roles` carries one entry today; when
-  // EDUOS-105 lands multi-role, a genuine Teacher-and-Parent gets both here
-  // Allow switching between all canonical roles for testing and evaluation
-  const availableRoles = ROLE_META;
-  const canSwitch = true;
+  // the roles it actually holds.
+  //
+  // This previously read `const availableRoles = ROLE_META; const canSwitch =
+  // true;` "for testing and evaluation", which put a Super Admin option in
+  // front of every signed-in student — the same shape as the
+  // `useState<UserRole>('student')` hole EDUOS-102 was raised to close. The
+  // database no longer honours the claim (EDUOS-108 role-scoped RLS), but a UI
+  // that offers privileged dashboards and then returns empty tables is its own
+  // defect, so the affordance goes too.
+  //
+  // `session.roles` carries one entry today; when the `user_roles` join table
+  // lands, a genuine Teacher-and-Parent gets both entries here and the switcher
+  // becomes meaningful for real sessions without further change.
+  const heldRoles = session?.roles ?? [];
+  const availableRoles = isDemo
+    ? ROLE_META
+    : ROLE_META.filter((meta) => heldRoles.includes(meta.role));
+  const canSwitch = availableRoles.length > 1;
 
   // Identity in the sandbox comes from fixtures; a real session shows the
   // signed-in person, not a stand-in for their role.

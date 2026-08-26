@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore, updateLeaveStatus } from '@/lib/store';
+import { dataService } from '@/lib/dataService';
+import { useSession } from '@/lib/auth/AuthProvider';
 import { LeaveRequest } from '@/lib/types';
 import {
   PageHeader,
@@ -78,6 +80,7 @@ const INITIAL_GRADEBOOK_QUEUE: GradebookApprovalItem[] = [
 
 export const PrincipalApprovals: React.FC = () => {
   const { leaveRequests } = useAppStore();
+  const session = useSession();
   const [activeCategory, setActiveCategory] = useState<ApprovalCategory>('leave');
   const [comments, setComments] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<StatusFilter>('all');
@@ -97,9 +100,20 @@ export const PrincipalApprovals: React.FC = () => {
     [leaveRequests, filter],
   );
 
-  const handleDecision = (req: LeaveRequest, decision: Decision) => {
+  const handleDecision = async (req: LeaveRequest, decision: Decision) => {
     const note = comments[req.id]?.trim();
-    updateLeaveStatus(req.id, decision, note);
+
+    // EDUOS-108 — write the decision to leave_requests. This used to call the
+    // store's updateLeaveStatus() only (localStorage), so the applicant, on
+    // another device, never saw the outcome. RLS restricts this UPDATE to
+    // leadership, so a teacher cannot approve their own leave.
+    const ok = await dataService.decideLeave(req.id, decision, note, session?.userId);
+    if (!ok) {
+      toast('Could not record decision', 'error', 'The leave register rejected this update. Nothing changed.');
+      return;
+    }
+
+    updateLeaveStatus(req.id, decision, note, session ? `${session.firstName} ${session.lastName}`.trim() : undefined);
 
     if (decision === 'approved') {
       toast(

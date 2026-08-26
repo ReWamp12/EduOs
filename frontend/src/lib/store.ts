@@ -583,6 +583,7 @@ export function recordResults(input: {
 
 /** Teacher schedules a new exam → appears in exam history for staff, students & parents. */
 export function addExam(input: {
+  id?: string;
   title: string;
   subject: string;
   batchName: string;
@@ -591,9 +592,13 @@ export function addExam(input: {
   maxMarks: number;
   createdBy: string;
 }): ExamRecord {
+  const { id, ...rest } = input;
   const exam: ExamRecord = {
-    ...input,
-    id: `exam-${Date.now()}`,
+    ...rest,
+    // EDUOS-108 — when the caller has already persisted the exam to Supabase it
+    // passes the real row id, so the gradebook can publish marks against it
+    // (exam_results.exam_id FK). Only the demo path falls back to a local id.
+    id: id || `exam-${Date.now()}`,
     status: 'scheduled',
     createdAt: Date.now(),
   };

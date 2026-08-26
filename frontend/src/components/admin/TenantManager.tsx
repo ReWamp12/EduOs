@@ -49,7 +49,9 @@ export const TenantManager: React.FC = () => {
         setTenants(rows.map((t) => ({ ...t, status: 'active' as TenantStatus })));
       } catch (e) {
         console.error(e);
-        toast('Could not load tenants', 'error', 'Falling back to offline registry');
+        // No "falling back to offline registry" — there is no offline registry
+        // any more, and saying so implied the empty table was still real data.
+        toast('Could not load tenants', 'error', 'The registry is unavailable. Nothing is shown.');
       } finally {
         if (active) setLoading(false);
       }
@@ -72,6 +74,17 @@ export const TenantManager: React.FC = () => {
         secondaryColor: form.secondaryColor,
         accentColor: form.accentColor,
       });
+      if (!created) {
+        // createTenant returns null on refusal instead of minting a local
+        // `tenant-${Date.now()}` id, so the success path below is now reached
+        // only when a row genuinely exists.
+        toast(
+          'Provisioning refused',
+          'error',
+          'The platform registry rejected this tenant. Nothing was created.',
+        );
+        return;
+      }
       setTenants((prev) => [{ ...created, status: 'active' }, ...prev]);
       toast('Tenant provisioned', 'success', created.name);
       setForm(emptyForm);

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from '@/lib/types';
 import { getNavMeta, ROLE_LABEL } from '@/lib/navigation';
 import { mockTenant } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import {
   Menu,
   ChevronRight,
@@ -47,6 +48,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   const meta = getNavMeta(activeRole, activeTab);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { session, isDemo } = useAuth();
+
+  // EDUOS-108 — second copy of the Sidebar's stakeholder switcher, and it had
+  // the same defect: rendered for every session, offering Super Admin to
+  // anyone. See Sidebar.tsx for the reasoning; the rule is kept identical here
+  // so the two cannot drift apart.
+  const switchableRoles = isDemo
+    ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((item) => (session?.roles ?? []).includes(item.role));
+  const canSwitch = Boolean(setActiveRole) && switchableRoles.length > 1;
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -84,8 +95,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Right: Quick Role Switcher for Testing */}
-      {setActiveRole && (
+      {/* Right: stakeholder switcher — only for sessions that hold >1 role
+          (i.e. the fixture sandbox today; real multi-role users once the
+          user_roles join table lands). */}
+      {canSwitch && setActiveRole && (
         <div className="relative shrink-0" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen((v) => !v)}
@@ -101,10 +114,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {dropdownOpen && (
             <div className="absolute right-0 top-full z-50 mt-1.5 w-60 rounded-xl border border-border bg-surface p-1.5 shadow-xl animate-scale-in">
               <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-tertiary border-b border-border mb-1">
-                Select Testing Dashboard
+                Switch stakeholder view
               </div>
               <div className="space-y-0.5">
-                {ROLE_OPTIONS.map((item) => {
+                {switchableRoles.map((item) => {
                   const isActive = item.role === activeRole;
                   return (
                     <button

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { mockTenant } from '@/lib/mockData';
-import { allStudentsInSchool, teacherBatches } from '@/lib/batchData';
+import { formatPct, averageOf } from '@/lib/format';
 import { dataService } from '@/lib/dataService';
 import { Student, Batch } from '@/lib/types';
 import { PageHeader, SectionCard, StatCard, Card, Badge, EmptyState, ProgressBar, cn } from '@/components/ui';
@@ -30,8 +30,14 @@ import {
 } from 'lucide-react';
 
 export const PrincipalStudentDirectory: React.FC = () => {
-  const [students, setStudents] = useState<Student[]>(allStudentsInSchool);
-  const [batches, setBatches] = useState<Batch[]>(teacherBatches);
+  // EDUOS-108 — seed empty, not with the 30-row `allStudentsInSchool` /
+  // `teacherBatches` fixtures. A principal's institutional directory silently
+  // pre-filled with fixture students (and their invented attendance) was
+  // indistinguishable from real enrolment until the async load replaced it —
+  // and never replaced it at all if the load failed.
+  const [students, setStudents] = useState<Student[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'risk' | 'fee_due' | 'top'>('all');
@@ -46,10 +52,10 @@ export const PrincipalStudentDirectory: React.FC = () => {
       dataService.getStudents(),
       dataService.getBatches(),
     ]).then(([sRes, bRes]) => {
-      if (active) {
-        if (sRes && sRes.length > 0) setStudents(sRes);
-        if (bRes && bRes.length > 0) setBatches(bRes);
-      }
+      if (!active) return;
+      setStudents(sRes ?? []);
+      setBatches(bRes ?? []);
+      setLoading(false);
     });
     return () => {
       active = false;
@@ -75,9 +81,9 @@ export const PrincipalStudentDirectory: React.FC = () => {
 
       const matchStatus =
         statusFilter === 'all' ||
-        (statusFilter === 'risk' && st.attendancePct < 75) ||
+        (statusFilter === 'risk' && st.attendancePct !== null && st.attendancePct < 75) ||
         (statusFilter === 'fee_due' && st.feeStatus !== 'paid') ||
-        (statusFilter === 'top' && st.rankInBatch <= 2);
+        (statusFilter === 'top' && st.rankInBatch !== null && st.rankInBatch <= 2);
 
       return matchBatch && matchGrade && matchSearch && matchStatus;
     });
@@ -85,12 +91,10 @@ export const PrincipalStudentDirectory: React.FC = () => {
 
   // Overall institutional statistics
   const totalEnrolled = students.length;
-  const overallAvgAttendance = (
-    students.reduce((acc, curr) => acc + curr.attendancePct, 0) / (totalEnrolled || 1)
-  ).toFixed(1);
+  const overallAvgAttendance = formatPct(averageOf(students.map((s) => s.attendancePct)));
 
-  const atRiskStudentsCount = allStudentsInSchool.filter((s) => s.attendancePct < 75).length;
-  const feePendingCount = allStudentsInSchool.filter((s) => s.feeStatus !== 'paid').length;
+  const atRiskStudentsCount = students.filter((s) => s.attendancePct !== null && s.attendancePct < 75).length;
+  const feePendingCount = students.filter((s) => s.feeStatus !== 'paid').length;
 
   const handleExportCSV = () => {
     try {
@@ -100,7 +104,7 @@ export const PrincipalStudentDirectory: React.FC = () => {
         `"${s.name}"`,
         `"${s.batchName}"`,
         `"${s.admissionNumber}"`,
-        `"${s.attendancePct}%"`,
+        `"${formatPct(s.attendancePct)}"`,
         `"${s.parentName}"`,
         `"${s.parentPhone}"`,
         `"${s.parentEmail || ''}"`,
@@ -154,7 +158,7 @@ export const PrincipalStudentDirectory: React.FC = () => {
         />
         <StatCard
           label="School-Wide Attendance"
-          value={<>{overallAvgAttendance}<span className="text-base font-medium text-text-tertiary">%</span></>}
+          value={overallAvgAttendance}
           tone="success"
           icon={<Clock size={16} />}
           hint="CBSE Board compliance threshold: >75%"
@@ -272,8 +276,8 @@ export const PrincipalStudentDirectory: React.FC = () => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
                         <h4 className="truncate text-section font-bold text-foreground">{st.name}</h4>
-                        <Badge tone={st.attendancePct >= 75 ? 'success' : 'warning'} className="text-[10px] py-0.5">
-                          {st.attendancePct}% Att
+                        <Badge tone={st.attendancePct === null ? 'neutral' : st.attendancePct >= 75 ? 'success' : 'warning'} className="text-[10px] py-0.5">
+                          {formatPct(st.attendancePct)} Att
                         </Badge>
                       </div>
                       <div className="text-micro text-primary font-semibold truncate">
@@ -351,8 +355,8 @@ export const PrincipalStudentDirectory: React.FC = () => {
                       <div className="text-micro text-text-tertiary">{st.admissionNumber}</div>
                     </td>
                     <td>
-                      <Badge tone={st.attendancePct >= 75 ? 'success' : 'warning'}>
-                        {st.attendancePct}%
+                      <Badge tone={st.attendancePct === null ? 'neutral' : st.attendancePct >= 75 ? 'success' : 'warning'}>
+                        {formatPct(st.attendancePct)}
                       </Badge>
                     </td>
                     <td className="font-medium text-foreground">{st.parentName}</td>

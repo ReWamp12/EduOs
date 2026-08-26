@@ -1,4 +1,3 @@
-import * as mock from './mockData';
 import { Student, TimetableSlot, Tenant, LeaveRequest, Batch } from './types';
 import { authClient } from './auth/client';
 import { isSupabaseConfigured } from './supabase';
@@ -30,6 +29,64 @@ function mapFeeInvoiceRow(row: any): FeeInvoiceRecord {
     transactionId: row.transaction_ref || undefined,
     receiptNumber: row.receipt_number || undefined,
     breakdown: Array.isArray(row.line_items) ? row.line_items : [],
+  };
+}
+
+/** Supabase job_openings row → the JobOpening shape the ATS and careers board use. */
+function mapJobRow(j: any) {
+  return {
+    id: j.id,
+    tenantId: j.tenant_id,
+    title: j.title,
+    department: j.department,
+    jobType: j.job_type || '',
+    designationCategory: j.designation_category || '',
+    experienceRequired: j.experience_required || '',
+    salaryRange: j.salary_range || '',
+    description: j.description || '',
+    requirements: j.requirements || '',
+    status: j.status || 'draft',
+    location: j.location || '',
+    positionsCount: j.positions_count ?? 1,
+    deadline: j.deadline || null,
+    createdAt: j.created_at,
+  };
+}
+
+/** Supabase applicants row (+ joined scorecard) → the ATS pipeline shape. */
+function mapApplicantRow(a: any) {
+  const card = Array.isArray(a.interview_scorecards)
+    ? a.interview_scorecards[0]
+    : a.interview_scorecards;
+  return {
+    id: a.id,
+    tenantId: a.tenant_id,
+    jobId: a.job_id,
+    fullName: a.full_name,
+    email: a.email,
+    phone: a.phone,
+    resumeUrl: a.resume_url,
+    portfolioUrl: a.portfolio_url,
+    coverLetter: a.cover_letter,
+    highestQualification: a.highest_qualification,
+    experienceYears: a.experience_years == null ? null : Number(a.experience_years),
+    currentOrganization: a.current_organization,
+    stage: a.stage || 'applied',
+    offeredSalary: a.offered_salary,
+    proposedJoiningDate: a.proposed_joining_date,
+    appliedAt: a.created_at ? String(a.created_at).split('T')[0] : null,
+    scorecard: card
+      ? {
+          pedagogyScore: card.pedagogy_score,
+          subjectKnowledgeScore: card.subject_knowledge_score,
+          classroomManagementScore: card.classroom_management_score,
+          communicationScore: card.communication_score,
+          overallRating: Number(card.overall_rating),
+          recommendation: card.recommendation,
+          interviewerName: card.interviewer_name,
+          notes: card.areas_of_improvement || card.strengths || '',
+        }
+      : undefined,
   };
 }
 
@@ -263,7 +320,14 @@ export const dataService = {
   },
 
   // --- Student Portal ---
-  async getStudentOverview(studentId?: string): Promise<Student> {
+  /**
+   * The signed-in student's own record. Returns null when there is no such
+   * record rather than the `mockCurrentStudent` fixture ("Aarav Sharma", roll
+   * 1, a fixed QR id) that every unmatched session used to receive — which
+   * meant a student whose row was missing saw somebody else's identity, ID
+   * card and QR code.
+   */
+  async getStudentOverview(studentId?: string): Promise<Student | null> {
     if (isSupabaseConfigured()) {
       try {
         let queryUserId = studentId;
@@ -325,6 +389,17 @@ export const dataService = {
             const tenant = studentRow.tenants as any;
             const fullName = `${prof?.first_name || ''} ${prof?.last_name || ''}`.trim() || 'Student';
 
+            // Attendance and rank are computed from the register and the
+            // results table (EDUOS-108 view). They used to be the literals
+            // `attendancePct: 94.2, rankInBatch: 4` rendered beside the real
+            // name and roll number, so every student's dashboard claimed the
+            // same invented figures.
+            const { data: summary } = await authClient
+              .from('v_student_academic_summary')
+              .select('attendance_pct, rank_in_batch')
+              .eq('student_id', studentRow.id)
+              .maybeSingle();
+
             return {
               id: studentRow.id,
               userId: studentRow.user_id,
@@ -333,19 +408,21 @@ export const dataService = {
               rollNumber: studentRow.roll_number || '',
               admissionNumber: studentRow.admission_number || '',
               batchId: studentRow.batch_id || '',
-              batchName: batch?.name || 'Class 10 - A',
-              targetExam: batch?.target_exam || 'CBSE',
-              attendancePct: 94.2,
-              rankInBatch: 4,
+              batchName: batch?.name || '',
+              targetExam: batch?.target_exam || '',
+              // null (not 0, not a filler) when there is nothing to compute
+              // from; the UI renders "—" rather than a plausible number.
+              attendancePct: summary?.attendance_pct ?? null,
+              rankInBatch: summary?.rank_in_batch ?? null,
               parentName: studentRow.parent_name || '',
               parentPhone: studentRow.parent_phone || '',
               parentEmail: studentRow.parent_email || '',
-              bloodGroup: studentRow.blood_group || 'O+ Positive',
+              bloodGroup: studentRow.blood_group || '',
               dob: studentRow.dob || '',
               gender: studentRow.gender || '',
               qrCodeId: studentRow.qr_code_id || studentRow.id,
               avatarUrl: prof?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fullName)}`,
-              tenantName: tenant?.name || 'Modern Public School',
+              tenantName: tenant?.name || '',
             };
           }
         }
@@ -354,15 +431,11 @@ export const dataService = {
       }
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/student/overview/${studentId || 's-1'}`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('NestJS Backend connection failed. Falling back to offline mock data.', e);
-    }
-    return Promise.resolve(mock.mockCurrentStudent);
+    // EDUOS-108 -- no NestJS tier and no fixture tail. API_BASE is hardcoded
+    // to localhost:4000, so in any deployed environment this fetch always
+    // failed and the fixture below was what users actually saw, presented as
+    // real institutional data.
+    return null;
   },
 
   // --- Teacher / Faculty Portal ---
@@ -399,15 +472,11 @@ export const dataService = {
       }
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/teacher/timetable/${teacherId || 'tch-1'}`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('NestJS Backend connection failed. Falling back to offline mock data.', e);
-    }
-    return Promise.resolve(mock.mockTimetable);
+    // EDUOS-108 -- no NestJS tier and no fixture tail. API_BASE is hardcoded
+    // to localhost:4000, so in any deployed environment this fetch always
+    // failed and the fixture below was what users actually saw, presented as
+    // real institutional data.
+    return [];
   },
 
   // --- Academic Batches & Roster ---
@@ -445,7 +514,7 @@ export const dataService = {
         console.warn('Supabase batches query failed, falling back:', e);
       }
     }
-    return Promise.resolve(mock.mockBatches);
+    return [];
   },
 
   async getStudents(batchId?: string): Promise<Student[]> {
@@ -468,39 +537,55 @@ export const dataService = {
 
         const { data } = await query;
         if (data && data.length > 0) {
-          return data.map((s: any, idx: number) => {
+          // One extra read for the whole page rather than a filler value per
+          // row. The previous code derived attendance from the array index
+          // (`90 + ((idx % 10) * 0.8)`) and rank from the index itself, so the
+          // numbers looked real, moved when the sort changed, and matched
+          // nothing in the database.
+          const { data: summaries } = await authClient
+            .from('v_student_academic_summary')
+            .select('student_id, attendance_pct, rank_in_batch')
+            .in('student_id', data.map((s: any) => s.id));
+          const summaryById = new Map(
+            (summaries ?? []).map((r: any) => [r.student_id, r]),
+          );
+
+          return data.map((s: any) => {
             const prof = s.user_profiles;
             const batch = s.batches;
-            const name = prof ? `${prof.first_name} ${prof.last_name}`.trim() : `Student ${idx + 1}`;
+            const name = prof ? `${prof.first_name} ${prof.last_name}`.trim() : '';
+            const summary = summaryById.get(s.id) as any;
             return {
               id: s.id,
               userId: s.user_id,
               name,
               email: prof?.email || '',
-              rollNumber: s.roll_number || `${idx + 1}`,
-              admissionNumber: s.admission_number || `MPS2026${String(idx + 1).padStart(3, '0')}`,
+              rollNumber: s.roll_number || '',
+              admissionNumber: s.admission_number || '',
               batchId: s.batch_id,
-              batchName: batch?.name || 'Class 10 - A',
-              targetExam: batch?.target_exam || 'CBSE',
-              attendancePct: 90 + ((idx % 10) * 0.8),
-              rankInBatch: idx + 1,
-              parentName: s.parent_name || 'Parent',
-              parentPhone: s.parent_phone || '+91-9810111000',
+              batchName: batch?.name || '',
+              targetExam: batch?.target_exam || '',
+              attendancePct: summary?.attendance_pct ?? null,
+              rankInBatch: summary?.rank_in_batch ?? null,
+              parentName: s.parent_name || '',
+              parentPhone: s.parent_phone || '',
               parentEmail: s.parent_email || '',
-              bloodGroup: s.blood_group || 'O+',
-              dob: s.dob || '2011-01-01',
-              gender: s.gender || 'male',
+              bloodGroup: s.blood_group || '',
+              dob: s.dob || '',
+              gender: s.gender || '',
               qrCodeId: s.qr_code_id || s.id,
-              avatarUrl: prof?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
-              tenantName: s.tenants?.name || 'Modern Public School',
+              avatarUrl: prof?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || 'Student')}`,
+              tenantName: s.tenants?.name || '',
             };
           });
         }
       } catch (e) {
-        console.warn('Supabase students query failed, falling back:', e);
+        console.warn('Supabase students query failed:', e);
       }
     }
-    return Promise.resolve(mock.mockStudentsInBatch);
+    // Empty, never a fixture roster: a directory that silently shows 30
+    // invented students is indistinguishable from a real one.
+    return [];
   },
 
   async getTeachers(): Promise<any[]> {
@@ -560,61 +645,93 @@ export const dataService = {
       }
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/tenants`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('NestJS Backend connection failed. Falling back to offline mock data.', e);
-    }
-    return Promise.resolve([
-      {
-        id: 't-1',
-        name: 'Modern Public School (CBSE Affiliated)',
-        subdomain: 'mpsdelhi',
-        institutionType: 'school',
-        primaryColor: '#2563EB',
-        secondaryColor: '#0D9488',
-        accentColor: '#F59E0B',
-      },
-    ]);
+    // No fixture tail. This used to fall through to a literal
+    // "Modern Public School (CBSE Affiliated)" with id 't-1', which the
+    // Branding Studio then wrote against — a tenant id that exists in no
+    // database. An empty list lets the caller render an honest empty state.
+    return [];
   },
 
-  async createTenant(tenant: Omit<Tenant, 'id'>): Promise<Tenant> {
+  /**
+   * Provisions a tenant. Returns null when refused; it previously returned a
+   * fabricated `{ id: 'tenant-'+Date.now() }` so the Super Admin saw "Tenant
+   * provisioned" for a row that was never created.
+   *
+   * RLS keeps `tenants` insert-free for end users by design — provisioning is
+   * a platform operation that runs with the service role, so a null here is
+   * the correct answer for a browser session rather than a failure to wire up.
+   */
+  async createTenant(tenant: Omit<Tenant, 'id'>): Promise<Tenant | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/tenants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tenant),
-      });
-      if (res.ok) {
-        return await res.json();
+      const { data, error } = await authClient
+        .from('tenants')
+        .insert({
+          name: tenant.name,
+          subdomain: tenant.subdomain,
+          institution_type: tenant.institutionType,
+          primary_color: tenant.primaryColor,
+          secondary_color: tenant.secondaryColor,
+          accent_color: tenant.accentColor,
+          tagline: tenant.tagline,
+          logo_url: tenant.logoUrl,
+        })
+        .select('*')
+        .single();
+      if (error || !data) {
+        console.warn('[tenants] provisioning rejected:', error?.message);
+        return null;
       }
+      return {
+        id: data.id,
+        name: data.name,
+        subdomain: data.subdomain,
+        institutionType: data.institution_type || 'school',
+        primaryColor: data.primary_color || '#2563EB',
+        secondaryColor: data.secondary_color || '#0D9488',
+        accentColor: data.accent_color || '#F59E0B',
+        tagline: data.tagline || '',
+        logoUrl: data.logo_url || '',
+      };
     } catch (e) {
-      console.warn('NestJS Backend connection failed. Falling back to offline mock data.', e);
+      console.warn('[tenants] provisioning failed:', e);
+      return null;
     }
-    return Promise.resolve({
-      id: `tenant-${Date.now()}`,
-      ...tenant,
-    });
   },
 
+  /**
+   * Persists branding to the caller's own tenant row. Returns false on
+   * refusal — this used to `return Promise.resolve(true)` unconditionally,
+   * against a hardcoded tenant id of 't-1'.
+   */
   async updateTenantBranding(tenantId: string, updates: Partial<Tenant>): Promise<boolean> {
+    if (!isSupabaseConfigured() || !tenantId) return false;
     try {
-      const res = await fetch(`${API_BASE}/tenants/${tenantId}/branding`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.success;
+      const patch: Record<string, unknown> = {};
+      if (updates.name !== undefined) patch.name = updates.name;
+      if (updates.tagline !== undefined) patch.tagline = updates.tagline;
+      if (updates.logoUrl !== undefined) patch.logo_url = updates.logoUrl;
+      if (updates.primaryColor !== undefined) patch.primary_color = updates.primaryColor;
+      if (updates.secondaryColor !== undefined) patch.secondary_color = updates.secondaryColor;
+      if (updates.accentColor !== undefined) patch.accent_color = updates.accentColor;
+      if (Object.keys(patch).length === 0) return true;
+
+      const { data, error } = await authClient
+        .from('tenants')
+        .update(patch)
+        .eq('id', tenantId)
+        .select('id');
+      if (error) {
+        console.warn('[branding] update rejected:', error.message);
+        return false;
       }
+      // RLS filters rather than errors on a row the caller may not touch, so
+      // an empty result is a refusal, not a success.
+      return Array.isArray(data) && data.length > 0;
     } catch (e) {
-      console.warn('NestJS Backend connection failed. Falling back to offline mock data.', e);
+      console.warn('[branding] update failed:', e);
+      return false;
     }
-    return Promise.resolve(true);
   },
 
   // --- Principal Portal Leave Approvals ---
@@ -653,15 +770,11 @@ export const dataService = {
       }
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/leaves`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('NestJS Backend connection failed. Falling back to offline mock data.', e);
-    }
-    return Promise.resolve(mock.mockLeaveRequests);
+    // EDUOS-108 -- no NestJS tier and no fixture tail. API_BASE is hardcoded
+    // to localhost:4000, so in any deployed environment this fetch always
+    // failed and the fixture below was what users actually saw, presented as
+    // real institutional data.
+    return [];
   },
 
   // --- Attendance Management ---
@@ -680,70 +793,46 @@ export const dataService = {
     const periodNumber = options?.periodNumber || 1;
 
     if (isSupabaseConfigured()) {
-      try {
-        const payload = {
-          p_batch_id: batchId,
-          p_date: targetDate,
-          p_period_number: periodNumber,
-          p_records: records.map((r) => ({
-            student_id: r.studentId,
-            status: r.status,
-            is_excused_medical: r.isExcusedMedical || false,
-            remarks: r.remarks || 'Recorded via attendance register',
-          })),
-          p_caller_id: options?.callerId || null,
-          p_caller_role: options?.callerRole || null,
-          p_reason: options?.reason || null,
-        };
+      const payload = {
+        p_batch_id: batchId,
+        p_date: targetDate,
+        p_period_number: periodNumber,
+        p_records: records.map((r) => ({
+          student_id: r.studentId,
+          status: r.status,
+          is_excused_medical: r.isExcusedMedical || false,
+          remarks: r.remarks || 'Recorded via attendance register',
+        })),
+        // Advisory only since EDUOS-108: mark_attendance() resolves the acting
+        // teacher from auth.uid() and rejects a p_caller_id that disagrees.
+        p_caller_id: options?.callerId || null,
+        p_caller_role: options?.callerRole || null,
+        p_reason: options?.reason || null,
+      };
 
-        const { data, error } = await authClient.rpc('mark_attendance', payload);
-        if (!error && data) {
-          return data;
-        }
-        if (error) {
-          console.warn('mark_attendance RPC returned error:', error.message);
-          throw new Error(error.message);
-        }
-      } catch (e: any) {
-        console.warn('Supabase markAttendance RPC failed, trying HTTP endpoint:', e.message);
-        if (e.message && (e.message.includes('future date') || e.message.includes('Sunday') || e.message.includes('Permission denied') || e.message.includes('Principal approval'))) {
-          throw e;
-        }
+      const { data, error } = await authClient.rpc('mark_attendance', payload);
+      if (error) {
+        // Every rejection is surfaced. This previously rethrew only when the
+        // message matched a whitelist of four substrings; anything else — an
+        // RLS denial, a network blip, a changed error string — fell through to
+        // the fabricated success below and the register reported "Saved &
+        // Synced" for a write that never happened.
+        console.warn('[attendance] mark_attendance rejected:', error.message);
+        throw new Error(error.message);
       }
+      if (!data) {
+        throw new Error('The attendance register returned no result. Nothing was saved.');
+      }
+      return data;
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/attendance/mark`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          batch_id: batchId,
-          date: targetDate,
-          period_number: periodNumber,
-          records: records.map((r) => ({
-            student_id: r.studentId,
-            status: r.status,
-            is_excused_medical: r.isExcusedMedical,
-            remarks: r.remarks,
-          })),
-          caller_id: options?.callerId,
-          caller_role: options?.callerRole,
-          reason: options?.reason,
-        }),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('Failed to post attendance to NestJS backend.', e);
-    }
-    return {
-      success: true,
-      total: records.length,
-      notified: records.filter((r) => r.status !== 'present').length,
-      skipped_unchanged: 0,
-      failed: 0,
-    };
+    // Supabase is the register of record. There is no second tier: the NestJS
+    // proxy at API_BASE forwards to this same RPC, and reaching for it here
+    // only ever produced a hardcoded {success: true} when it was unreachable,
+    // which is the exact failure this ticket exists to remove.
+    throw new Error(
+      'Attendance cannot be saved because the database is not configured. Nothing was recorded.',
+    );
   },
 
   async getAttendanceDefaulters(batchId: string): Promise<any[]> {
@@ -981,53 +1070,124 @@ export const dataService = {
     return Promise.resolve([]);
   },
 
-  async createAssignment(assignment: any): Promise<any> {
+  /**
+   * Publishes an assignment to a batch. Returns null when the write is
+   * refused — previously it minted `asg-${Date.now()}` locally and handed it
+   * back as though the row existed, so the teacher saw their assignment
+   * appear while no student could ever load it.
+   *
+   * RLS (EDUOS-108) restricts the insert to leadership and to teachers who
+   * actually hold the batch.
+   */
+  async createAssignment(assignment: {
+    tenantId?: string;
+    batchId: string;
+    subjectId?: string | null;
+    teacherId?: string | null;
+    title: string;
+    description?: string;
+    dueDate: string;
+    maxMarks?: number;
+    attachmentUrl?: string | null;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/assignments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(assignment),
-      });
-      if (res.ok) {
-        return await res.json();
+      const { data, error } = await authClient
+        .from('assignments')
+        .insert({
+          batch_id: assignment.batchId,
+          subject_id: assignment.subjectId ?? null,
+          teacher_id: assignment.teacherId ?? null,
+          title: assignment.title,
+          description: assignment.description ?? '',
+          due_date: assignment.dueDate,
+          max_marks: assignment.maxMarks ?? 50,
+          attachment_url: assignment.attachmentUrl ?? null,
+          ...(assignment.tenantId ? { tenant_id: assignment.tenantId } : {}),
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[assignments] create rejected:', error?.message);
+        return null;
       }
+      return data;
     } catch (e) {
-      console.warn('Failed to post assignment to NestJS backend.', e);
+      console.warn('[assignments] create failed:', e);
+      return null;
     }
-    return Promise.resolve({ id: `asg-${Date.now()}`, ...assignment });
   },
 
-  async submitAssignment(submission: any): Promise<any> {
+  /**
+   * Records a student's submission. Returns null on refusal rather than a
+   * fabricated `sub-${Date.now()}`.
+   *
+   * `submission_url` carries the object path inside the private submissions
+   * bucket (EDUOS-127), not a public link — viewers mint a signed URL from it.
+   */
+  async submitAssignment(submission: {
+    assignmentId: string;
+    studentId: string;
+    submissionUrl?: string | null;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/submissions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submission),
-      });
-      if (res.ok) {
-        return await res.json();
+      const { data, error } = await authClient
+        .from('assignment_submissions')
+        .upsert(
+          {
+            assignment_id: submission.assignmentId,
+            student_id: submission.studentId,
+            submission_url: submission.submissionUrl ?? null,
+            submitted_at: new Date().toISOString(),
+            status: 'submitted',
+          },
+          { onConflict: 'assignment_id,student_id' },
+        )
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[submissions] submit rejected:', error?.message);
+        return null;
       }
+      return data;
     } catch (e) {
-      console.warn('Failed to submit assignment to NestJS backend.', e);
+      console.warn('[submissions] submit failed:', e);
+      return null;
     }
-    return Promise.resolve({ id: `sub-${Date.now()}`, ...submission, status: 'submitted' });
   },
 
+  /**
+   * Writes marks + feedback onto a submission. Returns false when the write
+   * was refused so the gradebook can say so; it used to `return
+   * Promise.resolve(true)` whenever the request failed, which reported every
+   * grade as published regardless.
+   *
+   * The grader is authorised server-side: the guard_submission_grading trigger
+   * (EDUOS-108) rejects marks/feedback/status changes from anyone who is not
+   * teaching that student's batch, so a student cannot grade their own work
+   * even though RLS lets them update their own submission row.
+   */
   async gradeSubmission(submissionId: string, marksObtained: number, feedback: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
     try {
-      const res = await fetch(`${API_BASE}/submissions/${submissionId}/grade`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marksObtained, feedback }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.success;
+      const { error } = await authClient
+        .from('assignment_submissions')
+        .update({
+          marks_obtained: marksObtained,
+          feedback,
+          status: 'graded',
+        })
+        .eq('id', submissionId);
+      if (error) {
+        console.warn('[gradebook] grade rejected:', error.message);
+        return false;
       }
+      return true;
     } catch (e) {
-      console.warn('Failed to grade submission on NestJS backend.', e);
+      console.warn('[gradebook] grade failed:', e);
+      return false;
     }
-    return Promise.resolve(true);
   },
 
   // --- Exams ---
@@ -1047,14 +1207,18 @@ export const dataService = {
             return {
               id: r.id,
               examId: r.exam_id,
-              examTitle: ex?.title || 'Class 10 CBSE Assessment',
+              examTitle: ex?.title || '',
               score: r.marks_obtained,
-              maxScore: ex?.total_marks || 80,
-              percentile: r.percentile || 94.5,
-              rankInBatch: r.rank_in_batch || 1,
-              date: ex?.exam_date || '2026-08-10',
-              weakTopics: r.weak_topics || ['Quadratic Equations'],
-              aiNarrative: r.mistake_summary || 'Strong performance across sections with minor calculation errors.',
+              maxScore: ex?.total_marks ?? null,
+              // Nulls, not stand-ins. These previously defaulted to
+              // percentile 94.5, rank 1, a fixed date, a "Quadratic Equations"
+              // weak topic and a canned AI narrative whenever the column was
+              // empty — invented analysis attached to a real score.
+              percentile: r.percentile ?? null,
+              rankInBatch: r.rank_in_batch ?? null,
+              date: ex?.exam_date || null,
+              weakTopics: r.weak_topics ?? [],
+              aiNarrative: r.mistake_summary || null,
             };
           });
         }
@@ -1063,15 +1227,11 @@ export const dataService = {
       }
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/exams/student/${studentId || 'std-1'}`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('Failed to fetch exam results from NestJS backend.', e);
-    }
-    return Promise.resolve(mock.mockExamResults);
+    // EDUOS-108 -- no NestJS tier and no fixture tail. API_BASE is hardcoded
+    // to localhost:4000, so in any deployed environment this fetch always
+    // failed and the fixture below was what users actually saw, presented as
+    // real institutional data.
+    return [];
   },
 
   // --- Notices ---
@@ -1106,644 +1266,810 @@ export const dataService = {
       }
     }
 
+    // EDUOS-108 -- no NestJS tier and no fixture tail. API_BASE is hardcoded
+    // to localhost:4000, so in any deployed environment this fetch always
+    // failed and the fixture below was what users actually saw, presented as
+    // real institutional data.
+    return [];
+  },
+
+  /**
+   * Broadcasts a notice. `created_by` is left to the database default / the
+   * caller's own row via RLS — the composer used to stamp the author from
+   * `mockProfiles[role]`, so a real principal's broadcast was attributed to
+   * "Dr. Meenakshi Sundaram" regardless of who sent it.
+   *
+   * Returns the inserted row's id, or null when the write is refused (RLS
+   * restricts inserts to teacher/principal/super_admin/hr_manager).
+   */
+  async createNotice(input: {
+    title: string;
+    content: string;
+    category: string;
+    audience: string[];
+    priority?: string;
+    createdBy?: string;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/notices`);
-      if (res.ok) {
-        return await res.json();
+      // target_role stays populated for older readers; `audience` (EDUOS-108
+      // schema column) carries the real multi-audience set the composer emits.
+      const targetRole =
+        input.audience.length === 3 ? 'all' : input.audience[0] ?? 'all';
+      const { data, error } = await authClient
+        .from('notices')
+        .insert({
+          title: input.title,
+          content: input.content,
+          category: input.category,
+          target_role: targetRole,
+          audience: input.audience,
+          priority: input.priority ?? 'normal',
+          ...(input.createdBy ? { created_by: input.createdBy } : {}),
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[notices] create rejected:', error?.message);
+        return null;
       }
+      return data;
     } catch (e) {
-      console.warn('Failed to fetch notices from NestJS backend.', e);
+      console.warn('[notices] create failed:', e);
+      return null;
     }
-    return Promise.resolve(mock.mockNotices);
+  },
+
+  /** Schedules an exam. Returns the row id, or null when refused. */
+  async createExam(input: {
+    batchId: string;
+    title: string;
+    examType: string;
+    totalMarks: number;
+    examDate: string;
+    subjectId?: string | null;
+    createdBy?: string | null;
+    durationMinutes?: number;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('exams')
+        .insert({
+          batch_id: input.batchId,
+          title: input.title,
+          exam_type: input.examType,
+          total_marks: input.totalMarks,
+          exam_date: input.examDate,
+          duration_minutes: input.durationMinutes ?? null,
+          subject_id: input.subjectId ?? null,
+          created_by: input.createdBy ?? null,
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[exams] create rejected:', error?.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.warn('[exams] create failed:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Publishes gradebook marks for a batch as exam_results rows, one ACID-ish
+   * upsert keyed on (exam_id, student_id) — the natural key EDUOS-108 added.
+   * Re-publishing overwrites rather than duplicating. `recordResults` in the
+   * store previously only pushed parent alerts; the marks reached no table.
+   *
+   * Returns the number of rows written, or null on refusal. RLS + the
+   * exam_results write policy restrict this to the teacher who holds the batch
+   * (or leadership).
+   */
+  async publishExamResults(
+    examId: string,
+    rows: Array<{ studentId: string; marksObtained: number; feedback?: string }>,
+    gradedBy?: string,
+  ): Promise<number | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const payload = rows.map((r) => ({
+        exam_id: examId,
+        student_id: r.studentId,
+        marks_obtained: r.marksObtained,
+        feedback: r.feedback ?? null,
+        graded_by: gradedBy ?? null,
+        graded_at: new Date().toISOString(),
+      }));
+      const { data, error } = await authClient
+        .from('exam_results')
+        .upsert(payload, { onConflict: 'exam_id,student_id' })
+        .select('id');
+      if (error) {
+        console.warn('[gradebook] publish rejected:', error.message);
+        return null;
+      }
+      return data?.length ?? 0;
+    } catch (e) {
+      console.warn('[gradebook] publish failed:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Files a staff leave request for the signed-in employee. `employee_id` is
+   * the caller's own profile id; the RLS insert policy rejects a request filed
+   * on anyone else's behalf.
+   */
+  async applyForLeave(input: {
+    employeeId: string;
+    leaveType: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    designation?: string;
+    daysCount?: number;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('leave_requests')
+        .insert({
+          employee_id: input.employeeId,
+          leave_type: input.leaveType,
+          start_date: input.startDate,
+          end_date: input.endDate,
+          reason: input.reason,
+          designation: input.designation ?? null,
+          days_count: input.daysCount ?? null,
+          status: 'pending',
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[leave] apply rejected:', error?.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.warn('[leave] apply failed:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Approves or rejects a leave request. RLS restricts UPDATE to leadership,
+   * so a teacher cannot approve their own leave even though they can read the
+   * queue. Returns false on refusal — the approvals screen used to write to
+   * localStorage only, so a Principal's decision never reached the applicant.
+   */
+  async decideLeave(
+    leaveId: string,
+    status: 'approved' | 'rejected',
+    comment: string | undefined,
+    reviewerId: string | undefined,
+  ): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { data, error } = await authClient
+        .from('leave_requests')
+        .update({
+          status,
+          actioned_by: reviewerId ?? null,
+          reviewed_at: new Date().toISOString(),
+          review_comment: comment ?? null,
+        })
+        .eq('id', leaveId)
+        .select('id');
+      if (error) {
+        console.warn('[leave] decision rejected:', error.message);
+        return false;
+      }
+      return Array.isArray(data) && data.length > 0;
+    } catch (e) {
+      console.warn('[leave] decision failed:', e);
+      return false;
+    }
   },
 
   // ==========================================
-  // TICKET EDUOS-101: HRMS & COMPLIANCE API METHODS
+  // HR & STATUTORY REGISTERS (EDUOS-101, rewritten in EDUOS-108)
+  // ------------------------------------------
+  // Every method below previously ran: try the NestJS proxy on
+  // localhost:4000 -> on failure write to localStorage AND mutate the
+  // in-memory `mock.mock*` arrays -> return the mutated object so the screen
+  // rendered a success. API_BASE is hardcoded to localhost, so the proxy is
+  // unreachable in any deployed environment and the fallback WAS the product:
+  // pay-scale increments, police-verification clearances and CPD hours were
+  // recorded nowhere. `mock.mockEmployees` is `[]`, so several of those writes
+  // landed in an empty array and vanished on reload.
+  //
+  // These now write to Supabase directly. RLS (EDUOS-108) restricts every one
+  // of these tables to is_hr_staff(), so authorisation is enforced by the
+  // database rather than by whoever can reach an unauthenticated HTTP port.
   // ==========================================
 
   async getHROverview(): Promise<any> {
-    if (isSupabaseConfigured()) {
-      try {
-        const [empRes, jobRes, appRes] = await Promise.all([
-          authClient.from('employee_records').select('*'),
-          authClient.from('job_openings').select('*'),
-          authClient.from('applicants').select('*'),
-        ]);
-
-        const employees = empRes.data || [];
-        const jobs = jobRes.data || [];
-        const applicants = appRes.data || [];
-
-        const totalStaff = employees.length || mock.mockEmployees.length;
-        const verifiedStaff = employees.filter((e: any) => e.police_verification_status === 'verified').length;
-        const pendingGrace = employees.filter((e: any) => e.police_verification_status === 'submitted_pending').length;
-        const missingPolice = employees.filter((e: any) => e.police_verification_status === 'missing').length;
-        const restricted = employees.filter((e: any) => e.is_access_restricted).length;
-        const teachingStaff = employees.filter((e: any) => e.employee_type === 'teaching');
-        const fullyCompletedCPD = teachingStaff.filter((e: any) => (e.cpd_hours_completed || 0) >= 50).length;
-
-        return {
-          metrics: {
-            totalStaff,
-            teachingStaffCount: teachingStaff.length,
-            nonTeachingStaffCount: totalStaff - teachingStaff.length,
-            openPositions: jobs.filter((j: any) => j.status === 'published').length || 3,
-            activeApplicants: applicants.length,
-            policeVerificationCompliancePct: totalStaff > 0 ? Math.round((verifiedStaff / totalStaff) * 100) : 100,
-            verifiedStaffCount: verifiedStaff,
-            pendingGraceCount: pendingGrace,
-            missingPoliceCount: missingPolice,
-            restrictedAccessStaffCount: restricted,
-            cpdMandatoryHoursTarget: 50,
-            cpdCompletionRatePct: teachingStaff.length > 0 ? Math.round((fullyCompletedCPD / teachingStaff.length) * 100) : 100,
-            totalCpdHoursLogged: teachingStaff.reduce((s: number, e: any) => s + (e.cpd_hours_completed || 0), 0),
-          },
-          criticalAlerts: [],
-          recentApplicants: applicants.slice(0, 5),
-        };
-      } catch (e) {
-        console.warn('Supabase HR overview query failed, falling back:', e);
-      }
-    }
-
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/overview`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('Failed to fetch HR overview from backend, using local store.', e);
-    }
-    const totalStaff = mock.mockEmployees.length;
-    const verifiedStaff = mock.mockEmployees.filter(e => e.policeVerificationStatus === 'verified').length;
-    const pendingGrace = mock.mockEmployees.filter(e => e.policeVerificationStatus === 'submitted_pending').length;
-    const missingPolice = mock.mockEmployees.filter(e => e.policeVerificationStatus === 'missing').length;
-    const restricted = mock.mockEmployees.filter(e => e.isAccessRestricted).length;
-    const teachingStaff = mock.mockEmployees.filter(e => e.employeeType === 'teaching');
-    const fullyCompletedCPD = teachingStaff.filter(e => (e.cpdHoursCompleted || 0) >= 50).length;
+      const [empRes, jobRes, appRes] = await Promise.all([
+        authClient.from('employee_records').select('*'),
+        authClient.from('job_openings').select('*'),
+        authClient.from('applicants').select('*').order('created_at', { ascending: false }),
+      ]);
 
-    return Promise.resolve({
-      metrics: {
-        totalStaff,
-        teachingStaffCount: teachingStaff.length,
-        nonTeachingStaffCount: totalStaff - teachingStaff.length,
-        openPositions: mock.mockJobs.filter(j => j.status === 'published').length,
-        activeApplicants: mock.mockApplicants.length,
-        policeVerificationCompliancePct: totalStaff > 0 ? Math.round((verifiedStaff / totalStaff) * 100) : 100,
-        verifiedStaffCount: verifiedStaff,
-        pendingGraceCount: pendingGrace,
-        missingPoliceCount: missingPolice,
-        restrictedAccessStaffCount: restricted,
-        cpdMandatoryHoursTarget: 50,
-        cpdCompletionRatePct: teachingStaff.length > 0 ? Math.round((fullyCompletedCPD / teachingStaff.length) * 100) : 100,
-        totalCpdHoursLogged: teachingStaff.reduce((s, e) => s + (e.cpdHoursCompleted || 0), 0),
-      },
-      criticalAlerts: [],
-      recentApplicants: mock.mockApplicants.slice(0, 5),
-    });
+      const employees = empRes.data || [];
+      const jobs = jobRes.data || [];
+      const applicants = appRes.data || [];
+
+      const totalStaff = employees.length;
+      const verifiedStaff = employees.filter((e: any) => e.police_verification_status === 'verified').length;
+      const teachingStaff = employees.filter((e: any) => e.employee_type === 'teaching');
+      const fullyCompletedCPD = teachingStaff.filter((e: any) => (e.cpd_hours_completed || 0) >= 50).length;
+
+      return {
+        metrics: {
+          totalStaff,
+          teachingStaffCount: teachingStaff.length,
+          nonTeachingStaffCount: totalStaff - teachingStaff.length,
+          // No `|| 3` filler: zero open positions is a fact, not a gap to hide.
+          openPositions: jobs.filter((j: any) => j.status === 'published').length,
+          activeApplicants: applicants.length,
+          policeVerificationCompliancePct:
+            totalStaff > 0 ? Math.round((verifiedStaff / totalStaff) * 100) : null,
+          verifiedStaffCount: verifiedStaff,
+          pendingGraceCount: employees.filter((e: any) => e.police_verification_status === 'submitted_pending').length,
+          missingPoliceCount: employees.filter((e: any) => e.police_verification_status === 'missing').length,
+          restrictedAccessStaffCount: employees.filter((e: any) => e.is_access_restricted).length,
+          cpdMandatoryHoursTarget: 50,
+          cpdCompletionRatePct:
+            teachingStaff.length > 0 ? Math.round((fullyCompletedCPD / teachingStaff.length) * 100) : null,
+          totalCpdHoursLogged: teachingStaff.reduce((s: number, e: any) => s + (e.cpd_hours_completed || 0), 0),
+        },
+        criticalAlerts: employees
+          .filter((e: any) => e.police_verification_status === 'missing' || e.is_access_restricted)
+          .slice(0, 5)
+          .map((e: any) => ({
+            employeeId: e.id,
+            fullName: e.full_name,
+            issue: e.is_access_restricted ? 'System access restricted' : 'Police verification missing',
+            gracePeriodExpiryDate: e.grace_period_expiry_date,
+          })),
+        recentApplicants: applicants.slice(0, 5).map(mapApplicantRow),
+      };
+    } catch (e) {
+      console.warn('[hr] overview failed:', e);
+      return null;
+    }
   },
 
   async getJobs(): Promise<any[]> {
-    if (isSupabaseConfigured()) {
-      try {
-        const { data } = await authClient
-          .from('job_openings')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (data && data.length > 0) {
-          return data.map((j: any) => ({
-            id: j.id,
-            tenantId: j.tenant_id,
-            title: j.title,
-            department: j.department,
-            jobType: j.job_type || 'Full-time',
-            designationCategory: j.designation_category || 'Teaching',
-            experienceRequired: j.experience_required || '2-5 years',
-            salaryRange: j.salary_range || 'As per norms',
-            description: j.description || '',
-            requirements: j.requirements || '',
-            status: j.status || 'published',
-            location: j.location || 'Main Campus, New Delhi',
-            positionsCount: j.positions_count || 1,
-            deadline: j.deadline || '2026-10-15',
-            applicantsCount: 0,
-            createdAt: j.created_at,
-          }));
-        }
-      } catch (e) {
-        console.warn('Supabase jobs query failed, falling back:', e);
-      }
-    }
-
+    if (!isSupabaseConfigured()) return [];
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/jobs`);
-      if (res.ok) return await res.json();
+      const { data, error } = await authClient
+        .from('job_openings')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error || !data) return [];
+
+      // Applicant counts come from the applicants table rather than the
+      // hardcoded `applicantsCount: 0` the old mapper emitted.
+      const { data: counts } = await authClient.from('applicants').select('job_id');
+      const perJob = new Map<string, number>();
+      (counts ?? []).forEach((r: any) => perJob.set(r.job_id, (perJob.get(r.job_id) || 0) + 1));
+
+      return data.map((j: any) => ({ ...mapJobRow(j), applicantsCount: perJob.get(j.id) || 0 }));
     } catch (e) {
-      // fallback
+      console.warn('[hr] getJobs failed:', e);
+      return [];
     }
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('eduos_hr_jobs');
-        if (stored) {
-          return JSON.parse(stored);
-        }
-      } catch (err) {
-        console.warn('Error reading stored jobs', err);
-      }
-    }
-    return Promise.resolve(mock.mockJobs);
   },
 
-  async createJob(jobData: any): Promise<any> {
+  /** Opens a vacancy. Returns null when refused, never a local job id. */
+  async createJob(jobData: any): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(jobData),
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      // fallback
-    }
-    const newJob = {
-      id: `job-${Date.now()}`,
-      tenantId: 'tenant-cbse-dps-01',
-      title: jobData.title,
-      department: jobData.department,
-      jobType: jobData.jobType || 'Full-time',
-      designationCategory: jobData.designationCategory || 'Teaching',
-      experienceRequired: jobData.experienceRequired || '2-5 years',
-      salaryRange: jobData.salaryRange || 'As per norms',
-      description: jobData.description,
-      requirements: jobData.requirements || '',
-      status: jobData.status || 'published',
-      location: jobData.location || 'Main Campus, New Delhi',
-      positionsCount: Number(jobData.positionsCount) || 1,
-      deadline: jobData.deadline || '2026-10-15',
-      applicantsCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-
-    let allJobs = [...mock.mockJobs];
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('eduos_hr_jobs');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            allJobs = parsed.filter(j => j && typeof j === 'object' && j.id);
-          }
-        }
-        allJobs = [newJob, ...allJobs.filter(j => j.id !== newJob.id)];
-        localStorage.setItem('eduos_hr_jobs', JSON.stringify(allJobs));
-      } catch (err) {
-        console.warn('Error storing job', err);
+      const { data, error } = await authClient
+        .from('job_openings')
+        .insert({
+          title: jobData.title,
+          department: jobData.department,
+          job_type: jobData.jobType || 'Full-time',
+          designation_category: jobData.designationCategory || 'Teaching',
+          experience_required: jobData.experienceRequired || null,
+          salary_range: jobData.salaryRange || null,
+          description: jobData.description || '',
+          requirements: jobData.requirements || '',
+          status: jobData.status || 'published',
+          location: jobData.location || null,
+          positions_count: Number(jobData.positionsCount) || 1,
+          deadline: jobData.deadline || null,
+        })
+        .select('*')
+        .single();
+      if (error || !data) {
+        console.warn('[hr] createJob rejected:', error?.message);
+        return null;
       }
+      return { ...mapJobRow(data), applicantsCount: 0 };
+    } catch (e) {
+      console.warn('[hr] createJob failed:', e);
+      return null;
     }
-    mock.mockJobs.unshift(newJob as any);
-    return Promise.resolve(newJob);
   },
 
   async getApplicants(jobId?: string): Promise<any[]> {
-    if (isSupabaseConfigured()) {
-      try {
-        let query = authClient.from('applicants').select('*').order('created_at', { ascending: false });
-        if (jobId && jobId !== 'all') {
-          query = query.eq('job_id', jobId);
-        }
-        const { data } = await query;
-        if (data && data.length > 0) {
-          return data.map((a: any) => ({
-            id: a.id,
-            tenantId: a.tenant_id,
-            jobId: a.job_id,
-            jobTitle: a.job_title || 'Faculty Position',
-            fullName: a.full_name,
-            email: a.email,
-            phone: a.phone,
-            resumeUrl: a.resume_url,
-            highestQualification: a.highest_qualification,
-            experienceYears: a.experience_years,
-            currentOrganization: a.current_organization,
-            stage: a.stage || 'applied',
-            appliedAt: a.created_at?.split('T')[0],
-          }));
-        }
-      } catch (e) {
-        console.warn('Supabase applicants query failed, falling back:', e);
-      }
-    }
-
+    if (!isSupabaseConfigured()) return [];
     try {
-      const url = jobId ? `${API_BASE}/v1/hr/applicants?jobId=${jobId}` : `${API_BASE}/v1/hr/applicants`;
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
+      let query = authClient
+        .from('applicants')
+        .select('*, interview_scorecards(*)')
+        .order('created_at', { ascending: false });
+      if (jobId && jobId !== 'all') query = query.eq('job_id', jobId);
+      const { data, error } = await query;
+      if (error || !data) return [];
+      return data.map(mapApplicantRow);
     } catch (e) {
-      // fallback
+      console.warn('[hr] getApplicants failed:', e);
+      return [];
     }
-    let allApplicants = mock.mockApplicants;
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('eduos_hr_applicants');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            allApplicants = parsed.filter(a => a && typeof a === 'object' && a.id);
-          }
-        }
-      } catch (err) {
-        console.warn('Error reading stored applicants', err);
-      }
-    }
-    if (jobId && jobId !== 'all') {
-      return Promise.resolve(allApplicants.filter(a => a && a.jobId === jobId));
-    }
-    return Promise.resolve(allApplicants.filter(a => a && typeof a === 'object' && a.id));
   },
 
-  async submitPublicApplication(appData: any): Promise<any> {
-    try {
-      const res = await fetch(`${API_BASE}/v1/hr/applicants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(appData),
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      // fallback
+  /**
+   * Public careers-board application, submitted with the anon key. The
+   * applicants_public_apply policy (EDUOS-108) permits the INSERT while
+   * keeping SELECT restricted to HR, so a candidate cannot read the pipeline.
+   *
+   * Throws rather than returning a fabricated applicant: the careers page
+   * needs to tell a real candidate whether their application was received.
+   */
+  async submitPublicApplication(appData: any): Promise<{ id: string }> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Applications cannot be submitted right now. Please try again later.');
     }
-    let allApplicants = [...mock.mockApplicants];
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('eduos_hr_applicants');
-        if (stored) allApplicants = JSON.parse(stored);
-      } catch (err) {
-        console.warn('Error reading applicants', err);
+
+    // The duplicate check must be a database constraint. anon deliberately
+    // cannot SELECT applicants, so a client-side "have you already applied?"
+    // scan is impossible here -- and the old localStorage version only ever
+    // checked the candidate's own browser.
+    const { data, error } = await authClient
+      .from('applicants')
+      .insert({
+        job_id: appData.jobId,
+        tenant_id: appData.tenantId || null,
+        full_name: appData.fullName,
+        email: (appData.email || '').trim().toLowerCase(),
+        phone: appData.phone,
+        experience_years: Number(appData.experienceYears) || null,
+        highest_qualification: appData.highestQualification || null,
+        current_organization: appData.currentOrganization || null,
+        resume_url: appData.resumeUrl || null,
+        cover_letter: appData.coverLetter || null,
+        stage: 'applied',
+        source: 'careers_portal',
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        throw new Error(
+          `You have already submitted an application for this position using ${appData.email}.`,
+        );
       }
+      throw new Error(error.message || 'Your application could not be submitted.');
     }
-
-    const emailTrim = (appData.email || '').trim().toLowerCase();
-    const existing = allApplicants.find(
-      a => (a.email || '').trim().toLowerCase() === emailTrim && a.jobId === appData.jobId
-    );
-
-    if (existing) {
-      return Promise.reject(
-        new Error(`You have already submitted an application for this position using ${appData.email}.`)
-      );
-    }
-
-    const newApplicant = {
-      id: `app-${Date.now()}`,
-      tenantId: 'tenant-cbse-dps-01',
-      jobId: appData.jobId,
-      jobTitle: appData.jobTitle || 'Faculty Position',
-      fullName: appData.fullName,
-      email: appData.email,
-      phone: appData.phone,
-      resumeUrl: appData.resumeUrl || 'https://storage.eduos.io/resumes/applicant_cv.pdf',
-      highestQualification: appData.highestQualification,
-      experienceYears: Number(appData.experienceYears) || 3,
-      currentOrganization: appData.currentOrganization || 'Candidate Institution',
-      stage: 'applied' as const,
-      appliedAt: new Date().toISOString().split('T')[0],
-    };
-
-    if (typeof window !== 'undefined') {
-      try {
-        allApplicants = [newApplicant, ...allApplicants];
-        localStorage.setItem('eduos_hr_applicants', JSON.stringify(allApplicants));
-      } catch (err) {
-        console.warn('Error storing applicant', err);
-      }
-    }
-    mock.mockApplicants.unshift(newApplicant as any);
-    return Promise.resolve(newApplicant);
+    return data;
   },
 
-  async updateApplicantStage(applicantId: string, stage: string, extra?: any): Promise<any> {
+  /** Moves a candidate through the pipeline. Returns null when refused. */
+  async updateApplicantStage(applicantId: string, stage: string, extra?: any): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/applicants/${applicantId}/stage`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage, ...extra }),
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      // fallback
-    }
+      const patch: Record<string, unknown> = { stage, updated_at: new Date().toISOString() };
+      if (extra?.offeredSalary) patch.offered_salary = extra.offeredSalary;
+      if (extra?.proposedJoiningDate) patch.proposed_joining_date = extra.proposedJoiningDate;
 
-    let allApplicants = [...mock.mockApplicants];
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('eduos_hr_applicants');
-        if (stored) allApplicants = JSON.parse(stored);
-      } catch (err) { }
-    }
-
-    let updatedApp: any = null;
-    allApplicants = allApplicants.map(a => {
-      if (a.id === applicantId) {
-        updatedApp = { ...a, stage: stage as any, ...extra };
-        return updatedApp;
+      const { data, error } = await authClient
+        .from('applicants')
+        .update(patch)
+        .eq('id', applicantId)
+        .select('*, interview_scorecards(*)')
+        .maybeSingle();
+      if (error || !data) {
+        console.warn('[hr] stage change rejected:', error?.message);
+        return null;
       }
-      return a;
-    });
 
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('eduos_hr_applicants', JSON.stringify(allApplicants));
-      } catch (err) { }
-    }
-
-    const app = mock.mockApplicants.find(a => a.id === applicantId);
-    if (app) {
-      app.stage = stage as any;
-      if (extra?.offeredSalary) app.offeredSalary = extra.offeredSalary;
-      if (extra?.proposedJoiningDate) app.proposedJoiningDate = extra.proposedJoiningDate;
-
+      // Hiring opens a service book. This used to build a fake employee with a
+      // random employee code, an invented entry pay scale of 44900/4600 and a
+      // stock photo, then push it into `mock.mockEmployees` -- an empty array,
+      // so the "Service Book created" toast referred to nothing at all.
       if (stage === 'hired') {
-        const joining = app.proposedJoiningDate || new Date().toISOString().split('T')[0];
-        const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const newEmp = {
-          id: `emp-${Date.now()}`,
-          tenantId: 'tenant-cbse-dps-01',
-          employeeCode: `MPS-FAC-${Math.floor(200 + Math.random() * 800)}`,
-          fullName: app.fullName,
-          email: app.email,
-          phone: app.phone,
-          designation: app.jobTitle || 'Faculty Member',
-          department: 'Academic Wing',
-          employeeType: 'teaching' as const,
-          dateOfJoining: joining,
-          employmentStatus: 'probationary' as const,
-          policeVerificationStatus: 'submitted_pending' as const,
-          gracePeriodExpiryDate: expiry,
-          isAccessRestricted: false,
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-          cpdHoursCompleted: 0,
-          serviceBook: {
-            appointmentOrderNumber: `MPS/HR/2026/APP-${Math.floor(100 + Math.random() * 900)}`,
-            appointmentDate: joining,
-            casualLeaveBalance: 12,
-            earnedLeaveBalance: 0,
-            medicalLeaveBalance: 10,
-            qualificationsList: [
-              { degree: app.highestQualification, institution: 'Verified University', yearOfPassing: 2022, percentageOrGrade: 'Verified', isVerified: true },
-            ],
-            scaleHistory: [
-              {
-                id: `sc-${Date.now()}`,
-                effectiveDate: joining,
-                basicPay: 44900,
-                gradePay: 4600,
-                daHraAllowances: 22450,
-                grossPay: 71950,
-                orderNumber: `MPS/PAY/2026/099`,
-                remarks: 'Entry pay scale on appointment',
-              },
-            ],
-            promotionHistory: [],
-          },
-        };
-        mock.mockEmployees.push(newEmp as any);
+        const created = await dataService.createEmployeeFromApplicant(data);
+        return { ...mapApplicantRow(data), employeeCreated: Boolean(created) };
       }
+      return mapApplicantRow(data);
+    } catch (e) {
+      console.warn('[hr] stage change failed:', e);
+      return null;
     }
-    return Promise.resolve(updatedApp || app);
   },
 
-  async submitInterviewScorecard(applicantId: string, scorecardData: any): Promise<any> {
+  /**
+   * Promotes a hired applicant into employee_records plus an opening service
+   * book entry. Idempotent on email so re-running a hire does not duplicate
+   * a member of staff.
+   */
+  async createEmployeeFromApplicant(applicant: any): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/applicants/${applicantId}/scorecard`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(scorecardData),
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('Submitting scorecard locally', e);
-    }
+      const { data: existing } = await authClient
+        .from('employee_records')
+        .select('id')
+        .ilike('email', applicant.email)
+        .maybeSingle();
+      if (existing) return existing;
 
-    const p = Number(scorecardData.pedagogyScore) || 4;
-    const s = Number(scorecardData.subjectKnowledgeScore) || 4;
-    const c = Number(scorecardData.classroomManagementScore) || 4;
-    const com = Number(scorecardData.communicationScore) || 4;
-    const scorecardObj = {
-      pedagogyScore: p,
-      subjectKnowledgeScore: s,
-      classroomManagementScore: c,
-      communicationScore: com,
-      overallRating: Number(((p + s + c + com) / 4).toFixed(2)),
-      recommendation: scorecardData.recommendation || 'hire',
-      interviewerName: scorecardData.interviewerName || 'Evaluation Panel',
-      notes: scorecardData.notes || '',
-    };
+      const joining = applicant.proposed_joining_date || new Date().toISOString().split('T')[0];
+      const grace = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    let allApplicants = [...mock.mockApplicants];
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('eduos_hr_applicants');
-        if (stored) {
-          allApplicants = JSON.parse(stored);
-        }
-      } catch (err) { }
-    }
-
-    let updatedApplicant: any = null;
-    allApplicants = allApplicants.map(a => {
-      if (a && a.id === applicantId) {
-        updatedApplicant = { ...a, scorecard: scorecardObj };
-        return updatedApplicant;
+      const { data: emp, error } = await authClient
+        .from('employee_records')
+        .insert({
+          employee_code: `EMP-${Date.now().toString(36).toUpperCase()}`,
+          full_name: applicant.full_name,
+          email: applicant.email,
+          phone: applicant.phone,
+          designation: 'Faculty Member',
+          department: 'Academic',
+          employee_type: 'teaching',
+          date_of_joining: joining,
+          employment_status: 'probationary',
+          // A new joiner has NOT submitted anything yet. The old code recorded
+          // 'submitted_pending' on their behalf, which quietly satisfied the
+          // safeguarding gate for someone with no paperwork on file.
+          police_verification_status: 'missing',
+          grace_period_expiry_date: grace,
+          is_access_restricted: false,
+          cpd_hours_completed: 0,
+        })
+        .select('id')
+        .single();
+      if (error || !emp) {
+        console.warn('[hr] employee creation rejected:', error?.message);
+        return null;
       }
-      return a;
-    });
 
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('eduos_hr_applicants', JSON.stringify(allApplicants));
-      } catch (err) { }
+      await authClient.from('employee_service_records').insert({
+        employee_id: emp.id,
+        appointment_date: joining,
+        qualifications_json: applicant.highest_qualification
+          ? [{ degree: applicant.highest_qualification, isVerified: false }]
+          : [],
+        // Empty, not an invented entry pay scale. A real increment is added
+        // through the Service Books screen once HR has the sanctioned figure.
+        scale_history_json: [],
+        promotion_history_json: [],
+      });
+
+      return emp;
+    } catch (e) {
+      console.warn('[hr] employee creation failed:', e);
+      return null;
     }
+  },
 
-    const app = mock.mockApplicants.find(a => a.id === applicantId);
-    if (app) {
-      app.scorecard = scorecardObj;
-      if (!updatedApplicant) updatedApplicant = app;
+  async submitInterviewScorecard(applicantId: string, scorecardData: any): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const p = Number(scorecardData.pedagogyScore) || 0;
+      const s = Number(scorecardData.subjectKnowledgeScore) || 0;
+      const c = Number(scorecardData.classroomManagementScore) || 0;
+      const com = Number(scorecardData.communicationScore) || 0;
+
+      const { data, error } = await authClient
+        .from('interview_scorecards')
+        .insert({
+          applicant_id: applicantId,
+          interviewer_name: scorecardData.interviewerName || null,
+          round_name: scorecardData.roundName || 'Interview',
+          pedagogy_score: p,
+          subject_knowledge_score: s,
+          classroom_management_score: c,
+          communication_score: com,
+          overall_rating: Number(((p + s + c + com) / 4).toFixed(2)),
+          strengths: scorecardData.strengths || null,
+          areas_of_improvement: scorecardData.areasOfImprovement || null,
+          recommendation: scorecardData.recommendation || null,
+        })
+        .select('*')
+        .single();
+      if (error || !data) {
+        console.warn('[hr] scorecard rejected:', error?.message);
+        return null;
+      }
+      return {
+        id: data.id,
+        applicantId: data.applicant_id,
+        pedagogyScore: data.pedagogy_score,
+        subjectKnowledgeScore: data.subject_knowledge_score,
+        classroomManagementScore: data.classroom_management_score,
+        communicationScore: data.communication_score,
+        overallRating: Number(data.overall_rating),
+        recommendation: data.recommendation,
+        interviewerName: data.interviewer_name,
+      };
+    } catch (e) {
+      console.warn('[hr] scorecard failed:', e);
+      return null;
     }
-
-    return Promise.resolve(updatedApplicant || { id: applicantId, scorecard: scorecardObj });
   },
 
   async getEmployees(): Promise<any[]> {
-    if (isSupabaseConfigured()) {
-      try {
-        const { data } = await authClient
-          .from('employee_records')
-          .select('*, employee_service_records(*)')
-          .order('employee_code', { ascending: true });
-
-        if (data && data.length > 0) {
-          return data.map((e: any) => {
-            const sr = Array.isArray(e.employee_service_records)
-              ? e.employee_service_records[0]
-              : e.employee_service_records;
-            return {
-              id: e.id,
-              tenantId: e.tenant_id,
-              employeeCode: e.employee_code,
-              fullName: e.full_name,
-              email: e.email,
-              phone: e.phone,
-              designation: e.designation,
-              department: e.department,
-              employeeType: e.employee_type || 'teaching',
-              dateOfJoining: e.date_of_joining,
-              employmentStatus: e.employment_status || 'confirmed',
-              policeVerificationStatus: e.police_verification_status || 'verified',
-              policeVerificationDate: e.police_verification_date,
-              policeAcknowledgmentNumber: e.police_acknowledgment_number,
-              isAccessRestricted: e.is_access_restricted || false,
-              cpdHoursCompleted: e.cpd_hours_completed || 50,
-              avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(e.full_name || 'Staff')}`,
-              serviceBook: sr
-                ? {
-                    appointmentOrderNumber: sr.appointment_order_number,
-                    appointmentDate: sr.appointment_date,
-                    confirmationOrderNumber: sr.confirmation_order_number,
-                    confirmationDate: sr.confirmation_date,
-                    providentFundUan: sr.provident_fund_uan,
-                    esiInsuranceNumber: sr.esi_insurance_number,
-                    panNumber: sr.pan_number,
-                    casualLeaveBalance: sr.casual_leave_balance ?? 0,
-                    earnedLeaveBalance: sr.earned_leave_balance ?? 0,
-                    medicalLeaveBalance: sr.medical_leave_balance ?? 0,
-                    qualificationsList: sr.qualifications_json || [],
-                    scaleHistory: sr.scale_history_json || [],
-                    promotionHistory: sr.promotion_history_json || [],
-                    disciplinaryEntries: sr.disciplinary_entries || '',
-                  }
-                : undefined,
-            };
-          });
-        }
-      } catch (e) {
-        console.warn('Supabase employee_records query failed, falling back:', e);
-      }
-    }
-
+    if (!isSupabaseConfigured()) return [];
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/employees`);
-      if (res.ok) return await res.json();
+      const { data, error } = await authClient
+        .from('employee_records')
+        .select('*, employee_service_records(*)')
+        .order('employee_code', { ascending: true });
+      if (error || !data) return [];
+
+      return data.map((e: any) => {
+        const sr = Array.isArray(e.employee_service_records)
+          ? e.employee_service_records[0]
+          : e.employee_service_records;
+        return {
+          id: e.id,
+          tenantId: e.tenant_id,
+          employeeCode: e.employee_code,
+          fullName: e.full_name,
+          email: e.email,
+          phone: e.phone,
+          designation: e.designation,
+          department: e.department,
+          employeeType: e.employee_type || 'teaching',
+          dateOfJoining: e.date_of_joining,
+          employmentStatus: e.employment_status,
+          // These defaulted to 'verified' and 50 CPD hours when the column was
+          // NULL -- an unchecked employee displayed as cleared, and someone
+          // with no training displayed as fully compliant.
+          policeVerificationStatus: e.police_verification_status ?? 'missing',
+          policeVerificationDate: e.police_verification_date,
+          policeAcknowledgmentNumber: e.police_acknowledgment_number,
+          policeDocUrl: e.police_doc_url,
+          gracePeriodExpiryDate: e.grace_period_expiry_date,
+          isAccessRestricted: e.is_access_restricted || false,
+          cpdHoursCompleted: e.cpd_hours_completed ?? 0,
+          avatarUrl:
+            e.avatar_url ||
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(e.full_name || 'Staff')}`,
+          serviceBook: sr
+            ? {
+                appointmentOrderNumber: sr.appointment_order_number,
+                appointmentDate: sr.appointment_date,
+                confirmationOrderNumber: sr.confirmation_order_number,
+                confirmationDate: sr.confirmation_date,
+                providentFundUan: sr.provident_fund_uan,
+                esiInsuranceNumber: sr.esi_insurance_number,
+                panNumber: sr.pan_number,
+                casualLeaveBalance: sr.casual_leave_balance ?? 0,
+                earnedLeaveBalance: sr.earned_leave_balance ?? 0,
+                medicalLeaveBalance: sr.medical_leave_balance ?? 0,
+                qualificationsList: sr.qualifications_json || [],
+                scaleHistory: sr.scale_history_json || [],
+                promotionHistory: sr.promotion_history_json || [],
+                disciplinaryEntries: sr.disciplinary_entries || '',
+              }
+            : undefined,
+        };
+      });
     } catch (e) {
-      console.warn('Using local mockEmployees', e);
+      console.warn('[hr] getEmployees failed:', e);
+      return [];
     }
-    return Promise.resolve(mock.mockEmployees);
   },
 
-  async updatePoliceVerification(employeeId: string, updateData: any): Promise<any> {
+  /**
+   * Records a police-verification outcome and the access gate that follows
+   * from it. This is a safeguarding control (POCSO); it previously mutated an
+   * empty in-memory array, so restricting a member of staff's system access
+   * had no effect beyond the current page render.
+   */
+  async updatePoliceVerification(employeeId: string, updateData: any): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/police-verification/${employeeId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('Updating police verification locally', e);
-    }
-    const emp = mock.mockEmployees.find(e => e.id === employeeId);
-    if (emp) {
-      emp.policeVerificationStatus = updateData.status;
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (updateData.status) patch.police_verification_status = updateData.status;
+
       if (updateData.status === 'verified') {
-        emp.policeDocUrl = updateData.docUrl || 'https://storage.eduos.io/police/verified_clearance.pdf';
-        emp.policeVerificationDate = updateData.verificationDate || new Date().toISOString().split('T')[0];
-        emp.policeAcknowledgmentNumber = updateData.acknowledgmentNumber || `PCC/DL-ND/2026/${Math.floor(10000 + Math.random() * 90000)}`;
-        emp.isAccessRestricted = false;
+        // No stock clearance PDF and no invented acknowledgment number: a
+        // clearance recorded without its document is not a clearance.
+        patch.police_doc_url = updateData.docUrl || null;
+        patch.police_verification_date =
+          updateData.verificationDate || new Date().toISOString().split('T')[0];
+        patch.police_acknowledgment_number = updateData.acknowledgmentNumber || null;
+        patch.is_access_restricted = false;
       } else if (updateData.status === 'missing') {
-        emp.policeDocUrl = null;
-        emp.policeVerificationDate = null;
+        patch.police_doc_url = null;
+        patch.police_verification_date = null;
+        patch.police_acknowledgment_number = null;
       }
       if (updateData.isAccessRestricted !== undefined) {
-        emp.isAccessRestricted = Boolean(updateData.isAccessRestricted);
+        patch.is_access_restricted = Boolean(updateData.isAccessRestricted);
       }
+
+      const { data, error } = await authClient
+        .from('employee_records')
+        .update(patch)
+        .eq('id', employeeId)
+        .select('*')
+        .maybeSingle();
+      if (error || !data) {
+        console.warn('[hr] police verification rejected:', error?.message);
+        return null;
+      }
+      return {
+        id: data.id,
+        fullName: data.full_name,
+        policeVerificationStatus: data.police_verification_status,
+        policeVerificationDate: data.police_verification_date,
+        policeAcknowledgmentNumber: data.police_acknowledgment_number,
+        isAccessRestricted: data.is_access_restricted,
+      };
+    } catch (e) {
+      console.warn('[hr] police verification failed:', e);
+      return null;
     }
-    return Promise.resolve(emp);
   },
 
-  async addScaleIncrement(employeeId: string, incData: any): Promise<any> {
+  /** Appends a sanctioned pay-scale increment to the statutory service book. */
+  async addScaleIncrement(employeeId: string, incData: any): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/service-book/${employeeId}/increment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(incData),
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('Adding scale increment locally', e);
-    }
-    const emp = mock.mockEmployees.find(e => e.id === employeeId);
-    if (emp && emp.serviceBook) {
-      const newInc = {
+      const { data: sr, error: readErr } = await authClient
+        .from('employee_service_records')
+        .select('id, scale_history_json')
+        .eq('employee_id', employeeId)
+        .maybeSingle();
+      if (readErr) {
+        console.warn('[hr] service book read rejected:', readErr.message);
+        return null;
+      }
+
+      const basic = Number(incData.basicPay) || 0;
+      const allowances = Number(incData.daHraAllowances) || 0;
+      const increment = {
         id: `sc-${Date.now()}`,
         effectiveDate: incData.effectiveDate || new Date().toISOString().split('T')[0],
-        basicPay: Number(incData.basicPay),
-        gradePay: Number(incData.gradePay || 0),
-        daHraAllowances: Number(incData.daHraAllowances || 0),
-        grossPay: Number(incData.basicPay) + Number(incData.daHraAllowances || 0),
-        orderNumber: incData.orderNumber || `MPS/INC/2026/${Math.floor(100 + Math.random() * 900)}`,
-        remarks: incData.remarks || 'Annual statutory increment',
+        basicPay: basic,
+        gradePay: Number(incData.gradePay) || 0,
+        daHraAllowances: allowances,
+        grossPay: basic + allowances,
+        // No generated order number: an increment order reference is a real
+        // document or it is absent.
+        orderNumber: incData.orderNumber || null,
+        remarks: incData.remarks || null,
       };
-      emp.serviceBook.scaleHistory.push(newInc);
+
+      const history = Array.isArray(sr?.scale_history_json) ? sr.scale_history_json : [];
+      const next = [...history, increment];
+
+      const { error: writeErr } = sr
+        ? await authClient
+            .from('employee_service_records')
+            .update({ scale_history_json: next, updated_at: new Date().toISOString() })
+            .eq('id', sr.id)
+        : await authClient
+            .from('employee_service_records')
+            .insert({ employee_id: employeeId, scale_history_json: next });
+
+      if (writeErr) {
+        console.warn('[hr] increment rejected:', writeErr.message);
+        return null;
+      }
+
+      const { data: emp } = await authClient
+        .from('employee_records')
+        .select('id, full_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+      return { id: employeeId, fullName: emp?.full_name ?? '', scaleHistory: next };
+    } catch (e) {
+      console.warn('[hr] increment failed:', e);
+      return null;
     }
-    return Promise.resolve(emp);
   },
 
+  /** CPD register. This never queried Supabase at all -- NestJS, then `[]`. */
   async getTrainingRecords(employeeId?: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
     try {
-      const url = employeeId ? `${API_BASE}/v1/hr/training-records?employeeId=${employeeId}` : `${API_BASE}/v1/hr/training-records`;
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
+      let query = authClient
+        .from('training_records')
+        .select('*')
+        .order('start_date', { ascending: false });
+      if (employeeId) query = query.eq('employee_id', employeeId);
+      const { data, error } = await query;
+      if (error || !data) return [];
+      return data.map((t: any) => ({
+        id: t.id,
+        employeeId: t.employee_id,
+        trainingTitle: t.training_title,
+        providerAgency: t.provider_agency,
+        category: t.category,
+        durationHours: Number(t.duration_hours) || 0,
+        startDate: t.start_date,
+        endDate: t.end_date,
+        academicYear: t.academic_year,
+        mode: t.mode,
+        certificateUrl: t.certificate_url,
+        isVerifiedByPrincipal: Boolean(t.is_verified_by_principal),
+      }));
     } catch (e) {
-      console.warn('Using local mockTrainingRecords', e);
+      console.warn('[hr] getTrainingRecords failed:', e);
+      return [];
     }
-    if (employeeId) {
-      return Promise.resolve(mock.mockTrainingRecords.filter(t => t.employeeId === employeeId));
-    }
-    return Promise.resolve(mock.mockTrainingRecords);
   },
 
-  async addTrainingRecord(tData: any): Promise<any> {
+  /**
+   * Logs CPD hours and rolls the employee's running total forward.
+   *
+   * `is_verified_by_principal` is false on entry. The old code hardcoded it to
+   * true, so HR logging a course also recorded the Principal's verification of
+   * it -- a sign-off nobody performed, on a statutory 50-hour register.
+   */
+  async addTrainingRecord(tData: any): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
     try {
-      const res = await fetch(`${API_BASE}/v1/hr/training-records`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tData),
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('Adding training record locally', e);
-    }
-    const newRecord = {
-      id: `tr-${Date.now()}`,
-      employeeId: tData.employeeId,
-      trainingTitle: tData.trainingTitle,
-      providerAgency: tData.providerAgency || 'CBSE Sahodaya',
-      category: tData.category || 'pedagogy',
-      durationHours: Number(tData.durationHours) || 6,
-      startDate: tData.startDate || new Date().toISOString().split('T')[0],
-      endDate: tData.endDate || new Date().toISOString().split('T')[0],
-      academicYear: tData.academicYear || '2026-2027',
-      mode: tData.mode || 'online',
-      certificateUrl: tData.certificateUrl || 'https://storage.eduos.io/certs/cpd_cert.pdf',
-      isVerifiedByPrincipal: true,
-    };
-    mock.mockTrainingRecords.unshift(newRecord as any);
+      const hours = Number(tData.durationHours) || 0;
+      const { data, error } = await authClient
+        .from('training_records')
+        .insert({
+          employee_id: tData.employeeId,
+          training_title: tData.trainingTitle,
+          provider_agency: tData.providerAgency || null,
+          category: tData.category || null,
+          duration_hours: hours,
+          start_date: tData.startDate || new Date().toISOString().split('T')[0],
+          end_date: tData.endDate || null,
+          academic_year: tData.academicYear || null,
+          mode: tData.mode || null,
+          certificate_url: tData.certificateUrl || null,
+          is_verified_by_principal: false,
+        })
+        .select('*')
+        .single();
+      if (error || !data) {
+        console.warn('[hr] training record rejected:', error?.message);
+        return null;
+      }
 
-    const emp = mock.mockEmployees.find(e => e.id === tData.employeeId);
-    if (emp) {
-      emp.cpdHoursCompleted = (emp.cpdHoursCompleted || 0) + newRecord.durationHours;
+      const { data: emp } = await authClient
+        .from('employee_records')
+        .select('cpd_hours_completed')
+        .eq('id', tData.employeeId)
+        .maybeSingle();
+      if (emp) {
+        await authClient
+          .from('employee_records')
+          .update({ cpd_hours_completed: (emp.cpd_hours_completed || 0) + hours })
+          .eq('id', tData.employeeId);
+      }
+
+      return {
+        id: data.id,
+        employeeId: data.employee_id,
+        trainingTitle: data.training_title,
+        durationHours: hours,
+        isVerifiedByPrincipal: false,
+      };
+    } catch (e) {
+      console.warn('[hr] training record failed:', e);
+      return null;
     }
-    return Promise.resolve(newRecord);
   },
 
   // --- AI RAG Study Tutor (EDUOS-106) ---

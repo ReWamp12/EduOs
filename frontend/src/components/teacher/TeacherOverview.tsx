@@ -6,6 +6,7 @@ import { timetableForBatch } from '@/lib/batchData';
 import { StatCard, SectionCard, Badge, EmptyState } from '@/components/ui';
 import { TeacherInbox } from './TeacherInbox';
 import { TimetableSlot } from '@/lib/types';
+import { formatPct, averageOf } from '@/lib/format';
 import {
   CalendarCheck2,
   Sparkles,
@@ -20,9 +21,7 @@ import {
 export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const { batch, students, batches, teacher } = useTeacherBatch();
   const slots: TimetableSlot[] = batch?.id ? timetableForBatch(batch.id) : [];
-  const avgAttendance = students.length
-    ? (students.reduce((a, s) => a + s.attendancePct, 0) / students.length).toFixed(1)
-    : '—';
+  const avgAttendance = formatPct(averageOf(students.map((s) => s.attendancePct)));
 
   const batchShortName = batch?.name ? batch.name.split(' - ')[0].split(' — ')[0] : 'Class 10-A';
 
@@ -75,7 +74,7 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
         />
         <StatCard
           label="Avg Attendance"
-          value={<>{avgAttendance}<span className="text-base font-medium text-text-tertiary">%</span></>}
+          value={avgAttendance}
           tone="success"
           icon={<CalendarCheck2 size={16} />}
           hint="Class average this term"

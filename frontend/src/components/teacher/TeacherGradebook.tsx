@@ -16,7 +16,7 @@ interface Row {
 }
 
 export const TeacherGradebook: React.FC = () => {
-  const { batch, students } = useTeacherBatch();
+  const { batch, students, teacher } = useTeacherBatch();
   const { exams } = useAppStore();
   // Only exams scheduled for the selected batch are gradable here.
   const batchExams = exams.filter((e) => e.batchName === batch.name);
@@ -76,16 +76,43 @@ export const TeacherGradebook: React.FC = () => {
     if (!exam || published || isPendingApproval) return;
     setPublishing(true);
     try {
-      await Promise.all(
-        students.map((s) =>
-          dataService.gradeSubmission(s.id, rows[s.id]?.marks ?? 0, rows[s.id]?.feedback ?? ''),
-        ),
+      // EDUOS-108 — publish the marks to exam_results (upsert on
+      // exam_id+student_id). This previously looped dataService.gradeSubmission
+      // passing each STUDENT id as a SUBMISSION id — it targeted the wrong
+      // table entirely and, because that method returned Promise.resolve(true)
+      // on any failure, always reported success. The marks reached no table.
+      const written = await dataService.publishExamResults(
+        exam.id,
+        students.map((s) => ({
+          studentId: s.id,
+          marksObtained: rows[s.id]?.marks ?? 0,
+          feedback: rows[s.id]?.feedback ?? '',
+        })),
+        teacher?.id,
       );
+
+      if (written === null) {
+        toast(
+          'Could not publish marks',
+          'error',
+          'The database rejected the marks, or this exam is not yours to grade. Nothing was saved.',
+        );
+        return;
+      }
+
+      // Local reactive layer: notify parents of the published results.
+      recordResults({
+        assessmentTitle: exam.title,
+        maxMarks,
+        markedBy: teacher?.name || 'Faculty',
+        results: students.map((s) => ({ studentName: s.name, obtainedMarks: rows[s.id]?.marks ?? 0 })),
+      });
+
       setPendingApprovalExams((prev) => new Set(prev).add(exam.id));
       toast(
-        'Submitted for Principal Sign-off',
+        'Marks published & queued for sign-off',
         'success',
-        `${exam.title} (${students.length} students) queued for Principal verification & digital seal.`,
+        `${exam.title}: ${written} student result(s) saved and sent for Principal verification.`,
       );
     } catch {
       toast('Submission failed', 'error', 'Could not submit grades. Try again.');

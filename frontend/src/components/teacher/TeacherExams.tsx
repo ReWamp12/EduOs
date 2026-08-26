@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore, addExam } from '@/lib/store';
+import { dataService } from '@/lib/dataService';
 import { useTeacherBatch } from '@/lib/teacherContext';
 import { PageHeader, SectionCard, StatCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -12,7 +13,7 @@ const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Full Syllabus (PCM)'];
 const EXAM_TYPES = ['Unit Test', 'Mock Test', 'Practice Test', 'Mid-Term', 'Final Exam'];
 
 export const TeacherExams: React.FC = () => {
-  const { batch, batches } = useTeacherBatch();
+  const { batch, batches, teacher } = useTeacherBatch();
   const { exams } = useAppStore();
   // Exam history for the currently selected class.
   const batchExams = exams.filter((e) => e.batchName === batch.name);
@@ -28,19 +29,39 @@ export const TeacherExams: React.FC = () => {
   const scheduled = batchExams.filter((e) => e.status === 'scheduled').length;
   const completed = batchExams.filter((e) => e.status === 'completed').length;
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!title.trim() || !examDate) {
       toast('Add a title and date', 'info', 'Exam title and date are required.');
       return;
     }
+
+    // EDUOS-108 — persist to Supabase first. This previously called the store's
+    // addExam() only, so the exam lived in localStorage and never appeared for
+    // a student on another device (or survived a cache clear). The store update
+    // still runs, but only after the row is confirmed written, for immediate
+    // cross-role reactivity on top of the durable record.
+    const created = await dataService.createExam({
+      batchId: batch.id,
+      title: title.trim(),
+      examType,
+      totalMarks: Number(maxMarks) || 100,
+      examDate,
+      createdBy: teacher?.id ?? null,
+    });
+    if (!created) {
+      toast('Could not schedule exam', 'error', 'The database rejected this exam or you do not teach this batch.');
+      return;
+    }
+
     addExam({
+      id: created.id, // real Supabase id so the gradebook can publish marks to it
       title: title.trim(),
       subject,
       batchName,
       examType,
       examDate: new Date(examDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
       maxMarks: Number(maxMarks) || 100,
-      createdBy: 'Prof. Amit Verma',
+      createdBy: teacher?.name || 'Faculty',
     });
     toast('Exam scheduled', 'success', `${title.trim()} · ${batchName}`);
     setTitle('');

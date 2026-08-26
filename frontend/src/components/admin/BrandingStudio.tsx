@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { dataService } from '@/lib/dataService';
+import { useSession } from '@/lib/auth/AuthProvider';
 import { PageHeader, SectionCard, Card, Badge, StatCard, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 
@@ -42,6 +43,7 @@ interface CustomDomainState {
 }
 
 export const BrandingStudio: React.FC = () => {
+  const session = useSession();
   const [primaryColor, setPrimaryColor] = useState(DEFAULTS.primary);
   const [secondaryColor, setSecondaryColor] = useState(DEFAULTS.secondary);
   const [accentColor, setAccentColor] = useState(DEFAULTS.accent);
@@ -122,14 +124,25 @@ server {
   };
 
   const handleSave = async () => {
+    // Persist to the caller's OWN tenant, resolved from the session — not the
+    // hardcoded 't-1' this used to send, which matched no row and let the
+    // unconditional Promise.resolve(true) report a save that never landed.
+    if (!session?.tenantId) {
+      toast('Not signed in', 'error', 'Your session has no tenant to brand.');
+      return;
+    }
     setSaving(true);
     try {
-      await dataService.updateTenantBranding('t-1', {
+      const ok = await dataService.updateTenantBranding(session.tenantId, {
         name: appName,
         primaryColor,
         secondaryColor,
         accentColor,
       });
+      if (!ok) {
+        toast('Could not save branding', 'error', 'The database rejected the change or you lack permission.');
+        return;
+      }
       applyTokens(primaryColor, secondaryColor, accentColor);
       toast('Branding applied', 'success', 'Theme tokens saved and applied live across the workspace.');
     } catch (e) {
