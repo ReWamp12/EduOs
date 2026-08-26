@@ -1,4 +1,4 @@
-import { Student, TimetableSlot, Tenant, LeaveRequest, Batch } from './types';
+import { Student, TimetableSlot, Tenant, LeaveRequest, Batch, LMSLesson } from './types';
 import { authClient } from './auth/client';
 import { isSupabaseConfigured } from './supabase';
 import { TutorResponse } from './tutorTypes';
@@ -2114,6 +2114,503 @@ export const dataService = {
     onToken('', response.synthesized_answer);
     return response;
   },
+
+  // ==========================================
+  // CONSENT FORMS & RESPONSES (EDUOS-108 R2)
+  // ==========================================
+  async getConsentForms(): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('consent_forms')
+        .select('*, batches(name), user_profiles:author_id(first_name, last_name)')
+        .order('created_at', { ascending: false });
+      if (error || !data) return [];
+      return data.map((f: any) => ({
+        id: f.id,
+        title: f.title,
+        description: f.description || '',
+        category: f.category || 'general',
+        targetType: f.target_type || 'all',
+        targetBatchId: f.target_batch_id || null,
+        batchName: f.batches?.name || 'All Batches',
+        authorName: f.user_profiles ? `${f.user_profiles.first_name} ${f.user_profiles.last_name}`.trim() : 'School Admin',
+        authorRole: f.author_role || 'staff',
+        eventDate: f.event_date || null,
+        deadline: f.deadline || null,
+        instructions: f.instructions || '',
+        createdAt: f.created_at,
+      }));
+    } catch (e) {
+      console.warn('[consent] getConsentForms failed:', e);
+      return [];
+    }
+  },
+
+  async createConsentForm(input: {
+    title: string;
+    description: string;
+    category?: string;
+    targetType?: string;
+    targetBatchId?: string | null;
+    authorId?: string;
+    authorRole?: string;
+    eventDate?: string;
+    deadline?: string;
+    instructions?: string;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('consent_forms')
+        .insert({
+          title: input.title,
+          description: input.description,
+          category: input.category || 'general',
+          target_type: input.targetType || 'all',
+          target_batch_id: input.targetBatchId || null,
+          author_id: input.authorId || null,
+          author_role: input.authorRole || 'staff',
+          event_date: input.eventDate || null,
+          deadline: input.deadline || null,
+          instructions: input.instructions || null,
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[consent] createConsentForm rejected:', error?.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.warn('[consent] createConsentForm failed:', e);
+      return null;
+    }
+  },
+
+  async getConsentResponses(formId?: string, studentId?: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = authClient
+        .from('consent_responses')
+        .select('*, students(full_name, roll_number, admission_number)')
+        .order('created_at', { ascending: false });
+      if (formId) query = query.eq('form_id', formId);
+      if (studentId) query = query.eq('student_id', studentId);
+      const { data, error } = await query;
+      if (error || !data) return [];
+      return data.map((r: any) => ({
+        id: r.id,
+        formId: r.form_id,
+        studentId: r.student_id,
+        studentName: r.students?.full_name || '',
+        studentRoll: r.students?.roll_number || '',
+        status: r.status,
+        signedByName: r.signed_by_name || '',
+        parentRelation: r.parent_relation || '',
+        signedAt: r.signed_at,
+        declineReason: r.decline_reason || '',
+      }));
+    } catch (e) {
+      console.warn('[consent] getConsentResponses failed:', e);
+      return [];
+    }
+  },
+
+  async submitConsentResponse(input: {
+    formId: string;
+    studentId: string;
+    status: 'approved' | 'rejected';
+    signedByName?: string;
+    parentRelation?: string;
+    declineReason?: string;
+  }): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient
+        .from('consent_responses')
+        .upsert(
+          {
+            form_id: input.formId,
+            student_id: input.studentId,
+            status: input.status,
+            signed_by_name: input.signedByName || null,
+            parent_relation: input.parentRelation || 'Parent',
+            signed_at: new Date().toISOString(),
+            decline_reason: input.declineReason || null,
+          },
+          { onConflict: 'form_id,student_id' }
+        );
+      if (error) {
+        console.warn('[consent] submitConsentResponse rejected:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[consent] submitConsentResponse failed:', e);
+      return false;
+    }
+  },
+
+  // ==========================================
+  // PTM BOOKINGS (EDUOS-108 R2)
+  // ==========================================
+  async getPtmBookings(studentId?: string, teacherId?: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = authClient
+        .from('ptm_bookings')
+        .select('*, students(full_name), user_profiles:teacher_id(first_name, last_name)')
+        .order('created_at', { ascending: false });
+      if (studentId) query = query.eq('student_id', studentId);
+      if (teacherId) query = query.eq('teacher_id', teacherId);
+      const { data, error } = await query;
+      if (error || !data) return [];
+      return data.map((b: any) => ({
+        id: b.id,
+        teacherId: b.teacher_id,
+        teacherName: b.user_profiles ? `${b.user_profiles.first_name} ${b.user_profiles.last_name}`.trim() : 'Teacher',
+        studentId: b.student_id,
+        studentName: b.students?.full_name || '',
+        subject: b.subject || '',
+        slot: b.slot,
+        mode: b.mode || 'in_person',
+        status: b.status,
+        requestedBy: b.requested_by,
+        notes: b.notes || '',
+        createdAt: b.created_at,
+      }));
+    } catch (e) {
+      console.warn('[ptm] getPtmBookings failed:', e);
+      return [];
+    }
+  },
+
+  async createPtmBooking(input: {
+    teacherId: string;
+    studentId: string;
+    subject?: string;
+    slot: string;
+    mode?: string;
+    requestedBy?: string;
+    notes?: string;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('ptm_bookings')
+        .insert({
+          teacher_id: input.teacherId,
+          student_id: input.studentId,
+          subject: input.subject || null,
+          slot: input.slot,
+          mode: input.mode || 'in_person',
+          status: 'pending',
+          requested_by: input.requestedBy || 'guardian',
+          notes: input.notes || null,
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[ptm] createPtmBooking rejected:', error?.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.warn('[ptm] createPtmBooking failed:', e);
+      return null;
+    }
+  },
+
+  async updatePtmBookingStatus(bookingId: string, status: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient
+        .from('ptm_bookings')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', bookingId);
+      if (error) {
+        console.warn('[ptm] updatePtmBookingStatus rejected:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[ptm] updatePtmBookingStatus failed:', e);
+      return false;
+    }
+  },
+
+  // ==========================================
+  // SUPPORT TICKETS (EDUOS-108 R2)
+  // ==========================================
+  async getSupportTickets(): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('support_tickets')
+        .select('*, user_profiles:raised_by(first_name, last_name, role)')
+        .order('created_at', { ascending: false });
+      if (error || !data) return [];
+      return data.map((t: any) => ({
+        id: t.id,
+        raisedBy: t.raised_by,
+        authorName: t.user_profiles ? `${t.user_profiles.first_name} ${t.user_profiles.last_name}`.trim() : 'User',
+        authorRole: t.user_profiles?.role || 'student',
+        category: t.category,
+        subject: t.subject,
+        description: t.description,
+        status: t.status,
+        reply: t.reply || null,
+        resolvedAt: t.resolved_at,
+        createdAt: t.created_at,
+      }));
+    } catch (e) {
+      console.warn('[support] getSupportTickets failed:', e);
+      return [];
+    }
+  },
+
+  async createSupportTicket(input: {
+    raisedBy: string;
+    category: string;
+    subject: string;
+    description: string;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('support_tickets')
+        .insert({
+          raised_by: input.raisedBy,
+          category: input.category,
+          subject: input.subject,
+          description: input.description,
+          status: 'open',
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[support] createSupportTicket rejected:', error?.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.warn('[support] createSupportTicket failed:', e);
+      return null;
+    }
+  },
+
+  async updateSupportTicket(ticketId: string, patch: { status?: string; reply?: string }): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const payload: Record<string, any> = { ...patch, updated_at: new Date().toISOString() };
+      if (patch.status === 'resolved' || patch.status === 'closed') {
+        payload.resolved_at = new Date().toISOString();
+      }
+      const { error } = await authClient
+        .from('support_tickets')
+        .update(payload)
+        .eq('id', ticketId);
+      if (error) {
+        console.warn('[support] updateSupportTicket rejected:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[support] updateSupportTicket failed:', e);
+      return false;
+    }
+  },
+
+  // ==========================================
+  // PARENT FEEDBACK (EDUOS-108 R2)
+  // ==========================================
+  async getParentFeedback(): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('parent_feedback')
+        .select('*, user_profiles:submitted_by(first_name, last_name)')
+        .order('created_at', { ascending: false });
+      if (error || !data) return [];
+      return data.map((f: any) => ({
+        id: f.id,
+        submittedBy: f.submitted_by,
+        parentName: f.user_profiles ? `${f.user_profiles.first_name} ${f.user_profiles.last_name}`.trim() : 'Parent',
+        category: f.category,
+        subject: f.subject,
+        message: f.message,
+        rating: f.rating || 5,
+        status: f.status,
+        adminResponse: f.admin_response || null,
+        createdAt: f.created_at,
+      }));
+    } catch (e) {
+      console.warn('[feedback] getParentFeedback failed:', e);
+      return [];
+    }
+  },
+
+  async createParentFeedback(input: {
+    submittedBy: string;
+    category: string;
+    subject: string;
+    message: string;
+    rating?: number;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('parent_feedback')
+        .insert({
+          submitted_by: input.submittedBy,
+          category: input.category,
+          subject: input.subject,
+          message: input.message,
+          rating: input.rating ?? 5,
+          status: 'submitted',
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[feedback] createParentFeedback rejected:', error?.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.warn('[feedback] createParentFeedback failed:', e);
+      return null;
+    }
+  },
+
+  // ==========================================
+  // CURRICULUM TOPICS (EDUOS-108 R2)
+  // ==========================================
+  async getCurriculumTopics(batchId: string, subjectId?: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = authClient
+        .from('curriculum_topics')
+        .select('*, subjects(name, code)')
+        .eq('batch_id', batchId)
+        .order('sequence_order', { ascending: true });
+      if (subjectId) query = query.eq('subject_id', subjectId);
+      const { data, error } = await query;
+      if (error || !data) return [];
+      return data.map((t: any) => ({
+        id: t.id,
+        batchId: t.batch_id,
+        subjectId: t.subject_id,
+        subjectName: t.subjects?.name || 'Subject',
+        unitName: t.unit_name,
+        topicName: t.topic_name,
+        isCompleted: Boolean(t.is_completed),
+        completedAt: t.completed_at,
+        sequenceOrder: t.sequence_order || 0,
+      }));
+    } catch (e) {
+      console.warn('[curriculum] getCurriculumTopics failed:', e);
+      return [];
+    }
+  },
+
+  async updateCurriculumTopic(topicId: string, isCompleted: boolean): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient
+        .from('curriculum_topics')
+        .update({
+          is_completed: isCompleted,
+          completed_at: isCompleted ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', topicId);
+      if (error) {
+        console.warn('[curriculum] updateCurriculumTopic rejected:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[curriculum] updateCurriculumTopic failed:', e);
+      return false;
+    }
+  },
+
+  async createCurriculumTopic(input: {
+    batchId: string;
+    subjectId: string;
+    unitName: string;
+    topicName: string;
+    sequenceOrder?: number;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('curriculum_topics')
+        .insert({
+          batch_id: input.batchId,
+          subject_id: input.subjectId,
+          unit_name: input.unitName,
+          topic_name: input.topicName,
+          is_completed: false,
+          sequence_order: input.sequenceOrder ?? 0,
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('[curriculum] createCurriculumTopic rejected:', error?.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.warn('[curriculum] createCurriculumTopic failed:', e);
+      return null;
+    }
+  },
+
+  async getLmsLessons(): Promise<LMSLesson[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('lms_lessons')
+        .select(`
+          id,
+          title,
+          chapter,
+          content_type,
+          content_url,
+          duration_minutes,
+          order_index,
+          lms_courses (
+            id,
+            title
+          )
+        `)
+        .order('order_index', { ascending: true });
+
+      if (error || !data) {
+        console.warn('[lms] getLmsLessons error:', error?.message);
+        return [];
+      }
+
+      return data.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        lessonTitle: row.title,
+        chapter: row.chapter,
+        courseTitle: row.lms_courses?.title || 'General Curriculum',
+        contentType: (row.content_type as any) || 'notes',
+        durationMinutes: row.duration_minutes || 15,
+        contentUrl: row.content_url || '',
+        url: row.content_url || '',
+        completed: false,
+      }));
+    } catch (e) {
+      console.warn('[lms] getLmsLessons exception:', e);
+      return [];
+    }
+  },
 };
+
 
 

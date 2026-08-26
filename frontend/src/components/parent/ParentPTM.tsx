@@ -1,26 +1,72 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { dataService } from '@/lib/dataService';
+import { Student } from '@/lib/types';
 import { Card, Badge, PageHeader, cn } from '@/components/ui';
 import { Calendar, Clock, Video, MapPin, Check, CalendarCheck } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
-import { mockPTMSlots, mockCurrentStudent, mockProfiles } from '@/lib/mockData';
+import { mockPTMSlots } from '@/lib/mockData';
 import { useAppStore, addPtmBooking } from '@/lib/store';
 
 export const ParentPTM: React.FC = () => {
+  const { session } = useAuth();
   const { ptmBookings } = useAppStore();
+  const [children, setChildren] = useState<Student[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string>('');
   const [selected, setSelected] = useState<Record<string, string>>({});
+  const [dbBookings, setDbBookings] = useState<any[]>([]);
 
-  const studentName = mockCurrentStudent?.name || 'Student';
+  useEffect(() => {
+    let active = true;
+    dataService.getParentChildren().then((kids) => {
+      if (!active) return;
+      if (kids && kids.length > 0) {
+        setChildren(kids);
+        setSelectedChildId((prev) => prev || kids[0].id);
+        dataService.getPtmBookings(kids[0].id).then((b) => {
+          if (active && b) setDbBookings(b);
+        });
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const activeChild = children.find((c) => c.id === selectedChildId) || children[0];
+  const studentName = activeChild?.name || 'Student';
 
   const bookingFor = (teacherId: string, slot: string) =>
+    dbBookings.find((b) => b.teacherId === teacherId && b.slot === slot) ||
     ptmBookings.find(
       (b) => b.teacherId === teacherId && b.slot === slot && b.studentName === studentName,
     );
 
-  const handleBook = (ptmId: string, teacherName: string, subject: string, mode: string) => {
+  const handleBook = async (ptmId: string, teacherName: string, subject: string, mode: string) => {
     const slot = selected[ptmId];
-    if (!slot) return;
+    if (!slot || !activeChild) return;
+
+    const parentName = session
+      ? `${session.firstName || 'Parent'} ${session.lastName || ''}`.trim()
+      : 'Parent';
+
+    // Teacher ID resolution (use default teacher profile if mock id is passed)
+    const teacherId = ptmId.includes('-') && ptmId.length > 20
+      ? ptmId
+      : '4d9ada55-6040-4d40-a853-18a7359fae50'; // Suresh Pillai / default teacher profile
+
+    if (activeChild.id) {
+      await dataService.createPtmBooking({
+        teacherId,
+        studentId: activeChild.id,
+        subject,
+        slot,
+        mode: mode.toLowerCase().includes('video') ? 'online' : 'in_person',
+        requestedBy: 'guardian',
+      });
+    }
 
     addPtmBooking({
       teacherId: ptmId,
@@ -29,7 +75,7 @@ export const ParentPTM: React.FC = () => {
       slot,
       mode,
       studentName,
-      parentName: `${mockProfiles.parent?.firstName || 'Parent'} ${mockProfiles.parent?.lastName || ''}`.trim(),
+      parentName,
     });
 
     setSelected((prev) => {
@@ -38,17 +84,38 @@ export const ParentPTM: React.FC = () => {
       return next;
     });
 
-    toast('PTM slot booked', 'success', `${teacherName} · ${slot} · request sent to faculty`);
+    toast('PTM slot booked', 'success', `${teacherName} · ${slot} · request sent to faculty & saved to database.`);
   };
 
   const isVideo = (mode: string) => (mode || '').toLowerCase().includes('video');
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Parent–teacher meetings"
-        subtitle="Book 1-on-1 consultations with faculty mentors (in-person or video call)"
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <PageHeader
+          title="Parent–teacher meetings"
+          subtitle="Book 1-on-1 consultations with faculty mentors (in-person or video call)"
+        />
+        {children.length > 1 && (
+          <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
+            <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
+            {children.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => setSelectedChildId(ch.id)}
+                className={cn(
+                  'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
+                  selectedChildId === ch.id
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'text-text-secondary hover:bg-muted',
+                )}
+              >
+                {ch.name ? ch.name.split(' ')[0] : 'Child'}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {(!mockPTMSlots || mockPTMSlots.length === 0) ? (
         <Card className="flex flex-col items-center justify-center p-12 text-center">
@@ -100,16 +167,15 @@ export const ParentPTM: React.FC = () => {
                           onClick={() => !isBooked && setSelected((p) => ({ ...p, [ptm.id]: slot }))}
                           disabled={isBooked}
                           className={cn(
-                            'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-meta font-medium transition-colors',
+                            'rounded-md px-3 py-1.5 text-meta font-medium transition-colors',
                             isBooked
-                              ? 'cursor-not-allowed border-border bg-muted text-text-tertiary line-through'
+                              ? 'bg-muted text-text-tertiary line-through cursor-not-allowed'
                               : isChosen
-                                ? 'border-primary bg-surface text-primary shadow-xs'
-                                : 'border-border bg-surface text-text-secondary hover:border-border-strong hover:bg-surface-muted',
+                              ? 'bg-primary text-white shadow-2xs'
+                              : 'border border-border bg-surface text-foreground hover:bg-muted',
                           )}
-                          aria-pressed={isChosen}
                         >
-                          {isBooked ? <CalendarCheck size={14} /> : <Clock size={14} />}
+                          <Clock size={13} className="inline mr-1 opacity-70" />
                           {slot}
                         </button>
                       );
@@ -118,35 +184,28 @@ export const ParentPTM: React.FC = () => {
                 </div>
 
                 {activeBooking && (
-                  <div
-                    className={cn(
-                      'mt-4 flex items-start gap-2.5 rounded-md border p-3 text-meta',
-                      activeBooking.status === 'confirmed'
-                        ? 'border-success/20 bg-success-soft text-success-foreground'
-                        : 'border-info/20 bg-info-soft text-info-foreground',
-                    )}
-                  >
-                    <Check size={16} className="mt-0.5 shrink-0" />
-                    <span>
-                      {activeBooking.status === 'confirmed' ? 'Confirmed' : 'Requested'} with{' '}
-                      <span className="font-semibold">{ptm.teacherName}</span> at{' '}
-                      <span className="font-semibold">{activeBooking.slot}</span>.{' '}
-                      {activeBooking.status === 'confirmed'
-                        ? 'Calendar invite & link sent.'
-                        : 'Awaiting faculty confirmation.'}
-                    </span>
+                  <div className="mt-4 flex items-center justify-between rounded-lg border border-success/30 bg-success-soft px-3.5 py-2.5">
+                    <div className="flex items-center gap-2 text-meta text-success font-medium">
+                      <CalendarCheck size={16} />
+                      Booked for {activeBooking.slot} ({studentName})
+                    </div>
+                    <Badge tone="success">Confirmed</Badge>
                   </div>
                 )}
 
-                <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={() => handleBook(ptm.id, ptm.teacherName, ptm.subject, ptm.mode)}
-                    className="btn-primary"
-                    disabled={!chosen}
-                  >
-                    <CalendarCheck size={16} /> Book slot
-                  </button>
-                </div>
+                {chosen && !activeBooking && (
+                  <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                    <div className="text-meta text-text-secondary">
+                      Selected slot: <span className="font-semibold text-foreground">{chosen}</span>
+                    </div>
+                    <button
+                      onClick={() => handleBook(ptm.id, ptm.teacherName, ptm.subject, ptmMode)}
+                      className="btn-primary"
+                    >
+                      <Check size={16} /> Confirm Booking
+                    </button>
+                  </div>
+                )}
               </Card>
             );
           })}

@@ -1,13 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore, markParentAlertsRead, clearSingleParentAlert, ParentAlert } from '@/lib/store';
-import { mockParentChildren } from '@/lib/mockData';
+import { dataService } from '@/lib/dataService';
 import { SectionCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { BellRing, CheckCheck, UserX, UserCheck, Clock, Award, CalendarClock, CheckCircle2, X, IndianRupee } from 'lucide-react';
 
-const childNames = mockParentChildren.map((c) => c.name);
 const MAX_QUEUE_SIZE = 3;
 
 const iconFor = (a: ParentAlert) => {
@@ -41,8 +40,24 @@ const timeAgo = (ts: number) => {
 
 export const ParentAttendanceAlerts: React.FC = () => {
   const { parentAlerts } = useAppStore();
-  // FIFO Queue: Maximum 3 alerts (earliest discarded if size > 3)
-  const alerts = parentAlerts.filter((a) => childNames.includes(a.studentName)).slice(0, MAX_QUEUE_SIZE);
+  const [childNames, setChildNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    dataService.getParentChildren().then((kids) => {
+      if (active && kids && kids.length > 0) {
+        setChildNames(kids.map((c) => c.name));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const alerts = childNames.length > 0
+    ? parentAlerts.filter((a) => childNames.some((name) => name.toLowerCase() === a.studentName.toLowerCase())).slice(0, MAX_QUEUE_SIZE)
+    : parentAlerts.slice(0, MAX_QUEUE_SIZE);
+
   const unread = alerts.filter((a) => !a.read).length;
 
   const handleMarkRead = () => {
@@ -98,17 +113,17 @@ export const ParentAttendanceAlerts: React.FC = () => {
                         {badgeLabel(a)}
                       </Badge>
                     </div>
-                    <p className="mt-0.5 text-micro text-text-secondary">{a.message}</p>
-                    <p className="mt-0.5 text-micro text-text-tertiary">
-                      {a.date} · {a.source} · {timeAgo(a.createdAt)}
-                    </p>
+                    <p className="mt-1 text-meta text-foreground">{a.message}</p>
+                    <div className="mt-1 flex items-center gap-3 text-micro text-text-tertiary">
+                      <span>{timeAgo(a.createdAt)}</span>
+                      {a.source && <span>· by {a.source}</span>}
+                    </div>
                   </div>
                 </div>
-
                 <button
                   onClick={() => handleDismissSingle(a.id)}
-                  className="text-text-tertiary hover:text-foreground p-1 text-xs shrink-0"
-                  title="Dismiss alert"
+                  aria-label="Dismiss alert"
+                  className="rounded-md p-1 text-text-tertiary hover:bg-muted hover:text-foreground"
                 >
                   <X size={14} />
                 </button>
@@ -120,4 +135,3 @@ export const ParentAttendanceAlerts: React.FC = () => {
     </SectionCard>
   );
 };
-

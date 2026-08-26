@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { UserRole } from '@/lib/types';
+import { UserRole, Tenant } from '@/lib/types';
 import { NAV_CONFIG, ROLE_LABEL } from '@/lib/navigation';
-import { mockTenant, mockProfiles } from '@/lib/mockData';
+import { mockProfiles } from '@/lib/mockData';
+import { dataService } from '@/lib/dataService';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { cn } from '@/components/ui';
 import {
@@ -75,6 +76,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
     : ROLE_META.filter((meta) => heldRoles.includes(meta.role));
   const canSwitch = availableRoles.length > 1;
 
+  const [tenantInfo, setTenantInfo] = useState<{ name: string; type: string }>({
+    name: 'EduOS Platform',
+    type: 'school',
+  });
+
+  useEffect(() => {
+    let active = true;
+    if (session?.tenantId) {
+      dataService.getTenants().then((list: Tenant[]) => {
+        if (!active || !list) return;
+        const t = list.find((item) => item.id === session.tenantId);
+        if (t) {
+          setTenantInfo({
+            name: t.name || 'EduOS Platform',
+            type: t.institutionType || 'school',
+          });
+        }
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [session?.tenantId]);
+
   // Identity in the sandbox comes from fixtures; a real session shows the
   // signed-in person, not a stand-in for their role.
   const mockProfile = mockProfiles[activeRole];
@@ -135,14 +160,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-primary-foreground font-bold text-lg"
               style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))' }}
             >
-              {mockTenant.name.charAt(0)}
+              {tenantInfo.name.charAt(0)}
             </div>
             <div className="min-w-0">
               <div className="truncate text-[0.9rem] font-semibold text-foreground leading-tight">
-                {mockTenant.name}
+                {tenantInfo.name}
               </div>
               <div className="truncate text-micro text-text-tertiary">
-                {mockTenant.institutionType === 'school' ? 'CBSE School Edition' : 'Coaching Edition'}
+                {tenantInfo.type === 'school' ? 'CBSE School Edition' : 'Coaching Edition'}
               </div>
             </div>
           </div>

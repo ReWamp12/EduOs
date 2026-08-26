@@ -59,53 +59,53 @@ describe('EDUOS-108: Multi-Tenant Isolation & RBAC Security Suite', () => {
   }
 
   describe('1. Server-Side RBAC Enforcement', () => {
-    it('allows super_admin access to all modules and actions', () => {
+    it('allows super_admin access to all modules and actions', async () => {
       const context = createMockExecutionContext('super_admin', 'tenant-aaa', {
         module: 'compliance',
         action: 'pocso_vault.view',
         scope: 'tenant',
       });
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
     });
 
-    it('allows teacher to mark attendance and view academics', () => {
+    it('allows teacher to mark attendance and view academics', async () => {
       const context = createMockExecutionContext('teacher', 'tenant-aaa', {
         module: 'attendance',
         action: 'create',
       });
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
     });
 
-    it('denies teacher when attempting to approve payroll or compliance items', () => {
+    it('denies teacher when attempting to approve payroll or compliance items', async () => {
       const context = createMockExecutionContext('teacher', 'tenant-aaa', {
         module: 'finance',
         action: 'payroll.approve',
       });
-      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
     });
 
-    it('allows student to view LMS lessons and submit assignments', () => {
+    it('allows student to view LMS lessons and submit assignments', async () => {
       const context = createMockExecutionContext('student', 'tenant-aaa', {
         module: 'assignments',
         action: 'submit',
       });
-      expect(guard.canActivate(context)).toBe(true);
+      expect(await guard.canActivate(context)).toBe(true);
     });
 
-    it('denies student when attempting to mark attendance or publish notices', () => {
+    it('denies student when attempting to mark attendance or publish notices', async () => {
       const context = createMockExecutionContext('student', 'tenant-aaa', {
         module: 'attendance',
         action: 'create',
       });
-      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
     });
 
-    it('denies unregistered or arbitrary roles', () => {
+    it('denies unregistered or arbitrary roles', async () => {
       const context = createMockExecutionContext('attacker_role', 'tenant-aaa', {
         module: 'academics',
         action: 'view',
       });
-      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
     });
   });
 

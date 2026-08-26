@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from '@/lib/types';
 import { getNavMeta, ROLE_LABEL } from '@/lib/navigation';
-import { mockTenant } from '@/lib/mockData';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import {
   Menu,
@@ -85,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Breadcrumb + title */}
         <div className="min-w-0 flex-1">
           <nav aria-label="Breadcrumb" className="hidden items-center gap-1.5 text-micro text-text-tertiary sm:flex">
-            <span>{mockTenant.name}</span>
+            <span>EduOS</span>
             <ChevronRight size={13} className="text-text-disabled" />
             <span>{meta.section}</span>
           </nav>

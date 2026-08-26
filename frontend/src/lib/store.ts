@@ -677,6 +677,7 @@ export function clearSingleParentAlert(alertId: string) {
 
 /** Create and dispatch a new Digital Consent form to batch or all school */
 export function createConsentForm(input: {
+  id?: string;
   title: string;
   description: string;
   category: DigitalConsentForm['category'];
@@ -689,7 +690,7 @@ export function createConsentForm(input: {
   deadline: string;
   instructions?: string;
 }): DigitalConsentForm {
-  const formId = `consent-${Date.now()}`;
+  const formId = input.id || `consent-${Date.now()}`;
   const now = Date.now();
 
   // Find target students

@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
 import { authClient } from '@/lib/auth/client';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { mockCurrentStudent } from '@/lib/mockData';
-import { Assignment, AssignmentAttachment } from '@/lib/types';
+import { Student, Assignment, AssignmentAttachment } from '@/lib/types';
 import { useAppStore, addSubmission, AssignmentRecord, Submission } from '@/lib/store';
 import { PageHeader, SectionCard, Card, Badge, StatCard, ProgressBar, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -38,20 +38,35 @@ const statusBadge: Record<Assignment['status'], { tone: 'warning' | 'info' | 'su
 };
 
 export const StudentAssignments: React.FC = () => {
+  const { session } = useAuth();
+  const [student, setStudent] = useState<Student | null>(null);
   const { assignments: storeAssignments, submissions } = useAppStore();
+
+  useEffect(() => {
+    let active = true;
+    if (session?.userId) {
+      dataService.getStudentOverview(session.userId).then((st) => {
+        if (active && st) setStudent(st);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [session?.userId]);
 
   // Active student batch assignments
   const studentBatchAssignments = useMemo(() => {
+    if (!student) return storeAssignments;
     return storeAssignments.filter(
-      (a) => !a.batchName || a.batchName === mockCurrentStudent.batchName || a.batchId === mockCurrentStudent.batchId,
+      (a) => !a.batchName || a.batchName === student.batchName || a.batchId === student.batchId,
     );
-  }, [storeAssignments]);
+  }, [storeAssignments, student]);
 
   // Combined assignment status with student's submissions
   const assignments: (AssignmentRecord & { studentSubmission?: Submission })[] = useMemo(() => {
     return studentBatchAssignments.map((a) => {
       const sub = submissions.find(
-        (s) => s.assignmentId === a.id && (s.studentName === mockCurrentStudent.name || s.studentId === mockCurrentStudent.id),
+        (s) => s.assignmentId === a.id && (!student || s.studentName === student.name || s.studentId === student.id),
       );
       if (!sub) {
         return {
@@ -67,7 +82,7 @@ export const StudentAssignments: React.FC = () => {
         studentSubmission: sub,
       };
     });
-  }, [studentBatchAssignments, submissions]);
+  }, [studentBatchAssignments, submissions, student]);
 
   // Filter & Search states
   const [activeTabFilter, setActiveTabFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>('all');
@@ -83,7 +98,6 @@ export const StudentAssignments: React.FC = () => {
   const [confirmedHonorCode, setConfirmedHonorCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Real device file, validated against the storage bucket's contract.
   const ACCEPTED_TYPES = [
     'application/pdf',
     'image/jpeg',
@@ -100,43 +114,50 @@ export const StudentAssignments: React.FC = () => {
       toast('File too large', 'error', `"${f.name}" is ${(f.size / 1024 / 1024).toFixed(1)} MB — the limit is 25 MB.`);
       return;
     }
-    if (f.type && !ACCEPTED_TYPES.includes(f.type)) {
-      toast('Unsupported file type', 'error', 'Upload a PDF, image (JPG/PNG/WebP) or Word document.');
+    if (!ACCEPTED_TYPES.includes(f.type) && !/\.(pdf|docx?|jpe?g|png|webp)$/i.test(f.name)) {
+      toast(
+        'Unsupported file format',
+        'warning',
+        'Please upload a PDF, Word document (.doc, .docx), or an image (.jpg, .png, .webp).',
+      );
       return;
     }
     setSolutionFile(f);
   };
 
-  const fileSizeLabel = (bytes: number) =>
-    bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  const fileSizeLabel = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
-  // Available subjects for filtering
   const subjectsList = useMemo(() => {
-    const set = new Set(assignments.map((a) => a.subject));
-    return Array.from(set);
+    const subs = Array.from(new Set(assignments.map((a) => a.subject)));
+    return ['all', ...subs];
   }, [assignments]);
 
-  // Filtered assignments
   const filteredAssignments = useMemo(() => {
     return assignments.filter((a) => {
-      const matchTab = activeTabFilter === 'all' || a.status === activeTabFilter;
-      const matchSubject = selectedSubject === 'all' || a.subject === selectedSubject;
-      const matchSearch =
-        a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (a.description && a.description.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchTab && matchSubject && matchSearch;
+      if (activeTabFilter !== 'all' && a.status !== activeTabFilter) return false;
+      if (selectedSubject !== 'all' && a.subject !== selectedSubject) return false;
+      if (
+        searchQuery &&
+        !a.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !a.subject.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
+        return false;
+      }
+      return true;
     });
   }, [assignments, activeTabFilter, selectedSubject, searchQuery]);
 
-  // Metrics
-  const pendingCount = assignments.filter((a) => a.status === 'pending').length;
-  const underReviewCount = assignments.filter((a) => a.status === 'submitted').length;
-  const gradedCount = assignments.filter((a) => a.status === 'graded').length;
+  const pendingCount = useMemo(() => assignments.filter((a) => a.status === 'pending').length, [assignments]);
+  const submittedCount = useMemo(() => assignments.filter((a) => a.status === 'submitted').length, [assignments]);
+  const gradedCount = useMemo(() => assignments.filter((a) => a.status === 'graded').length, [assignments]);
 
-  const averageScore = useMemo(() => {
-    const graded = assignments.filter((a) => a.status === 'graded' && a.obtainedMarks !== undefined);
-    if (!graded.length) return 0;
+  const overallAverageScore = useMemo(() => {
+    const graded = assignments.filter((a) => a.status === 'graded' && typeof a.obtainedMarks === 'number');
+    if (graded.length === 0) return 0;
     const sumPct = graded.reduce((acc, curr) => acc + ((curr.obtainedMarks || 0) / curr.maxMarks) * 100, 0);
     return Math.round(sumPct / graded.length);
   }, [assignments]);
@@ -144,10 +165,8 @@ export const StudentAssignments: React.FC = () => {
   const handleOpenSubmitModal = (assignment: AssignmentRecord) => {
     setActiveSubmittingAssignment(assignment);
     const existing = submissions.find(
-      (s) => s.assignmentId === assignment.id && s.studentName === mockCurrentStudent.name,
+      (s) => s.assignmentId === assignment.id && (!student || s.studentName === student.name),
     );
-    // A fresh submission always attaches the student's own device file —
-    // never a pre-filled placeholder name.
     setSolutionFile(null);
     setStudentNotes(existing?.studentNotes || '');
     setConfirmedHonorCode(true);
@@ -169,14 +188,14 @@ export const StudentAssignments: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      // Upload the real device file. Supabase Storage (bucket `submissions`,
-      // EDUOS-126) is the document store of record; a local object URL keeps
-      // the demo usable offline (valid for this browser session only).
       let fileUrl = '';
       let filePath = '';
+      const activeStudentId = student?.id || session?.userId || 'std-current';
+      const admissionNum = student?.admissionNumber || activeStudentId;
+
       if (isSupabaseConfigured()) {
         const safeName = solutionFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const path = `${mockCurrentStudent.admissionNumber || mockCurrentStudent.id}/${activeSubmittingAssignment.id}/${Date.now()}-${safeName}`;
+        const path = `${admissionNum}/${activeSubmittingAssignment.id}/${Date.now()}-${safeName}`;
         const { error: uploadError } = await authClient.storage
           .from('submissions')
           .upload(path, solutionFile, { contentType: solutionFile.type || 'application/octet-stream', upsert: true });
@@ -185,29 +204,28 @@ export const StudentAssignments: React.FC = () => {
           setIsSubmitting(false);
           return;
         }
-        // Private bucket (EDUOS-127): keep the object path, not a public URL.
-        // Viewers mint a short-lived signed link when they open the document.
         filePath = path;
       } else {
         fileUrl = URL.createObjectURL(solutionFile);
       }
 
-      await dataService.submitAssignment({
-        assignmentId: activeSubmittingAssignment.id,
-        studentId: mockCurrentStudent.id,
-        submissionUrl: filePath || fileUrl,
-      });
+      if (student?.id) {
+        await dataService.submitAssignment({
+          assignmentId: activeSubmittingAssignment.id,
+          studentId: student.id,
+          submissionUrl: filePath || fileUrl,
+        });
+      }
 
-      // Write to shared reactive store
       addSubmission({
         assignmentId: activeSubmittingAssignment.id,
         title: activeSubmittingAssignment.title,
         subject: activeSubmittingAssignment.subject,
         batchName: activeSubmittingAssignment.batchName,
-        studentId: mockCurrentStudent.id,
-        studentName: mockCurrentStudent.name,
-        studentRoll: mockCurrentStudent.rollNumber,
-        studentAvatar: mockCurrentStudent.avatarUrl,
+        studentId: student?.id || 'std-1',
+        studentName: student?.name || 'Student',
+        studentRoll: student?.rollNumber || '1',
+        studentAvatar: student?.avatarUrl || '',
         maxMarks: activeSubmittingAssignment.maxMarks,
         fileName: solutionFile.name,
         fileSize: fileSizeLabel(solutionFile.size),
@@ -231,10 +249,9 @@ export const StudentAssignments: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Page Header */}
       <PageHeader
         title="Daily Practice Problems & Homework Hub"
-        subtitle={`${mockCurrentStudent.batchName} · Roll ${mockCurrentStudent.rollNumber}`}
+        subtitle={student ? `${student.batchName} · Roll ${student.rollNumber}` : 'Homework Hub'}
         actions={
           <Badge tone={pendingCount ? 'warning' : 'success'}>
             {pendingCount > 0 ? `${pendingCount} Pending Homework` : 'All Homework Submitted'}
@@ -260,14 +277,14 @@ export const StudentAssignments: React.FC = () => {
         />
         <StatCard
           label="Under Review"
-          value={underReviewCount}
+          value={submittedCount}
           tone="info"
           icon={<ClipboardCheck size={16} />}
           hint="Submitted, awaiting teacher review"
         />
         <StatCard
           label="Average Score"
-          value={<>{averageScore}<span className="text-base font-medium text-text-tertiary">%</span></>}
+          value={<>{overallAverageScore}<span className="text-base font-medium text-text-tertiary">%</span></>}
           tone="success"
           icon={<Award size={16} />}
           hint={`${gradedCount} graded assignments`}
@@ -311,7 +328,7 @@ export const StudentAssignments: React.FC = () => {
                     : 'text-text-secondary hover:text-foreground',
                 )}
               >
-                In Review ({underReviewCount})
+                In Review ({submittedCount})
               </button>
               <button
                 onClick={() => setActiveTabFilter('graded')}
@@ -559,7 +576,7 @@ export const StudentAssignments: React.FC = () => {
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-micro text-text-tertiary">
                   <span>Due Date: <strong className="text-warning">{activeSubmittingAssignment.dueDate}</strong></span>
                   <span>Max Marks: {activeSubmittingAssignment.maxMarks}</span>
-                  <span>Batch: {mockCurrentStudent.batchName.split(' - ')[0]}</span>
+                  <span>Batch: {(student?.batchName || activeSubmittingAssignment.batchName || 'Class 10').split(' - ')[0]}</span>
                 </div>
               </div>
 

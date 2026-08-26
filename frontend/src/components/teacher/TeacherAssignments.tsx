@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTeacherBatch } from '@/lib/teacherContext';
+import { dataService } from '@/lib/dataService';
 import { useAppStore, addAssignment, deleteAssignment, sendAssignmentReminder, AssignmentRecord, Submission } from '@/lib/store';
 import { AssignmentAttachment } from '@/lib/types';
 import { PageHeader, Card, Badge, ProgressBar, EmptyState, cn } from '@/components/ui';
@@ -154,14 +155,24 @@ export const TeacherAssignments: React.FC = () => {
     return submissions.filter((s) => s.assignmentId === assignmentId);
   };
 
-  const handleCreateAssignment = (e: React.FormEvent) => {
+  const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
       toast('Title required', 'info', 'Please enter a title for the assignment.');
       return;
     }
 
+    const res = await dataService.createAssignment({
+      batchId: batch.id,
+      teacherId: teacher.id,
+      title: formTitle.trim(),
+      description: formDescription.trim() || 'Please solve all questions in your class notebook and upload clear step-by-step solutions.',
+      dueDate: formDueDate,
+      maxMarks: Number(formMaxMarks) || 25,
+    });
+
     const created = addAssignment({
+      id: res?.id,
       title: formTitle.trim(),
       subject: formSubject || subjects[0] || 'Mathematics',
       category: formCategory,
@@ -177,7 +188,7 @@ export const TeacherAssignments: React.FC = () => {
       tags: [formSubject || subjects[0] || 'Coursework', formCategory.toUpperCase(), 'CBSE 2026'],
     });
 
-    toast('Assignment Shared', 'success', `"${created.title}" shared with ${batch.name.split(' — ')[0]}. Students notified.`);
+    toast('Assignment Shared', 'success', `"${created.title}" shared with ${batch.name.split(' — ')[0]}. Saved to database.`);
     setShowCreateModal(false);
 
     // Reset fields

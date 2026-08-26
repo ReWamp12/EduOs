@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { mockTenant, mockCurrentStudent } from '@/lib/mockData';
+import { mockTenant } from '@/lib/mockData';
 import {
   X,
   Printer,
@@ -204,45 +204,45 @@ export const ExamSeatingAdmitCardModal: React.FC<ExamSeatingProps> = ({
               </div>
             </div>
 
-            {/* Candidate Details & Photo Grid */}
-            <div className="grid grid-cols-[1fr_auto] gap-4 my-4 p-4 rounded-lg bg-slate-50 border border-slate-200 text-xs items-center">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Candidate Name</span>
-                  <strong className="text-slate-900 text-sm">{mockCurrentStudent.name}</strong>
+              {/* Candidate Details & Photo Grid */}
+              <div className="grid grid-cols-[1fr_auto] gap-4 my-4 p-4 rounded-lg bg-slate-50 border border-slate-200 text-xs items-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-bold uppercase">Candidate Name</span>
+                    <strong className="text-slate-900 text-sm">{SAMPLE_SEATS[0].studentName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-bold uppercase">Roll Number</span>
+                    <strong className="text-slate-900 text-sm font-mono">{SAMPLE_SEATS[0].rollNumber}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-bold uppercase">Registration Number</span>
+                    <strong className="text-slate-900 text-sm font-mono">D/26/60391/0014</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-bold uppercase">Exam Centre Venue</span>
+                    <strong className="text-slate-900">Main Campus · Hall A (Desk {SAMPLE_SEATS[0].deskNumber})</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-bold uppercase">Section / Batch</span>
+                    <strong className="text-slate-900">{batchName || SAMPLE_SEATS[0].batchCode}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-bold uppercase">Status</span>
+                    <strong className="text-success font-semibold">Eligible & Verified</strong>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Roll Number</span>
-                  <strong className="text-slate-900 text-sm font-mono">{mockCurrentStudent.rollNumber}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Registration Number</span>
-                  <strong className="text-slate-900 text-sm font-mono">D/26/60391/0014</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Exam Centre Venue</span>
-                  <strong className="text-slate-900">Main Campus · Hall A (Desk D-01)</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Mother's Name</span>
-                  <strong className="text-slate-900">Mrs. Sunita Sharma</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Father's Name</span>
-                  <strong className="text-slate-900">Mr. Rajesh Sharma</strong>
-                </div>
-              </div>
 
-              {/* Photo & QR Badge */}
-              <div className="flex flex-col items-center gap-1.5 pl-4 border-l border-slate-200">
-                <img
-                  src={mockCurrentStudent.avatarUrl}
-                  alt={mockCurrentStudent.name}
-                  className="h-20 w-16 object-cover rounded border border-slate-400 shadow-2xs"
-                />
-                <span className="text-[9px] font-mono text-slate-500">Verified Photo</span>
+                {/* Photo & QR Badge */}
+                <div className="flex flex-col items-center gap-1.5 pl-4 border-l border-slate-200">
+                  <img
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(SAMPLE_SEATS[0].studentName)}`}
+                    alt={SAMPLE_SEATS[0].studentName}
+                    className="h-20 w-16 object-cover rounded border border-slate-400 shadow-2xs"
+                  />
+                  <span className="text-[9px] font-mono text-slate-500">Verified Photo</span>
+                </div>
               </div>
-            </div>
 
             {/* Subject Timetable Schedule */}
             <div className="space-y-2 mb-4">

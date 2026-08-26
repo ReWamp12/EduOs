@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useTeacherBatch } from '@/lib/teacherContext';
+import { dataService } from '@/lib/dataService';
 import {
   BookOpen,
   CheckCircle2,
@@ -206,10 +208,43 @@ const CURRICULUM_DATA: Record<string, Unit[]> = {
 };
 
 export const CurriculumTracker: React.FC = () => {
+  const { batch } = useTeacherBatch();
   const subjects = Object.keys(CURRICULUM_DATA);
   const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0]);
   const [units, setUnits] = useState<Unit[]>(CURRICULUM_DATA[subjects[0]]);
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>({ u1: true, u2: true, su1: true });
+  const [topicDbIds, setTopicDbIds] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let active = true;
+    if (batch?.id) {
+      dataService.getCurriculumTopics(batch.id).then((rows) => {
+        if (!active || !rows || rows.length === 0) return;
+        const idMap: Record<string, string> = {};
+        const completedMap: Record<string, boolean> = {};
+        rows.forEach((r: any) => {
+          idMap[r.topicName] = r.id;
+          completedMap[r.topicName] = r.isCompleted;
+        });
+        setTopicDbIds(idMap);
+        setUnits((prevUnits) =>
+          prevUnits.map((u) => ({
+            ...u,
+            chapters: u.chapters.map((c) => ({
+              ...c,
+              topics: c.topics.map((t) => ({
+                ...t,
+                completed: completedMap[t.name] !== undefined ? completedMap[t.name] : t.completed,
+              })),
+            })),
+          }))
+        );
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [batch?.id]);
 
   const handleSubjectChange = (subj: string) => {
     setSelectedSubject(subj);
@@ -220,29 +255,57 @@ export const CurriculumTracker: React.FC = () => {
     setExpandedUnits((prev) => ({ ...prev, [unitId]: !prev[unitId] }));
   };
 
-  const toggleTopic = (unitId: string, chapterId: string, topicId: string) => {
-    setUnits((prevUnits) =>
-      prevUnits.map((u) => {
-        if (u.id !== unitId) return u;
-        return {
-          ...u,
-          chapters: u.chapters.map((c) => {
-            if (c.id !== chapterId) return c;
-            return {
-              ...c,
-              topics: c.topics.map((t) => {
-                if (t.id !== topicId) return t;
-                const nextState = !t.completed;
-                if (nextState) {
-                  toast('Topic completed', 'success', `${t.name} marked as taught.`);
-                }
-                return { ...t, completed: nextState };
-              }),
-            };
-          }),
-        };
-      }),
-    );
+  const toggleTopic = async (unitId: string, chapterId: string, topicId: string) => {
+    let targetedTopic: Topic | undefined;
+    let targetedUnitName = '';
+
+    const nextUnits = units.map((u) => {
+      if (u.id !== unitId) return u;
+      targetedUnitName = u.name;
+      return {
+        ...u,
+        chapters: u.chapters.map((c) => {
+          if (c.id !== chapterId) return c;
+          return {
+            ...c,
+            topics: c.topics.map((t) => {
+              if (t.id !== topicId) return t;
+              targetedTopic = t;
+              const nextState = !t.completed;
+              if (nextState) {
+                toast('Topic completed', 'success', `${t.name} marked as taught & saved.`);
+              }
+              return { ...t, completed: nextState };
+            }),
+          };
+        }),
+      };
+    });
+
+    setUnits(nextUnits);
+
+    if (targetedTopic && batch?.id) {
+      const nextCompleted = !targetedTopic.completed;
+      const existingDbId = topicDbIds[targetedTopic.name];
+      if (existingDbId) {
+        await dataService.updateCurriculumTopic(existingDbId, nextCompleted);
+      } else {
+        // Find subject id or default
+        const subjectId = 'bb24b10a-a844-4a27-993e-dac168f2787b'; // default Maths
+        const res = await dataService.createCurriculumTopic({
+          batchId: batch.id,
+          subjectId,
+          unitName: targetedUnitName,
+          topicName: targetedTopic.name,
+        });
+        if (res?.id) {
+          setTopicDbIds((prev) => ({ ...prev, [targetedTopic!.name]: res.id }));
+          if (nextCompleted) {
+            await dataService.updateCurriculumTopic(res.id, true);
+          }
+        }
+      }
+    }
   };
 
   const allTopics = useMemo(() => {

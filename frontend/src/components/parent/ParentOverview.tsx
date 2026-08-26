@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  mockProfiles,
-  mockParentChildren,
-} from '@/lib/mockData';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { dataService } from '@/lib/dataService';
+import { Student } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { Card, Badge } from '@/components/ui';
+import { formatPct } from '@/lib/format';
 import { ParentAttendanceAlerts } from './ParentAttendanceAlerts';
 import {
   CreditCard,
@@ -15,12 +15,29 @@ import {
 } from 'lucide-react';
 
 export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
+  const { session } = useAuth();
   const { feeInvoices, consentForms } = useAppStore();
-  const [selectedChildId, setSelectedChildId] = useState(mockParentChildren[0]?.id || 'child-1');
-  const activeChild = mockParentChildren.find((c) => c.id === selectedChildId) || mockParentChildren[0];
+  const [children, setChildren] = useState<Student[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
-  // Guarded: with no linked children the widgets simply show empty, they
-  // must never crash the whole Parent dashboard on `.name` of undefined.
+  useEffect(() => {
+    let active = true;
+    dataService.getParentChildren().then((kids) => {
+      if (!active) return;
+      if (kids && kids.length > 0) {
+        setChildren(kids);
+        setSelectedChildId((prev) => prev || kids[0].id);
+      }
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const activeChild = children.find((c) => c.id === selectedChildId) || children[0];
+
   const childName = activeChild?.name?.toLowerCase().trim() || '';
   const childInvoices = childName
     ? feeInvoices.filter((i) => i.studentName.toLowerCase().trim() === childName)
@@ -35,6 +52,10 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
       )
     : [];
 
+  const parentName = session
+    ? `${session.firstName || 'Parent'} ${session.lastName || ''}`.trim()
+    : 'Parent';
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header + child switcher */}
@@ -42,29 +63,31 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
         <div>
           <div className="eyebrow">Multi-child parent account</div>
           <h2 className="mt-1 text-title text-foreground">
-            Welcome, {mockProfiles.parent.firstName} {mockProfiles.parent.lastName}
+            Welcome, {parentName}
           </h2>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
-          {mockParentChildren.map((child) => {
-            const isSelected = child.id === selectedChildId;
-            const firstName = child.name?.split(' ')[0] || child.name;
-            const gradeLabel = child.grade?.split(' - ')[0] || child.batchName?.split(' — ')[0] || 'Class 10';
-            return (
-              <button
-                key={child.id}
-                onClick={() => setSelectedChildId(child.id)}
-                className={[
-                  'flex items-center gap-2 rounded-md px-3 py-1.5 text-meta transition-colors',
-                  isSelected ? 'bg-primary-soft font-semibold text-primary' : 'font-medium text-text-secondary hover:bg-muted',
-                ].join(' ')}
-              >
-                <img src={child.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
-                {firstName} · {gradeLabel}
-              </button>
-            );
-          })}
-        </div>
+        {children.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
+            {children.map((child) => {
+              const isSelected = child.id === selectedChildId;
+              const firstName = child.name?.split(' ')[0] || child.name;
+              const gradeLabel = child.batchName?.split(' — ')[0] || 'Class 10';
+              return (
+                <button
+                  key={child.id}
+                  onClick={() => setSelectedChildId(child.id)}
+                  className={[
+                    'flex items-center gap-2 rounded-md px-3 py-1.5 text-meta transition-colors',
+                    isSelected ? 'bg-primary-soft font-semibold text-primary' : 'font-medium text-text-secondary hover:bg-muted',
+                  ].join(' ')}
+                >
+                  <img src={child.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+                  {firstName} · {gradeLabel}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Active child summary */}
@@ -80,11 +103,11 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-section font-semibold text-foreground">{activeChild.name}</h3>
-                  <Badge tone="primary">{activeChild.grade || activeChild.batchName}</Badge>
+                  <Badge tone="primary">{activeChild.batchName || 'Class 10'}</Badge>
                 </div>
                 <div className="mt-1 text-meta text-text-secondary">
-                  Roll <span className="font-semibold text-foreground">{activeChild.rollNumber}</span> · {activeChild.branch || 'Senior Wing'} · Target{' '}
-                  <span className="font-semibold text-primary">{activeChild.targetExam}</span>
+                  Roll <span className="font-semibold text-foreground">{activeChild.rollNumber}</span> · Adm <span className="font-semibold text-foreground">{activeChild.admissionNumber}</span> · Target{' '}
+                  <span className="font-semibold text-primary">{activeChild.targetExam || 'CBSE 2026'}</span>
                 </div>
               </div>
             </div>
@@ -92,13 +115,7 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
               <div>
                 <div className="eyebrow">Attendance</div>
                 <div className="mt-1 text-2xl font-semibold text-success">
-                  {activeChild.attendance ?? activeChild.attendancePct ?? 94.6}%
-                </div>
-              </div>
-              <div>
-                <div className="eyebrow">Latest mock score</div>
-                <div className="mt-1 text-lg font-semibold text-foreground">
-                  {activeChild.latestScore || '74/80 (92.5%)'}
+                  {formatPct(activeChild.attendancePct)}
                 </div>
               </div>
             </div>
@@ -162,7 +179,7 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
             </span>
           </div>
           <div className="mt-3 text-xl font-semibold text-foreground">Slots Open</div>
-          <div className="mt-1 text-micro text-text-tertiary">Physics · Prof. Amit Verma</div>
+          <div className="mt-1 text-micro text-text-tertiary">Parent-Teacher Meetings</div>
           <button onClick={() => onNavigate('ptm')} className="btn-secondary mt-4 w-full">
             Book Time Slot
           </button>

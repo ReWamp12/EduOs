@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useTeacherBatch } from '@/lib/teacherContext';
+import { dataService } from '@/lib/dataService';
 import {
   useAppStore,
   createConsentForm,
@@ -141,7 +142,7 @@ export const TeacherConsentForms: React.FC = () => {
     toast('Template applied', 'info', `Loaded template for ${preset.category}`);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
       toast('Title required', 'warning', 'Please enter a title for the consent form.');
@@ -150,7 +151,21 @@ export const TeacherConsentForms: React.FC = () => {
 
     const selectedBatch = batches.find((b) => b.id === formTargetBatchId) || batch;
 
+    const res = await dataService.createConsentForm({
+      title: formTitle.trim(),
+      description: formDescription.trim() || 'Parent authorization requested for school activity.',
+      category: formCategory,
+      targetType: 'batch',
+      targetBatchId: selectedBatch?.id,
+      authorId: teacher.id,
+      authorRole: 'teacher',
+      eventDate: formEventDate,
+      deadline: formDeadline,
+      instructions: formInstructions.trim() || 'Please submit digital consent via the parent portal prior to the deadline.',
+    });
+
     createConsentForm({
+      id: res?.id,
       title: formTitle.trim(),
       description: formDescription.trim() || 'Parent authorization requested for school activity.',
       category: formCategory,

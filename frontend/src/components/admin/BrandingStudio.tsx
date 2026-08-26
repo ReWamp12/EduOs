@@ -63,7 +63,7 @@ export const BrandingStudio: React.FC = () => {
     autoRenew: true,
     nginxConfig: `# =========================================================================
 # EduOS Multi-Tenant Reverse Proxy VHost: portal.modernpublicschool.com
-# Tenant ID: tenant-mps-01
+# Tenant ID: ${session?.tenantId || '247afd96-7c93-41bb-b0c7-062e08e6f1f4'}
 # =========================================================================
 
 server {
@@ -95,7 +95,7 @@ server {
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Tenant-Id "tenant-mps-01" always;
+    add_header X-Tenant-Id "${session?.tenantId || '247afd96-7c93-41bb-b0c7-062e08e6f1f4'}" always;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -106,7 +106,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-EduOS-Tenant-Id "tenant-mps-01";
+        proxy_set_header X-EduOS-Tenant-Id "${session?.tenantId || '247afd96-7c93-41bb-b0c7-062e08e6f1f4'}";
     }
 }`,
   });

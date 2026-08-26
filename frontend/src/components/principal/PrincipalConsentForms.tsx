@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { dataService } from '@/lib/dataService';
 import { mockBatches, mockTenant } from '@/lib/mockData';
 import { allStudentsInSchool } from '@/lib/batchData';
 import {
@@ -69,6 +71,7 @@ const PRINCIPAL_PRESETS = [
 ];
 
 export const PrincipalConsentForms: React.FC = () => {
+  const { session } = useAuth();
   const { consentForms } = useAppStore();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -134,7 +137,7 @@ export const PrincipalConsentForms: React.FC = () => {
     toast('Template applied', 'info', `Loaded template: ${preset.title}`);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
       toast('Title required', 'warning', 'Please enter a title for the circular.');
@@ -149,7 +152,25 @@ export const PrincipalConsentForms: React.FC = () => {
       return;
     }
 
+    const principalName = session
+      ? `${session.firstName || 'Principal'} ${session.lastName || ''}`.trim()
+      : `Dr. Rameshwar Nath (${mockTenant.name} Principal)`;
+
+    const res = await dataService.createConsentForm({
+      title: formTitle.trim(),
+      description: formDescription.trim() || 'Institutional authorization circular for parents.',
+      category: formCategory,
+      targetType: isAll ? 'all' : 'batch',
+      targetBatchId: isAll ? null : targetBatch?.id,
+      authorId: session?.userId,
+      authorRole: 'principal',
+      eventDate: formEventDate,
+      deadline: formDeadline,
+      instructions: formInstructions.trim() || 'Please submit digital consent via the parent portal prior to the deadline.',
+    });
+
     createConsentForm({
+      id: res?.id,
       title: formTitle.trim(),
       description: formDescription.trim() || 'Institutional authorization circular for parents.',
       category: formCategory,
@@ -157,7 +178,7 @@ export const PrincipalConsentForms: React.FC = () => {
       targetBatchIds: isAll ? mockBatches.map((b) => b.id) : [targetBatch.id],
       targetBatchNames: isAll ? ['All School Sections (Class 9 & 10)'] : [targetBatch.name],
       authorRole: 'principal',
-      authorName: `Dr. Rameshwar Nath (${mockTenant.name} Principal)`,
+      authorName: principalName,
       eventDate: formEventDate,
       deadline: formDeadline,
       instructions: formInstructions.trim() || 'Please submit digital consent via the parent portal prior to the deadline.',

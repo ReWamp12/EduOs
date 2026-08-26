@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { mockParentChildren } from '@/lib/mockData';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { dataService } from '@/lib/dataService';
+import { Student } from '@/lib/types';
 import { useAppStore, signConsentForm, declineConsentForm, DigitalConsentForm, ConsentResponse } from '@/lib/store';
 import { Card, StatCard, Badge, PageHeader, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -24,15 +26,34 @@ import {
 const CONSENT_VERSION = 'v2.4';
 
 export const ParentConsentForms: React.FC = () => {
+  const { session } = useAuth();
   const { consentForms } = useAppStore();
-  const defaultChild = { id: '', name: 'Student', rollNumber: '', grade: 'Class N/A', batchName: 'Class N/A', branch: '', targetExam: '', avatarUrl: '', attendance: 0, attendancePct: 0, latestScore: '', rankInBatch: 0, unreadAlerts: 0 };
-  const activeChild = mockParentChildren[0] || defaultChild;
-  const [selectedChildId, setSelectedChildId] = useState(activeChild.id);
-  const currentChild = mockParentChildren.find((c) => c.id === selectedChildId) || activeChild;
+  const [children, setChildren] = useState<Student[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    dataService.getParentChildren().then((kids) => {
+      if (!active) return;
+      if (kids && kids.length > 0) {
+        setChildren(kids);
+        setSelectedChildId((prev) => prev || kids[0].id);
+      }
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const currentChild = children.find((c) => c.id === selectedChildId) || children[0];
 
   // E-Signature Modal State
   const [signingModalForm, setSigningModalForm] = useState<DigitalConsentForm | null>(null);
-  const [parentFullName, setParentFullName] = useState('Parent / Guardian');
+  const [parentFullName, setParentFullName] = useState(
+    session ? `${session.firstName || 'Parent'} ${session.lastName || ''}`.trim() : 'Parent / Guardian'
+  );
   const [parentRelation, setParentRelation] = useState<'Father' | 'Mother' | 'Legal Guardian'>('Father');
   const [parentEmergencyPhone, setParentEmergencyPhone] = useState('');
   const [declarationAgreed, setDeclarationAgreed] = useState(false);
@@ -41,7 +62,7 @@ export const ParentConsentForms: React.FC = () => {
   // Derive status of each consent form for the current selected child
   const formsWithChildStatus = (consentForms || []).map((form) => {
     const childResponse = (form.responses || []).find(
-      (r) => r.studentName && currentChild.name && r.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
+      (r) => r.studentName && currentChild?.name && r.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
     );
     const status: 'signed' | 'declined' | 'pending' = childResponse ? childResponse.status : 'pending';
     const signedOn = childResponse?.signedAt
@@ -67,15 +88,14 @@ export const ParentConsentForms: React.FC = () => {
   const handleOpenSignModal = (form: DigitalConsentForm) => {
     setSigningModalForm(form);
     setDeclarationAgreed(false);
-    // Default full name prefill if empty
-    if (!parentFullName.trim()) {
-      setParentFullName('Mr. Rajesh Kumar Sharma');
+    if (!parentFullName.trim() && session) {
+      setParentFullName(`${session.firstName || 'Parent'} ${session.lastName || ''}`.trim());
     }
   };
 
-  const handleConfirmSignature = (e: React.FormEvent) => {
+  const handleConfirmSignature = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signingModalForm) return;
+    if (!signingModalForm || !currentChild) return;
 
     if (!parentFullName.trim() || parentFullName.trim().length < 3) {
       toast('Full Name Required', 'warning', 'Please enter your complete legal name to sign the e-consent.');
@@ -89,6 +109,16 @@ export const ParentConsentForms: React.FC = () => {
 
     setIsSubmittingSignature(true);
     try {
+      if (currentChild.id) {
+        await dataService.submitConsentResponse({
+          formId: signingModalForm.id,
+          studentId: currentChild.id,
+          status: 'approved',
+          signedByName: parentFullName.trim(),
+          parentRelation,
+        });
+      }
+
       signConsentForm(
         signingModalForm.id,
         currentChild.name,
@@ -100,7 +130,7 @@ export const ParentConsentForms: React.FC = () => {
       toast(
         'Digital Consent Signed',
         'success',
-        `"${signingModalForm.title}" signed by ${parentFullName.trim()} (${parentRelation}). Cryptographic audit log updated.`,
+        `"${signingModalForm.title}" signed by ${parentFullName.trim()} (${parentRelation}). Saved to database.`,
       );
 
       setSigningModalForm(null);
@@ -111,8 +141,19 @@ export const ParentConsentForms: React.FC = () => {
     }
   };
 
-  const handleDecline = (form: DigitalConsentForm) => {
+  const handleDecline = async (form: DigitalConsentForm) => {
+    if (!currentChild) return;
     const reason = window.prompt('Optional: Please provide reason for opting out / declining consent:', 'Schedule conflict / personal preference');
+    if (currentChild.id) {
+      await dataService.submitConsentResponse({
+        formId: form.id,
+        studentId: currentChild.id,
+        status: 'rejected',
+        signedByName: parentFullName.trim(),
+        parentRelation,
+        declineReason: reason || 'Parent opted out.',
+      });
+    }
     declineConsentForm(form.id, currentChild.name, reason || 'Parent opted out.');
     toast('Consent Declined', 'warning', `Decision logged for ${currentChild.name}. School faculty notified.`);
   };
@@ -126,10 +167,10 @@ export const ParentConsentForms: React.FC = () => {
         />
 
         {/* Multi-child switcher */}
-        {mockParentChildren && mockParentChildren.length > 0 && (
+        {children.length > 1 && (
           <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
             <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
-            {mockParentChildren.map((ch) => (
+            {children.map((ch) => (
               <button
                 key={ch.id}
                 onClick={() => setSelectedChildId(ch.id)}
@@ -140,7 +181,7 @@ export const ParentConsentForms: React.FC = () => {
                     : 'text-text-secondary hover:bg-muted',
                 )}
               >
-                {ch.name ? ch.name.split(' ')[0] : 'Child'} ({ch.grade ? ch.grade.split(' - ')[0] : ''})
+                {ch.name ? ch.name.split(' ')[0] : 'Child'} ({ch.batchName ? ch.batchName.split(' - ')[0] : ''})
               </button>
             ))}
           </div>
@@ -335,7 +376,7 @@ export const ParentConsentForms: React.FC = () => {
                   <UserCheck size={16} className="text-primary" />
                   <span>Student: <strong className="text-foreground">{currentChild.name}</strong></span>
                 </div>
-                <span className="text-micro text-text-tertiary">{currentChild.grade.split(' - ')[0]} · {currentChild.rollNumber}</span>
+                <span className="text-micro text-text-tertiary">{(currentChild.batchName || 'Class 10').split(' - ')[0]} · {currentChild.rollNumber}</span>
               </div>
 
               {/* Parent Full Legal Name Input */}

@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
 import { Student } from '@/lib/types';
-import { mockCurrentStudent } from '@/lib/mockData';
 import { useAppStore } from '@/lib/store';
 import { StatCard, SectionCard, Badge, Skeleton, SkeletonCard } from '@/components/ui';
 import {
@@ -148,9 +147,9 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
 
   const pendingAssignments = useMemo(() => {
     return assignments.filter((a) => {
-      const isMyBatch = !a.batchName || a.batchName === (student?.batchName || mockCurrentStudent.batchName);
+      const isMyBatch = !student?.batchName || !a.batchName || a.batchName === student.batchName;
       const isSubmitted = submissions.some(
-        (s) => s.assignmentId === a.id && s.studentName === (student?.name || mockCurrentStudent.name),
+        (s) => s.assignmentId === a.id && (!student?.name || s.studentName === student.name || s.studentId === student.id),
       );
       return isMyBatch && !isSubmitted;
     });

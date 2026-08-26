@@ -5,9 +5,11 @@ import {
   ForbiddenException,
   UnauthorizedException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY, PermissionRequirement } from './permissions.decorator';
+import { SupabaseService } from '../supabase.service';
 
 // Canonical default permission capabilities per stakeholder role
 const ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
@@ -63,9 +65,12 @@ const ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
 export class PermissionsGuard implements CanActivate {
   private readonly logger = new Logger(PermissionsGuard.name);
 
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    @Optional() private supabaseService?: SupabaseService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const requirement = this.reflector.getAllAndOverride<PermissionRequirement>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
@@ -76,8 +81,52 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const userRole = request.headers['x-user-role'] || request.user?.role || 'student';
-    const tenantId = request.headers['x-tenant-id'] || request.user?.tenantId;
+    let userRole = request.user?.role;
+    let tenantId = request.user?.tenantId;
+
+    // If Supabase is configured and a Bearer token is provided, verify it cryptographically
+    const authHeader = request.headers['authorization'] || request.headers['Authorization'];
+    if (this.supabaseService?.isConfigured() && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+      try {
+        const client = this.supabaseService.getClient();
+        const { data: { user }, error } = await client.auth.getUser(token);
+        if (error || !user) {
+          throw new UnauthorizedException('Invalid or expired authentication token');
+        }
+
+        // Fetch profile
+        const { data: profile } = await client
+          .from('user_profiles')
+          .select('role, tenant_id')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        userRole = profile?.role || user.user_metadata?.role || user.app_metadata?.role || 'student';
+        tenantId = profile?.tenant_id || user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
+
+        request.user = {
+          id: user.id,
+          email: user.email,
+          role: userRole,
+          tenantId,
+        };
+      } catch (err) {
+        if (err instanceof UnauthorizedException) throw err;
+        this.logger.warn(`Token verification failed: ${err}`);
+        throw new UnauthorizedException('Authentication token verification failed');
+      }
+    }
+
+    // Fallback for tests / mocks / dev if request.user is explicitly set or in sandbox mode
+    if (!userRole) {
+      if (!this.supabaseService?.isConfigured() || process.env.NODE_ENV === 'test') {
+        userRole = request.headers['x-user-role'] || 'student';
+        tenantId = request.headers['x-tenant-id'];
+      } else {
+        throw new UnauthorizedException('Missing authentication token for protected endpoint');
+      }
+    }
 
     // Check if role is recognized
     const roleCaps = ROLE_PERMISSIONS[userRole];

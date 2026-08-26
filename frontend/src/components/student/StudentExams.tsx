@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { mockExamResults, mockCurrentStudent } from '@/lib/mockData';
-import { ExamResult } from '@/lib/types';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { Student, ExamResult } from '@/lib/types';
 import { dataService } from '@/lib/dataService';
 import { useAppStore } from '@/lib/store';
-import { PageHeader, SectionCard, Card, Badge, cn } from '@/components/ui';
+import { PageHeader, SectionCard, Card, Badge, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import {
   Trophy,
@@ -20,27 +20,56 @@ import {
 } from 'lucide-react';
 
 export const StudentExams: React.FC = () => {
+  const { session } = useAuth();
+  const [student, setStudent] = useState<Student | null>(null);
   const { exams } = useAppStore();
-  const upcoming = exams.filter(
-    (e) => e.status === 'scheduled' && (!e.batchName || e.batchName.includes('Class 10') || e.batchName === mockCurrentStudent.batchName),
-  );
-  const [results, setResults] = useState<ExamResult[]>(() => mockExamResults.map((e) => ({ ...e })));
-  const [expandedId, setExpandedId] = useState<string | null>(results[0]?.id ?? null);
+  const [results, setResults] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    dataService.getExamResults().then((res) => {
-      if (active && res && res.length > 0) {
-        setResults(res);
-        setExpandedId(res[0]?.id ?? null);
-      }
-    });
+    if (session?.userId) {
+      dataService.getStudentOverview(session.userId).then((st) => {
+        if (!active) return;
+        if (st) {
+          setStudent(st);
+          dataService.getExamResults(st.id).then((res) => {
+            if (active) {
+              setResults(res || []);
+              if (res && res.length > 0) setExpandedId(res[0].id);
+              setLoading(false);
+            }
+          });
+        } else {
+          dataService.getExamResults().then((res) => {
+            if (active) {
+              setResults(res || []);
+              if (res && res.length > 0) setExpandedId(res[0].id);
+              setLoading(false);
+            }
+          });
+        }
+      });
+    } else {
+      dataService.getExamResults().then((res) => {
+        if (active) {
+          setResults(res || []);
+          if (res && res.length > 0) setExpandedId(res[0].id);
+          setLoading(false);
+        }
+      });
+    }
     return () => {
       active = false;
     };
-  }, []);
+  }, [session?.userId]);
+
+  const upcoming = exams.filter(
+    (e) => e.status === 'scheduled' && (!e.batchName || (student ? e.batchName === student.batchName : true)),
+  );
 
   const handleDownloadScorecard = async (exam: ExamResult) => {
     setDownloadingId(exam.id);
@@ -162,7 +191,7 @@ export const StudentExams: React.FC = () => {
                         <Target size={13} /> Detected revision areas
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {exam.weakTopics.map((topic, i) => (
+                        {exam.weakTopics.map((topic: string, i: number) => (
                           <span
                             key={i}
                             className="inline-flex items-center gap-1.5 rounded-full border border-destructive/20 bg-destructive-soft px-3 py-1.5 text-micro font-semibold text-destructive"

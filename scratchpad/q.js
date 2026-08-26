@@ -1,0 +1,60 @@
+const { Client } = require('../backend/node_modules/pg');
+const fs = require('fs');
+const path = require('path');
+
+// Read backend/.env
+const envPath = path.join(__dirname, '..', 'backend', '.env');
+const envContent = fs.readFileSync(envPath, 'utf8');
+const env = {};
+envContent.split('\n').forEach(line => {
+  const match = line.match(/^\s*([\w_]+)\s*=\s*(.*)?\s*$/);
+  if (match) {
+    let val = match[2] || '';
+    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+    if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
+    env[match[1]] = val.trim();
+  }
+});
+
+const sql = process.argv.slice(2).join(' ');
+if (!sql) {
+  console.error('Usage: node q.js "<sql>"');
+  process.exit(1);
+}
+
+async function run() {
+  const client = new Client({
+    host: env.DB_HOST,
+    port: parseInt(env.DB_PORT || '5432'),
+    user: env.DB_USER,
+    password: env.DB_PASSWORD,
+    database: env.DB_NAME,
+    ssl: { rejectUnauthorized: false }
+  });
+
+  try {
+    await client.connect();
+    const res = await client.query(sql);
+    if (Array.isArray(res)) {
+      res.forEach((r, i) => {
+        console.log(`--- Result ${i + 1} (${r.rowCount} rows) ---`);
+        console.table(r.rows);
+      });
+    } else {
+      if (res.rows && res.rows.length > 0) {
+        console.table(res.rows);
+      } else {
+        console.log(`Query OK. rowCount: ${res.rowCount}, command: ${res.command}`);
+      }
+    }
+  } catch (err) {
+    console.error('Error executing query:', err.message);
+    if (err.detail) console.error('Detail:', err.detail);
+    if (err.hint) console.error('Hint:', err.hint);
+    process.exit(1);
+  } finally {
+    await client.end();
+  }
+}
+
+run();

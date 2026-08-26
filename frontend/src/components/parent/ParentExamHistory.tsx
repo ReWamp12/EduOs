@@ -1,20 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
-import { mockParentChildren } from '@/lib/mockData';
+import React, { useState, useEffect } from 'react';
+import { Student } from '@/lib/types';
+import { dataService } from '@/lib/dataService';
 import { useAppStore } from '@/lib/store';
 import { PageHeader, Card, StatCard, Badge, ProgressBar, EmptyState, cn } from '@/components/ui';
 import { Trophy, TrendingUp, ClipboardList, CalendarClock, FileText } from 'lucide-react';
 
 export const ParentExamHistory: React.FC = () => {
   const { exams } = useAppStore();
-  const defaultChild = { id: '', name: 'Student', rollNumber: '', grade: 'Class N/A', batchName: 'Class N/A', branch: '', targetExam: '', avatarUrl: '', attendance: 0, attendancePct: 0, latestScore: '', rankInBatch: 0, unreadAlerts: 0 };
-  const [childId, setChildId] = useState(mockParentChildren[0]?.id || '');
-  const child = mockParentChildren.find((c) => c.id === childId) || mockParentChildren[0] || defaultChild;
+  const [children, setChildren] = useState<Student[]>([]);
+  const [childId, setChildId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
-  // Exams for this child: matched by batch (child.grade / child.batchName) or explicit result name.
+  useEffect(() => {
+    let active = true;
+    dataService.getParentChildren().then((kids) => {
+      if (!active) return;
+      if (kids && kids.length > 0) {
+        setChildren(kids);
+        setChildId((prev) => prev || kids[0].id);
+      }
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const child = children.find((c) => c.id === childId) || children[0];
+
+  // Exams for this child: matched by batch or explicit result name.
   const childExams = (exams || []).filter(
-    (e) => (child.grade && e.batchName === child.grade) || (child.batchName && e.batchName === child.batchName) || (child.name && e.studentName === child.name),
+    (e) => (child?.batchName && e.batchName === child.batchName) || (child?.name && e.studentName === child.name),
   );
   const completed = childExams.filter((e) => e.status === 'completed');
   const upcoming = childExams.filter((e) => e.status === 'scheduled');
@@ -28,9 +46,9 @@ export const ParentExamHistory: React.FC = () => {
         title="Exam history"
         subtitle="Your child's assessments, scores and upcoming exams."
         actions={
-          mockParentChildren && mockParentChildren.length > 0 ? (
+          children.length > 1 ? (
             <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
-              {mockParentChildren.map((c) => (
+              {children.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setChildId(c.id)}
@@ -90,7 +108,7 @@ export const ParentExamHistory: React.FC = () => {
           <div className="flex flex-col gap-3">
             {completed.map((e) => {
               const pct = e.marksObtained && e.maxMarks ? Math.round((e.marksObtained / e.maxMarks) * 100) : 0;
-              const tone = pct >= 75 ? 'success' : pct >= 40 ? 'warning' : 'destructive';
+              const tone: 'success' | 'warning' | 'destructive' = pct >= 75 ? 'success' : pct >= 40 ? 'warning' : 'destructive';
               return (
                 <Card key={e.id} className="p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -99,23 +117,18 @@ export const ParentExamHistory: React.FC = () => {
                         <Badge tone="info">{e.subject}</Badge>
                         <Badge tone="neutral">{e.examType}</Badge>
                       </div>
-                      <h4 className="mt-2 text-section text-foreground">{e.title}</h4>
-                      <div className="mt-1 text-micro text-text-tertiary">{e.examDate}</div>
+                      <h4 className="mt-1 text-meta font-semibold text-foreground">{e.title}</h4>
+                      <div className="mt-0.5 text-micro text-text-tertiary">{e.examDate}</div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-2xl font-semibold text-foreground">
-                        {e.marksObtained}
-                        <span className="text-base font-medium text-text-tertiary">/{e.maxMarks}</span>
+                    <div className="text-right">
+                      <div className="text-section font-semibold text-foreground">
+                        {e.marksObtained} / {e.maxMarks}
                       </div>
-                      <div className="mt-0.5 flex items-center justify-end gap-2 text-micro text-text-tertiary">
-                        {e.percentile !== undefined && <span>{e.percentile} %ile</span>}
-                        {e.rankInBatch !== undefined && <Badge tone="primary">Rank #{e.rankInBatch}</Badge>}
-                      </div>
+                      <Badge tone={tone === 'destructive' ? 'danger' : tone} className="mt-1">{pct}%</Badge>
                     </div>
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-4">
                     <ProgressBar value={pct} tone={tone} />
-                    <div className="mt-1 text-micro text-text-tertiary">{pct}% score</div>
                   </div>
                 </Card>
               );
