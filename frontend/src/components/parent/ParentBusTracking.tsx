@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { mockBusLiveTracking } from '@/lib/mockData';
+import React, { useState, useEffect } from 'react';
+import { dataService } from '@/lib/dataService';
 import { Card, SectionCard, StatCard, Badge, ProgressBar, PageHeader, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import {
@@ -23,10 +23,70 @@ import {
 } from 'lucide-react';
 
 export const ParentBusTracking: React.FC = () => {
-  const bus = mockBusLiveTracking;
-  const [eta, setEta] = useState(bus.etaMinutes);
+  const [routeInfo, setRouteInfo] = useState<{
+    routeNumber: string;
+    routeName: string;
+    vehicleNumber: string;
+    driverName: string;
+    driverPhone: string;
+    attendantName: string;
+    speedKmH: number;
+    etaMinutes: number;
+    currentStop: string;
+    nextStop: string;
+    status: string;
+    rfidLogs: Array<{ event: string; location: string; time: string; verified: boolean }>;
+  }>({
+    routeNumber: 'Route 12',
+    routeName: 'North Campus Express',
+    vehicleNumber: 'DL-01-AB-1234',
+    driverName: 'Ram Singh',
+    driverPhone: '+91-9876500001',
+    attendantName: 'Sunita Devi',
+    speedKmH: 36.5,
+    etaMinutes: 12,
+    currentStop: 'Sector 14 Main Gate',
+    nextStop: 'Civil Lines Intersection',
+    status: 'En Route',
+    rfidLogs: [
+      { event: 'Boarded Bus #12 (RFID Tag #9921)', location: 'Sector 14 Stop', time: '07:20 AM', verified: true },
+      { event: 'Geo-Fence Departure Alert', location: 'Sector 14 Zone', time: '07:22 AM', verified: true },
+      { event: 'Approaching Campus RFID Gate', location: 'Gate #2 RFID Reader', time: 'Pending', verified: false },
+    ],
+  });
+
+  const [eta, setEta] = useState(12);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('just now');
+
+  useEffect(() => {
+    let active = true;
+    dataService.getTransportRoutes().then((routes) => {
+      if (!active || !routes || routes.length === 0) return;
+      const r = routes[0];
+      const v = r.transport_vehicles;
+      setRouteInfo((prev) => ({
+        ...prev,
+        routeNumber: r.route_number || 'Route 12',
+        routeName: r.route_name || 'North Campus Express',
+        vehicleNumber: v?.vehicle_number || 'DL-01-AB-1234',
+        driverName: v?.driver_name || 'Ram Singh',
+        driverPhone: v?.driver_phone || '+91-9876500001',
+        attendantName: v?.attendant_name || 'Sunita Devi',
+        speedKmH: Number(r.speed_kmh) || 36.5,
+        etaMinutes: r.eta_minutes || 12,
+        currentStop: r.current_stop || 'Sector 14 Main Gate',
+        nextStop: r.next_stop || 'Civil Lines Intersection',
+        status: r.status === 'on_route' ? 'En Route' : 'Arrived',
+      }));
+      setEta(r.eta_minutes || 12);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const bus = routeInfo;
 
   // Journey progress derived from ETA
   const progress = Math.min(100, Math.max(12, Math.round(((bus.etaMinutes - eta + 4) / (bus.etaMinutes + 4)) * 100)));
@@ -46,7 +106,7 @@ export const ParentBusTracking: React.FC = () => {
   };
 
   const handleCallAttendant = () => {
-    toast('Calling Female Route Attendant', 'info', `Connecting to Smt. Sunita Devi (Attendant)...`);
+    toast('Calling Route Attendant', 'info', `Connecting to ${bus.attendantName} (Attendant)...`);
   };
 
   return (
@@ -142,7 +202,7 @@ export const ParentBusTracking: React.FC = () => {
             <div className="mt-2.5 flex items-center justify-between text-micro text-text-tertiary">
               <span>Origin: Mayur Vihar Phase 1</span>
               <span className="font-semibold text-info">{progress}% of morning route completed</span>
-              <span>Destination: Modern Public School Campus</span>
+              <span>Destination: School Main Campus</span>
             </div>
           </div>
 

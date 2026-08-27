@@ -119,6 +119,16 @@ export const StudentExams: React.FC = () => {
         </SectionCard>
       )}
 
+      {results.length === 0 && upcoming.length === 0 && (
+        <Card className="p-8 text-center">
+          <EmptyState
+            icon={<CalendarClock size={28} className="text-text-tertiary" />}
+            title="No Exam Results or Scheduled Tests"
+            description="Term examination schedules, unit test scorecards, and AI mistake diagnostic reports will appear here once tests are published by your faculty."
+          />
+        </Card>
+      )}
+
       <div className="flex flex-col gap-4">
         {results.map((exam) => {
           const pct = Math.round((exam.marksObtained / exam.totalMarks) * 100);

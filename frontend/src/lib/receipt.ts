@@ -15,9 +15,9 @@ import type { FeeInvoiceRecord } from './store';
 export async function downloadFeeReceipt(
   inv: FeeInvoiceRecord,
   school: { name: string; affiliation?: string; address?: string } = {
-    name: 'Modern Public School',
+    name: 'Greenfield International Academy',
     affiliation: 'CBSE Affiliation No. 1030492 · School Code: 20491',
-    address: 'Main Senior Wing Campus, Institutional Area, New Delhi - 110058',
+    address: 'Senior Wing Campus, Institutional Area, New Delhi - 110058',
   },
 ): Promise<void> {
   const { jsPDF } = await import('jspdf');

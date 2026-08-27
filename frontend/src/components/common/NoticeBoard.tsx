@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole } from '@/lib/types';
 import { useAppStore, sendNotice, NoticeAudience, NoticeMessage } from '@/lib/store';
 import { dataService } from '@/lib/dataService';
@@ -38,19 +38,33 @@ const ALLOWED: Partial<Record<UserRole, NoticeAudience[]>> = {
 };
 
 export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
-  const { notices } = useAppStore();
   const session = useSession();
   const canCompose = role === 'principal' || role === 'teacher';
   const allowed = ALLOWED[role] ?? [];
 
+  const [liveNotices, setLiveNotices] = useState<NoticeMessage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<NoticeMessage['category']>('general');
   const [audience, setAudience] = useState<Set<NoticeAudience>>(new Set(allowed));
   const [filter, setFilter] = useState<'all' | NoticeMessage['category']>('all');
 
-  // Inbox: notices addressed to this role (or, for staff, ones they sent). Principal oversees all.
-  const inbox = notices.filter((n) => {
+  useEffect(() => {
+    let active = true;
+    dataService.getNotices(session?.tenantId).then((data) => {
+      if (active) {
+        setLiveNotices(data || []);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [session?.tenantId]);
+
+  // Inbox: live notices addressed to this role (or, for staff, ones they sent). Principal oversees all.
+  const inbox = liveNotices.filter((n) => {
     if (role === 'principal' || role === 'super_admin') return true;
     return n.audience.includes(role as NoticeAudience) || n.senderRole === role;
   });
@@ -75,12 +89,6 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
     }
     const list = Array.from(audience);
 
-    // EDUOS-108 — persist to the notices table first. This used to call the
-    // store's sendNotice() only (localStorage), so a broadcast never reached a
-    // recipient on another device, and the author was stamped from
-    // mockProfiles[role] — i.e. every principal's notice was signed
-    // "Dr. Meenakshi Sundaram" regardless of who actually sent it. The author
-    // is now the signed-in user, and created_by defaults to their own row.
     const senderName = session ? `${session.firstName} ${session.lastName}`.trim() : 'Staff';
     const created = await dataService.createNotice({
       title: title.trim(),
@@ -88,20 +96,27 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
       category,
       audience: list,
       createdBy: session?.userId,
+      tenantId: session?.tenantId,
     });
     if (!created) {
-      toast('Could not broadcast notice', 'error', 'The notice board rejected this, or you lack permission. Nothing was sent.');
+      toast('Could not broadcast notice', 'error', 'The notice could not be saved to Supabase.');
       return;
     }
 
-    sendNotice({
+    const newNotice: NoticeMessage = {
+      id: created.id || `not-${Date.now()}`,
       title: title.trim(),
       content: content.trim(),
       category,
       audience: list,
       senderRole: role as 'principal' | 'teacher',
       senderName: senderName || 'Staff',
-    });
+      date: 'Just now',
+      createdAt: Date.now(),
+    };
+
+    setLiveNotices((prev) => [newNotice, ...prev]);
+    sendNotice(newNotice);
     toast('Notice broadcast', 'success', `Sent to ${list.map((a) => AUDIENCE_LABEL[a]).join(', ')}`);
     setTitle('');
     setContent('');

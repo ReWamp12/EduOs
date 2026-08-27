@@ -100,9 +100,10 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Everything except Next internals and static assets. Excluding these keeps
-     * an auth round-trip off every image and chunk request.
+     * Everything except Next internals and static assets (images, videos, fonts, favicon).
+     * Excluding these keeps an auth round-trip off every asset and video stream request.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|videos/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp4|webm|ogv|mp3|wav|ogg|pdf)$).*)',
   ],
 };
+

@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { mockAssignments, mockNotices, mockExamResults, mockStudentsInBatch, mockLeaveRequests } from './mockData';
+import { useState, useEffect } from 'react';
 import { Assignment, AssignmentAttachment, DigitalConsentForm, ConsentResponse, Student, LeaveRequest } from './types';
 import { allStudentsInSchool, studentsByBatch } from './batchData';
 import { authClient } from './auth/client';
@@ -169,7 +168,7 @@ export interface AppState {
 // Bumped for EDUOS-129: v4 persisted client-generated fee invoices whose ids
 // do not exist in Supabase. Loading them alongside the live ledger let a
 // parent click "Pay" on a phantom invoice, which the database then rejected.
-const STORAGE_KEY = 'eduos-store-v5';
+const STORAGE_KEY = 'eduos-store-v6';
 
 function seed(): AppState {
   return {
@@ -605,7 +604,7 @@ export function addExam(input: {
 
   // Notify parents of students in this batch (parent dashboard alert feed).
   const now = Date.now();
-  const examAlerts: ParentAlert[] = mockStudentsInBatch
+  const examAlerts: ParentAlert[] = allStudentsInSchool
     .filter((s) => s.batchName === exam.batchName)
     .map((s, i) => ({
       id: `exam-alert-${now}-${i}`,
@@ -699,7 +698,7 @@ export function createConsentForm(input: {
     targetStudents = allStudentsInSchool;
   } else {
     input.targetBatchIds.forEach((bId) => {
-      const bStudents = studentsByBatch[bId] || (bId === 'batch-cbse-10a' ? mockStudentsInBatch : []);
+      const bStudents = studentsByBatch[bId] || [];
       targetStudents.push(...bStudents);
     });
   }

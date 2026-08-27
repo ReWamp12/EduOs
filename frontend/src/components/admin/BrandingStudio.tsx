@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Palette,
   Check,
@@ -19,14 +19,15 @@ import {
 } from 'lucide-react';
 import { dataService } from '@/lib/dataService';
 import { useSession } from '@/lib/auth/AuthProvider';
+import { Tenant } from '@/lib/types';
 import { PageHeader, SectionCard, Card, Badge, StatCard, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 
 const DEFAULTS = {
-  primary: '#2563EB',
+  primary: '#1E40AF',
   secondary: '#0D9488',
   accent: '#F59E0B',
-  name: 'Modern Public School (CBSE Affiliated)',
+  name: 'Greenfield International Academy',
 };
 
 interface CustomDomainState {
@@ -44,15 +45,86 @@ interface CustomDomainState {
 
 export const BrandingStudio: React.FC = () => {
   const session = useSession();
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [primaryColor, setPrimaryColor] = useState(DEFAULTS.primary);
   const [secondaryColor, setSecondaryColor] = useState(DEFAULTS.secondary);
   const [accentColor, setAccentColor] = useState(DEFAULTS.accent);
   const [appName, setAppName] = useState(DEFAULTS.name);
   const [saving, setSaving] = useState(false);
 
+  const applyTokens = (p: string, s: string, a: string) => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    if (p) root.style.setProperty('--primary', p);
+    if (s) root.style.setProperty('--secondary', s);
+    if (a) root.style.setProperty('--accent', a);
+  };
+
+  // Load tenants on mount
+  useEffect(() => {
+    let isMounted = true;
+    dataService.getTenants().then((list) => {
+      if (!isMounted || !list || list.length === 0) return;
+      setTenants(list);
+
+      // Determine active tenant
+      const activeTenant =
+        list.find((t) => t.id === session?.tenantId) ||
+        list[0];
+
+      if (activeTenant) {
+        setSelectedTenantId(activeTenant.id);
+        setAppName(activeTenant.name);
+        setPrimaryColor(activeTenant.primaryColor || DEFAULTS.primary);
+        setSecondaryColor(activeTenant.secondaryColor || DEFAULTS.secondary);
+        setAccentColor(activeTenant.accentColor || DEFAULTS.accent);
+        applyTokens(
+          activeTenant.primaryColor || DEFAULTS.primary,
+          activeTenant.secondaryColor || DEFAULTS.secondary,
+          activeTenant.accentColor || DEFAULTS.accent
+        );
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.tenantId]);
+
+  // Handle switching tenant
+  const handleTenantSelect = (tenantId: string) => {
+    setSelectedTenantId(tenantId);
+    const t = tenants.find((item) => item.id === tenantId);
+    if (t) {
+      setAppName(t.name);
+      setPrimaryColor(t.primaryColor || DEFAULTS.primary);
+      setSecondaryColor(t.secondaryColor || DEFAULTS.secondary);
+      setAccentColor(t.accentColor || DEFAULTS.accent);
+      applyTokens(
+        t.primaryColor || DEFAULTS.primary,
+        t.secondaryColor || DEFAULTS.secondary,
+        t.accentColor || DEFAULTS.accent
+      );
+      toast(`Loaded ${t.name}`, 'info', 'Displaying branding parameters for this institution.');
+    }
+  };
+
+  const handleColorChange = (type: 'primary' | 'secondary' | 'accent', value: string) => {
+    if (type === 'primary') {
+      setPrimaryColor(value);
+      applyTokens(value, secondaryColor, accentColor);
+    } else if (type === 'secondary') {
+      setSecondaryColor(value);
+      applyTokens(primaryColor, value, accentColor);
+    } else if (type === 'accent') {
+      setAccentColor(value);
+      applyTokens(primaryColor, secondaryColor, value);
+    }
+  };
+
   // Custom Domain & SSL Automation State
   const [customDomain, setCustomDomain] = useState<CustomDomainState>({
-    domain: 'portal.modernpublicschool.com',
+    domain: 'portal.greenfield.edu.in',
     expectedCname: 'ingress.eduos.app',
     dnsVerified: true,
     sslStatus: 'active_secured',
@@ -62,14 +134,14 @@ export const BrandingStudio: React.FC = () => {
     daysRemaining: 75,
     autoRenew: true,
     nginxConfig: `# =========================================================================
-# EduOS Multi-Tenant Reverse Proxy VHost: portal.modernpublicschool.com
-# Tenant ID: ${session?.tenantId || '247afd96-7c93-41bb-b0c7-062e08e6f1f4'}
+# EduOS Multi-Tenant Reverse Proxy VHost: portal.greenfield.edu.in
+# Tenant ID: ${selectedTenantId || session?.tenantId || '247afd96-506e-494c-a603-510b44316919'}
 # =========================================================================
 
 server {
     listen 80;
     listen [::]:80;
-    server_name portal.modernpublicschool.com;
+    server_name portal.greenfield.edu.in;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -83,10 +155,10 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name portal.modernpublicschool.com;
+    server_name portal.greenfield.edu.in;
 
-    ssl_certificate /etc/letsencrypt/live/portal.modernpublicschool.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/portal.modernpublicschool.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/portal.greenfield.edu.in/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/portal.greenfield.edu.in/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
@@ -95,7 +167,7 @@ server {
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Tenant-Id "${session?.tenantId || '247afd96-7c93-41bb-b0c7-062e08e6f1f4'}" always;
+    add_header X-Tenant-Id "${selectedTenantId || session?.tenantId || '247afd96-506e-494c-a603-510b44316919'}" always;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -106,7 +178,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-EduOS-Tenant-Id "${session?.tenantId || '247afd96-7c93-41bb-b0c7-062e08e6f1f4'}";
+        proxy_set_header X-EduOS-Tenant-Id "${selectedTenantId || session?.tenantId || '247afd96-506e-494c-a603-510b44316919'}";
     }
 }`,
   });
@@ -116,35 +188,26 @@ server {
   const [renewingSsl, setRenewingSsl] = useState(false);
   const [viewingVhost, setViewingVhost] = useState(false);
 
-  const applyTokens = (p: string, s: string, a: string) => {
-    const root = document.documentElement;
-    root.style.setProperty('--primary', p);
-    root.style.setProperty('--secondary', s);
-    root.style.setProperty('--accent', a);
-  };
-
   const handleSave = async () => {
-    // Persist to the caller's OWN tenant, resolved from the session — not the
-    // hardcoded 't-1' this used to send, which matched no row and let the
-    // unconditional Promise.resolve(true) report a save that never landed.
-    if (!session?.tenantId) {
-      toast('Not signed in', 'error', 'Your session has no tenant to brand.');
+    const targetTenantId = selectedTenantId || session?.tenantId;
+    if (!targetTenantId) {
+      toast('No school selected', 'error', 'Please select an institution to apply branding.');
       return;
     }
     setSaving(true);
     try {
-      const ok = await dataService.updateTenantBranding(session.tenantId, {
+      const ok = await dataService.updateTenantBranding(targetTenantId, {
         name: appName,
         primaryColor,
         secondaryColor,
         accentColor,
       });
       if (!ok) {
-        toast('Could not save branding', 'error', 'The database rejected the change or you lack permission.');
+        toast('Could not save branding', 'error', 'The database rejected the change.');
         return;
       }
       applyTokens(primaryColor, secondaryColor, accentColor);
-      toast('Branding applied', 'success', 'Theme tokens saved and applied live across the workspace.');
+      toast('Branding applied', 'success', `Theme saved and applied live for ${appName}.`);
     } catch (e) {
       console.error(e);
       toast('Could not save branding', 'error', 'Please try again.');
@@ -154,12 +217,18 @@ server {
   };
 
   const handleReset = () => {
-    setPrimaryColor(DEFAULTS.primary);
-    setSecondaryColor(DEFAULTS.secondary);
-    setAccentColor(DEFAULTS.accent);
-    setAppName(DEFAULTS.name);
-    applyTokens(DEFAULTS.primary, DEFAULTS.secondary, DEFAULTS.accent);
-    toast('Reset to defaults', 'info');
+    const currentTenant = tenants.find((t) => t.id === selectedTenantId);
+    const p = currentTenant?.primaryColor || DEFAULTS.primary;
+    const s = currentTenant?.secondaryColor || DEFAULTS.secondary;
+    const a = currentTenant?.accentColor || DEFAULTS.accent;
+    const n = currentTenant?.name || DEFAULTS.name;
+
+    setPrimaryColor(p);
+    setSecondaryColor(s);
+    setAccentColor(a);
+    setAppName(n);
+    applyTokens(p, s, a);
+    toast('Reset to default institution colors', 'info');
   };
 
   // Live DNS & Automated SSL Verification Trigger
@@ -206,11 +275,33 @@ server {
     toast(`${label} Copied`, 'info');
   };
 
-  const colorFields: { label: string; value: string; set: (v: string) => void }[] = [
-    { label: 'Primary', value: primaryColor, set: setPrimaryColor },
-    { label: 'Secondary', value: secondaryColor, set: setSecondaryColor },
-    { label: 'Accent', value: accentColor, set: setAccentColor },
+  const colorFields: {
+    key: 'primary' | 'secondary' | 'accent';
+    label: string;
+    value: string;
+    set: (v: string) => void;
+  }[] = [
+    {
+      key: 'primary',
+      label: 'Primary',
+      value: primaryColor,
+      set: (v) => handleColorChange('primary', v),
+    },
+    {
+      key: 'secondary',
+      label: 'Secondary',
+      value: secondaryColor,
+      set: (v) => handleColorChange('secondary', v),
+    },
+    {
+      key: 'accent',
+      label: 'Accent',
+      value: accentColor,
+      set: (v) => handleColorChange('accent', v),
+    },
   ];
+
+  const isSuperAdmin = !session?.tenantId || (session?.roles ?? []).includes('super_admin');
 
   return (
     <div className="flex flex-col gap-6">
@@ -236,6 +327,44 @@ server {
         }
       />
 
+      {/* Super Admin School Switcher */}
+      {isSuperAdmin && tenants.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary font-bold">
+              🏫
+            </div>
+            <div>
+              <div className="text-sm font-bold text-foreground">Select School to Brand</div>
+              <div className="text-xs text-text-tertiary">
+                Super Admin cross-tenant styling controller
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {tenants.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => handleTenantSelect(t.id)}
+                className={cn(
+                  'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border shadow-2xs',
+                  selectedTenantId === t.id
+                    ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-border bg-surface-muted text-text-secondary hover:border-primary/50 hover:bg-surface'
+                )}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full ring-2 ring-white/40"
+                  style={{ backgroundColor: t.primaryColor || '#2563EB' }}
+                />
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* SECTION 1: THEME TOKENS & BRAND IDENTITY */}
       {/* ========================================================================= */}
@@ -259,15 +388,22 @@ server {
             {colorFields.map((f) => (
               <div key={f.label}>
                 <label className="label">{f.label} color</label>
-                <div className="flex items-center gap-2.5 rounded-md border border-border-strong bg-surface p-2">
+                <div className="flex items-center gap-2 rounded-lg border border-border-strong bg-surface p-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                   <input
                     type="color"
                     value={f.value}
                     onChange={(e) => f.set(e.target.value)}
-                    className="h-9 w-9 cursor-pointer rounded-md border-0 bg-transparent p-0"
-                    aria-label={`${f.label} color`}
+                    className="h-9 w-9 cursor-pointer rounded-md border-0 bg-transparent p-0 shrink-0"
+                    aria-label={`${f.label} color picker`}
                   />
-                  <code className="text-meta font-mono font-medium uppercase text-text-secondary">{f.value}</code>
+                  <input
+                    type="text"
+                    value={f.value}
+                    onChange={(e) => f.set(e.target.value)}
+                    placeholder="#000000"
+                    className="w-full bg-transparent font-mono text-xs font-bold uppercase text-foreground outline-none"
+                    aria-label={`${f.label} hex code`}
+                  />
                 </div>
               </div>
             ))}

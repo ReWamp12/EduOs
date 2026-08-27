@@ -17,9 +17,9 @@ import {
 } from './types';
 
 export const mockTenant: Tenant = {
-  id: 'tenant-default',
-  name: 'Modern Public School',
-  subdomain: 'mps',
+  id: '247afd96-506e-494c-a603-510b44316919',
+  name: 'Greenfield International Academy',
+  subdomain: 'greenfield',
   institutionType: 'school',
   primaryColor: '#2563EB',
   secondaryColor: '#0D9488',
@@ -140,7 +140,7 @@ export const mockCurrentStudent: Student = {
   gender: 'male',
   qrCodeId: '91889637-7d93-4c96-b1e5-ed170d505641',
   avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aarav',
-  tenantName: 'Modern Public School',
+  tenantName: 'Greenfield International Academy',
 };
 
 export const mockStudentsInBatch: Student[] = [];

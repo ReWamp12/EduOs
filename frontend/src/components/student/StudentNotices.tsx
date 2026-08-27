@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { useAppStore } from '@/lib/store';
+import React, { useEffect, useMemo, useState } from 'react';
+import { dataService } from '@/lib/dataService';
+import { useSession } from '@/lib/auth/AuthProvider';
+import { NoticeMessage } from '@/lib/store';
 import { Notice } from '@/lib/types';
-import { PageHeader, Card, Badge, EmptyState, cn } from '@/components/ui';
+import { PageHeader, Card, Badge, EmptyState, Skeleton, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { Calendar, Megaphone, CheckCheck, Inbox, Dot } from 'lucide-react';
 
@@ -33,21 +35,38 @@ const categoryBorder: Record<Category, string> = {
 };
 
 export const StudentNotices: React.FC = () => {
-  const { notices: storeNotices } = useAppStore();
+  const session = useSession();
+  const [storeNotices, setStoreNotices] = useState<NoticeMessage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    let active = true;
+    dataService.getNotices(session?.tenantId).then((data) => {
+      if (active) {
+        setStoreNotices(data || []);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [session?.tenantId]);
+
   const notices: Notice[] = useMemo(() => {
-    return storeNotices.map((n) => ({
-      id: n.id,
-      title: n.title,
-      content: n.content,
-      category: (n.category === 'general' ? 'event' : n.category) as Category,
-      date: n.date,
-      author: n.senderName || 'Academic Directorate',
-      targetRole: 'all',
-      priority: n.category === 'urgent' ? 'urgent' : 'normal',
-    }));
+    return storeNotices
+      .filter((n) => n.audience.includes('student'))
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        content: n.content,
+        category: (n.category === 'general' ? 'event' : n.category) as Category,
+        date: n.date,
+        author: n.senderName || 'Academic Directorate',
+        targetRole: 'student',
+        priority: n.category === 'urgent' ? 'urgent' : 'normal',
+      }));
   }, [storeNotices]);
 
   const unreadCount = notices.filter((n) => !readIds.has(n.id)).length;

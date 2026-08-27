@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
-import { Student } from '@/lib/types';
+import { Student, TimetableSlot } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { StatCard, SectionCard, Badge, Skeleton, SkeletonCard } from '@/components/ui';
 import {
   Clock,
   Trophy,
   Flame,
+  Sparkles,
   BookOpen,
   CheckCircle2,
   CalendarDays,
@@ -20,6 +21,7 @@ import {
   Coffee,
   Check,
   Calendar as CalendarIcon,
+  Loader2,
 } from 'lucide-react';
 
 interface DaySchedule {
@@ -40,110 +42,88 @@ interface DaySchedule {
   }[];
 }
 
-const WEEKLY_SCHEDULE: DaySchedule[] = [
-  {
-    dayName: 'Monday',
-    dayShort: 'Mon',
-    dayNumber: 1,
-    dateStr: '17 Aug',
-    periods: [
-      { period: 1, subject: 'Mathematics (Quadratic Equations)', subjectColor: '#2563EB', teacher: 'Prof. Amit Verma', room: 'Room 101', startTime: '08:00 AM', endTime: '08:45 AM', type: 'lecture' },
-      { period: 2, subject: 'Science (Physics: Electricity Lab)', subjectColor: '#0D9488', teacher: 'Mrs. Sunita Rao', room: 'Science Lab 1', startTime: '08:45 AM', endTime: '09:30 AM', type: 'lab' },
-      { period: 3, subject: 'English Literature (First Flight)', subjectColor: '#7C3AED', teacher: 'Mrs. Ananya Sen', room: 'Room 101', startTime: '09:30 AM', endTime: '10:15 AM', type: 'lecture' },
-      { period: 4, subject: 'Social Science (Federalism & Democracy)', subjectColor: '#EA580C', teacher: 'Mr. Rakesh Sharma', room: 'Room 101', startTime: '10:35 AM', endTime: '11:20 AM', type: 'lecture' },
-      { period: 5, subject: 'Hindi Course A / Sanskrit', subjectColor: '#DC2626', teacher: 'Dr. Meenakshi Joshi', room: 'Room 101', startTime: '11:20 AM', endTime: '12:05 PM', type: 'lecture' },
-      { period: 6, subject: 'Information Technology (Python Coding)', subjectColor: '#059669', teacher: 'Mr. Sandeep Patil', room: 'IT Lab 2', startTime: '12:05 PM', endTime: '12:50 PM', type: 'lab' },
-    ],
-  },
-  {
-    dayName: 'Tuesday',
-    dayShort: 'Tue',
-    dayNumber: 2,
-    dateStr: '18 Aug',
-    periods: [
-      { period: 1, subject: 'Chemistry (Chemical Reactions & Equations)', subjectColor: '#0891B2', teacher: 'Dr. Kavita Nair', room: 'Chem Lab', startTime: '08:00 AM', endTime: '08:45 AM', type: 'lab' },
-      { period: 2, subject: 'Mathematics (Pair of Linear Equations)', subjectColor: '#2563EB', teacher: 'Prof. Amit Verma', room: 'Room 101', startTime: '08:45 AM', endTime: '09:30 AM', type: 'lecture' },
-      { period: 3, subject: 'Biology (Life Processes & Nutrition)', subjectColor: '#16A34A', teacher: 'Dr. Neha Kapoor', room: 'Bio Lab', startTime: '09:30 AM', endTime: '10:15 AM', type: 'lab' },
-      { period: 4, subject: 'English Grammar & Formal Letters', subjectColor: '#7C3AED', teacher: 'Mrs. Ananya Sen', room: 'Room 101', startTime: '10:35 AM', endTime: '11:20 AM', type: 'lecture' },
-      { period: 5, subject: 'Social Science (Economics: Development)', subjectColor: '#EA580C', teacher: 'Mr. Rakesh Sharma', room: 'Room 101', startTime: '11:20 AM', endTime: '12:05 PM', type: 'lecture' },
-      { period: 6, subject: 'Physical Education & Sports Drill', subjectColor: '#D97706', teacher: 'Coach Imran Khan', room: 'Sports Complex', startTime: '12:05 PM', endTime: '12:50 PM', type: 'activity' },
-    ],
-  },
-  {
-    dayName: 'Wednesday',
-    dayShort: 'Wed',
-    dayNumber: 3,
-    dateStr: '19 Aug',
-    periods: [
-      { period: 1, subject: 'Physics (Magnetic Effects of Current)', subjectColor: '#0D9488', teacher: 'Mrs. Sunita Rao', room: 'Room 101', startTime: '08:00 AM', endTime: '08:45 AM', type: 'lecture' },
-      { period: 2, subject: 'Chemistry Lab (Acids, Bases & Salts)', subjectColor: '#0891B2', teacher: 'Dr. Kavita Nair', room: 'Chem Lab', startTime: '08:45 AM', endTime: '09:30 AM', type: 'lab' },
-      { period: 3, subject: 'Mathematics (Trigonometric Identities)', subjectColor: '#2563EB', teacher: 'Prof. Amit Verma', room: 'Room 101', startTime: '09:30 AM', endTime: '10:15 AM', type: 'lecture' },
-      { period: 4, subject: 'Hindi Grammar & Creative Writing', subjectColor: '#DC2626', teacher: 'Dr. Meenakshi Joshi', room: 'Room 101', startTime: '10:35 AM', endTime: '11:20 AM', type: 'lecture' },
-      { period: 5, subject: 'History (Nationalism in India)', subjectColor: '#EA580C', teacher: 'Mr. Rakesh Sharma', room: 'Room 101', startTime: '11:20 AM', endTime: '12:05 PM', type: 'lecture' },
-      { period: 6, subject: 'Library & Guided Self-Study', subjectColor: '#4F46E5', teacher: 'Mrs. Ritu Malhotra', room: 'Central Library', startTime: '12:05 PM', endTime: '12:50 PM', type: 'activity' },
-    ],
-  },
-  {
-    dayName: 'Thursday',
-    dayShort: 'Thu',
-    dayNumber: 4,
-    dateStr: '20 Aug',
-    periods: [
-      { period: 1, subject: 'Mathematics (Arithmetic Progressions)', subjectColor: '#2563EB', teacher: 'Prof. Amit Verma', room: 'Room 101', startTime: '08:00 AM', endTime: '08:45 AM', type: 'lecture' },
-      { period: 2, subject: 'Physics (Light: Reflection & Refraction)', subjectColor: '#0D9488', teacher: 'Mrs. Sunita Rao', room: 'Room 101', startTime: '08:45 AM', endTime: '09:30 AM', type: 'lecture' },
-      { period: 3, subject: 'Chemistry (Metals and Non-Metals)', subjectColor: '#0891B2', teacher: 'Dr. Kavita Nair', room: 'Room 101', startTime: '09:30 AM', endTime: '10:15 AM', type: 'lecture' },
-      { period: 4, subject: 'English (Footprints without Feet)', subjectColor: '#7C3AED', teacher: 'Mrs. Ananya Sen', room: 'Room 101', startTime: '10:35 AM', endTime: '11:20 AM', type: 'lecture' },
-      { period: 5, subject: 'Information Technology (HTML/CSS)', subjectColor: '#059669', teacher: 'Mr. Sandeep Patil', room: 'IT Lab 2', startTime: '11:20 AM', endTime: '12:05 PM', type: 'lab' },
-      { period: 6, subject: 'Arts & Music / Cultural Club', subjectColor: '#9333EA', teacher: 'Ms. Tanvi Sethi', room: 'Activity Hall', startTime: '12:05 PM', endTime: '12:50 PM', type: 'activity' },
-    ],
-  },
-  {
-    dayName: 'Friday',
-    dayShort: 'Fri',
-    dayNumber: 5,
-    dateStr: '21 Aug',
-    periods: [
-      { period: 1, subject: 'Mathematics (Quadratic Equations)', subjectColor: '#2563EB', teacher: 'Prof. Amit Verma', room: 'Room 101', startTime: '08:00 AM', endTime: '08:45 AM', type: 'lecture' },
-      { period: 2, subject: 'Science (Physics: Electricity)', subjectColor: '#0D9488', teacher: 'Mrs. Sunita Rao', room: 'Science Lab 1', startTime: '08:45 AM', endTime: '09:30 AM', type: 'lab' },
-      { period: 3, subject: 'English (First Flight: Poetry)', subjectColor: '#7C3AED', teacher: 'Mrs. Ananya Sen', room: 'Room 101', startTime: '09:30 AM', endTime: '10:15 AM', type: 'lecture' },
-      { period: 4, subject: 'Social Science (Federalism & Democracy)', subjectColor: '#EA580C', teacher: 'Mr. Rakesh Sharma', room: 'Room 101', startTime: '10:35 AM', endTime: '11:20 AM', type: 'lecture' },
-      { period: 5, subject: 'Hindi Course A / Sanskrit', subjectColor: '#DC2626', teacher: 'Dr. Meenakshi Joshi', room: 'Room 101', startTime: '11:20 AM', endTime: '12:05 PM', type: 'lecture' },
-      { period: 6, subject: 'Information Technology (Code 402)', subjectColor: '#059669', teacher: 'Mr. Sandeep Patil', room: 'IT Lab 2', startTime: '12:05 PM', endTime: '12:50 PM', type: 'lab' },
-    ],
-  },
-  {
-    dayName: 'Saturday',
-    dayShort: 'Sat',
-    dayNumber: 6,
-    dateStr: '22 Aug',
-    periods: [
-      { period: 1, subject: 'Board Exam Doubt Clearing & Remedial Math', subjectColor: '#2563EB', teacher: 'Prof. Amit Verma', room: 'Room 101', startTime: '08:00 AM', endTime: '08:50 AM', type: 'remedial' },
-      { period: 2, subject: 'Science Olympiad & Lab Simulator Practical', subjectColor: '#0D9488', teacher: 'Mrs. Sunita Rao', room: 'Science Lab 1', startTime: '08:50 AM', endTime: '09:40 AM', type: 'lab' },
-      { period: 3, subject: 'Inter-House Quiz, Debate & Model UN', subjectColor: '#7C3AED', teacher: 'Mrs. Ananya Sen', room: 'Auditorium', startTime: '09:40 AM', endTime: '10:30 AM', type: 'activity' },
-      { period: 4, subject: 'Sports Drill, Yoga & Athletics', subjectColor: '#D97706', teacher: 'Coach Imran Khan', room: 'School Ground', startTime: '10:50 AM', endTime: '11:45 AM', type: 'activity' },
-    ],
-  },
-  {
-    dayName: 'Sunday',
-    dayShort: 'Sun',
-    dayNumber: 0,
-    dateStr: '23 Aug',
-    isHoliday: true,
-    periods: [],
-  },
+const DAYS_META = [
+  { dayName: 'Monday', dayShort: 'Mon', dayNumber: 1, offset: 0 },
+  { dayName: 'Tuesday', dayShort: 'Tue', dayNumber: 2, offset: 1 },
+  { dayName: 'Wednesday', dayShort: 'Wed', dayNumber: 3, offset: 2 },
+  { dayName: 'Thursday', dayShort: 'Thu', dayNumber: 3, offset: 3 },
+  { dayName: 'Friday', dayShort: 'Fri', dayNumber: 5, offset: 4 },
+  { dayName: 'Saturday', dayShort: 'Sat', dayNumber: 6, offset: 5 },
+  { dayName: 'Sunday', dayShort: 'Sun', dayNumber: 0, offset: 6, isHoliday: true },
 ];
 
 export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const { session } = useAuth();
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
-  const { assignments, submissions } = useAppStore();
+  const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
+  const [loadingTimetable, setLoadingTimetable] = useState(true);
+  const { assignments, submissions, exams } = useAppStore();
 
-  // Current day of week (Friday = 5 by default, or today's system day)
-  const currentDayIndex = new Date().getDay(); // 0 = Sun, 1 = Mon ... 5 = Fri
-  const [selectedDayName, setSelectedDayName] = useState<string>(
-    WEEKLY_SCHEDULE.find((d) => d.dayNumber === currentDayIndex)?.dayName || 'Friday'
-  );
+  // Current day of week (0 = Sun, 1 = Mon ... 5 = Fri)
+  const currentDayIndex = new Date().getDay();
+  const currentDayMeta = DAYS_META.find((d) => d.dayNumber === currentDayIndex) || DAYS_META[0];
+  const [selectedDayName, setSelectedDayName] = useState<string>(currentDayMeta.dayName);
+
+  // Compute dynamic weekly dates for current calendar week
+  const weeklySchedule: DaySchedule[] = useMemo(() => {
+    const today = new Date();
+    // Find Monday of current week
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diff));
+
+    return DAYS_META.map((meta, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+      if (meta.isHoliday) {
+        return {
+          dayName: meta.dayName,
+          dayShort: meta.dayShort,
+          dayNumber: meta.dayNumber,
+          dateStr,
+          isHoliday: true,
+          periods: [],
+        };
+      }
+
+      const daySlots = timetableSlots
+        .filter((s) => s.dayOfWeek === meta.dayNumber)
+        .sort((a, b) => a.periodNumber - b.periodNumber);
+
+      return {
+        dayName: meta.dayName,
+        dayShort: meta.dayShort,
+        dayNumber: meta.dayNumber,
+        dateStr,
+        isHoliday: daySlots.length === 0,
+        periods: daySlots.map((s) => ({
+          period: s.periodNumber,
+          subject: s.subjectName,
+          subjectColor: s.subjectColor || '#2563EB',
+          teacher: s.teacherName,
+          room: s.roomNumber || 'Room 101',
+          startTime: s.startTime,
+          endTime: s.endTime,
+          type: s.type || 'lecture',
+        })),
+      };
+    });
+  }, [timetableSlots]);
+
+  const selectedSchedule = useMemo(() => {
+    return weeklySchedule.find((d) => d.dayName === selectedDayName) || weeklySchedule[0] || {
+      dayName: 'Monday',
+      dayShort: 'Mon',
+      dayNumber: 1,
+      dateStr: '',
+      periods: [],
+    };
+  }, [weeklySchedule, selectedDayName]);
+
+  const isSelectedToday = selectedSchedule.dayNumber === currentDayIndex;
 
   const pendingAssignments = useMemo(() => {
     return assignments.filter((a) => {
@@ -155,18 +135,35 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
     });
   }, [assignments, submissions, student]);
 
+  const nextExam = useMemo(() => {
+    const scheduled = exams.filter(
+      (e) => e.status === 'scheduled' && (!e.batchName || (student ? e.batchName === student.batchName : true))
+    );
+    return scheduled.length > 0 ? scheduled[0] : null;
+  }, [exams, student]);
+
   useEffect(() => {
     let active = true;
     dataService.getStudentOverview(session?.userId).then((res) => {
-      if (active) {
-        setStudent(res);
-        setLoading(false);
+      if (!active) return;
+      setStudent(res);
+      setLoading(false);
+
+      if (res?.batchId) {
+        dataService.getTimetableForBatch(res.batchId, session?.tenantId).then((slots) => {
+          if (!active) return;
+          setTimetableSlots(slots);
+          setLoadingTimetable(false);
+        });
+      } else {
+        setLoadingTimetable(false);
       }
     });
     return () => {
       active = false;
     };
-  }, [session?.userId]);
+  }, [session?.userId, session?.tenantId]);
+
 
   if (loading || !student) {
     return (
@@ -181,9 +178,6 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
       </div>
     );
   }
-
-  const selectedSchedule = WEEKLY_SCHEDULE.find((d) => d.dayName === selectedDayName) || WEEKLY_SCHEDULE[4];
-  const isSelectedToday = selectedSchedule.dayNumber === currentDayIndex;
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in max-w-7xl mx-auto">
@@ -202,8 +196,8 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-title text-foreground">Welcome back, {student?.name ? student.name.split(' ')[0] : 'Student'}</h2>
-                <Badge tone="warning">
-                  <Flame size={12} /> 14-day streak
+                <Badge tone="primary">
+                  <Sparkles size={12} /> Active Student
                 </Badge>
               </div>
               <p className="mt-1 text-body text-text-secondary">
@@ -223,18 +217,19 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Attendance Rate"
-          value={`${student.attendancePct}%`}
-          tone="success"
+          value={student.attendancePct !== null && student.attendancePct !== undefined ? `${student.attendancePct}%` : 'N/A'}
+          tone={student.attendancePct !== null && student.attendancePct >= 75 ? 'success' : 'neutral'}
           icon={<CheckCircle2 size={16} />}
-          trend={{ value: '+1.4%', direction: 'up' }}
-          hint="Eligible for CBSE board exam (>75% required)"
+          hint={student.attendancePct !== null ? 'Eligible for CBSE board exam (>75% required)' : 'No sessions marked yet'}
+          onClick={() => onNavigate('attendance')}
         />
         <StatCard
           label="Batch Standing"
-          value={<>Rank #{student.rankInBatch}<span className="text-base font-medium text-text-tertiary"> / 38</span></>}
-          tone="warning"
+          value={student.rankInBatch ? <>Rank #{student.rankInBatch}<span className="text-base font-medium text-text-tertiary"> in batch</span></> : 'Unranked'}
+          tone={student.rankInBatch ? 'warning' : 'neutral'}
           icon={<Trophy size={16} />}
-          hint="Top 5% in Section 10-A (96.8%ile)"
+          hint={student.rankInBatch ? 'Based on latest verified assessments' : 'Awaiting term examination'}
+          onClick={() => onNavigate('exams')}
         />
         <StatCard
           label="Pending Homework"
@@ -245,11 +240,11 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
           onClick={() => onNavigate('assignments')}
         />
         <StatCard
-          label="Next Mock Test"
-          value={<span className="text-xl">15 Sep · 09:00 AM</span>}
-          tone="primary"
+          label="Next Scheduled Exam"
+          value={nextExam ? <span className="text-xl">{nextExam.examDate}</span> : 'No Exams'}
+          tone={nextExam ? 'primary' : 'neutral'}
           icon={<CalendarDays size={16} />}
-          hint="CBSE Pre-Board Examination 2"
+          hint={nextExam ? `${nextExam.title} (${nextExam.subject})` : 'No upcoming tests scheduled'}
           onClick={() => onNavigate('exams')}
         />
       </div>
@@ -286,7 +281,7 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
         {/* Days of the Week Selector Bar */}
         <div className="p-3 bg-muted/10 border-b border-border">
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-            {WEEKLY_SCHEDULE.map((day) => {
+            {weeklySchedule.map((day) => {
               const isSelected = day.dayName === selectedDayName;
               const isToday = day.dayNumber === currentDayIndex;
 

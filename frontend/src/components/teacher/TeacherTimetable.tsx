@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Calendar, Clock, MapPin, ArrowLeftRight, UserCheck, CalendarOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, MapPin, ArrowLeftRight, UserCheck, CalendarOff, Loader2 } from 'lucide-react';
+
 import { TimetableSlot } from '@/lib/types';
 import { useTeacherBatch } from '@/lib/teacherContext';
 import { timetableForBatch } from '@/lib/batchData';
+import { dataService } from '@/lib/dataService';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { PageHeader, SectionCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 
@@ -28,10 +31,31 @@ const DAYS = [
 ];
 
 export const TeacherTimetable: React.FC = () => {
+  const { session } = useAuth();
   const { batch } = useTeacherBatch();
-  const timetable = timetableForBatch(batch.id);
+  const [timetable, setTimetable] = useState<TimetableSlot[]>(() => timetableForBatch(batch?.id));
+  const [loading, setLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [requestedSlots, setRequestedSlots] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!batch?.id) return;
+    let active = true;
+    setLoading(true);
+    dataService.getTimetableForBatch(batch.id, session?.tenantId).then((slots) => {
+      if (!active) return;
+      if (slots && slots.length > 0) {
+        setTimetable(slots);
+      } else {
+        setTimetable(timetableForBatch(batch.id));
+      }
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [batch?.id, session?.tenantId]);
+
 
   const [substitutionRequests, setSubstitutionRequests] = useState<SubRequest[]>([
     {

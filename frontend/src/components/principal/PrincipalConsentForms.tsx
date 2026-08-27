@@ -2,9 +2,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { mockTenant } from '@/lib/mockData';
 import { dataService } from '@/lib/dataService';
-import { mockBatches, mockTenant } from '@/lib/mockData';
-import { allStudentsInSchool } from '@/lib/batchData';
+import { allStudentsInSchool, teacherBatches as batches } from '@/lib/batchData';
 import {
   useAppStore,
   createConsentForm,
@@ -86,7 +86,7 @@ export const PrincipalConsentForms: React.FC = () => {
   const [formTitle, setFormTitle] = useState('');
   const [formCategory, setFormCategory] = useState<DigitalConsentForm['category']>('Medical & Health Camp');
   const [formTargetScope, setFormTargetScope] = useState<'all_school' | 'batch'>('all_school');
-  const [formTargetBatchId, setFormTargetBatchId] = useState<string>(mockBatches[0]?.id ?? '');
+  const [formTargetBatchId, setFormTargetBatchId] = useState<string>(batches[0]?.id ?? '');
   const [formEventDate, setFormEventDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 10);
@@ -145,7 +145,7 @@ export const PrincipalConsentForms: React.FC = () => {
     }
 
     const isAll = formTargetScope === 'all_school';
-    const targetBatch = mockBatches.find((b) => b.id === formTargetBatchId) || mockBatches[0];
+    const targetBatch = batches.find((b) => b.id === formTargetBatchId) || batches[0];
 
     if (!isAll && !targetBatch) {
       toast('No section available', 'warning', 'No batches are configured yet. Circular can only be sent to the whole school.');
@@ -175,7 +175,7 @@ export const PrincipalConsentForms: React.FC = () => {
       description: formDescription.trim() || 'Institutional authorization circular for parents.',
       category: formCategory,
       targetType: isAll ? 'all_school' : 'batch',
-      targetBatchIds: isAll ? mockBatches.map((b) => b.id) : [targetBatch.id],
+      targetBatchIds: isAll ? batches.map((b) => b.id) : [targetBatch.id],
       targetBatchNames: isAll ? ['All School Sections (Class 9 & 10)'] : [targetBatch.name],
       authorRole: 'principal',
       authorName: principalName,
@@ -309,7 +309,7 @@ export const PrincipalConsentForms: React.FC = () => {
               className="input py-1 text-meta sm:w-44"
             >
               <option value="all">All Classes</option>
-              {mockBatches.map((b) => (
+              {batches.map((b) => (
                 <option key={b.id} value={b.id}>{b.name.split(' — ')[0]}</option>
               ))}
             </select>
@@ -609,7 +609,7 @@ export const PrincipalConsentForms: React.FC = () => {
                       onChange={(e) => setFormTargetBatchId(e.target.value)}
                       className="input"
                     >
-                      {mockBatches.map((b) => (
+                      {batches.map((b) => (
                         <option key={b.id} value={b.id}>{b.name.split(' — ')[0]}</option>
                       ))}
                     </select>

@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTeacherBatch } from '@/lib/teacherContext';
 import { timetableForBatch } from '@/lib/batchData';
+import { dataService } from '@/lib/dataService';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { StatCard, SectionCard, Badge, EmptyState } from '@/components/ui';
 import { TeacherInbox } from './TeacherInbox';
 import { TimetableSlot } from '@/lib/types';
@@ -19,8 +21,26 @@ import {
 } from 'lucide-react';
 
 export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
+  const { session } = useAuth();
   const { batch, students, batches, teacher } = useTeacherBatch();
-  const slots: TimetableSlot[] = batch?.id ? timetableForBatch(batch.id) : [];
+  const [slots, setSlots] = useState<TimetableSlot[]>(() => (batch?.id ? timetableForBatch(batch.id) : []));
+
+  useEffect(() => {
+    if (!batch?.id) return;
+    let active = true;
+    dataService.getTimetableForBatch(batch.id, session?.tenantId).then((res) => {
+      if (!active) return;
+      if (res && res.length > 0) {
+        setSlots(res);
+      } else {
+        setSlots(timetableForBatch(batch.id));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [batch?.id, session?.tenantId]);
+
   const avgAttendance = formatPct(averageOf(students.map((s) => s.attendancePct)));
 
   const batchShortName = batch?.name ? batch.name.split(' - ')[0].split(' — ')[0] : 'Class 10-A';

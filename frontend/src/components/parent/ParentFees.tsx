@@ -552,7 +552,7 @@ export const ParentFees: React.FC = () => {
               {/* Security Seal */}
               <div className="flex items-center gap-2 text-micro text-text-tertiary px-1">
                 <Lock size={13} className="text-success" />
-                RBI & CBSE compliant direct nodal settlement to <strong>Modern Public School Society</strong>.
+                RBI & CBSE compliant direct nodal settlement to <strong>Institutional Escrow Account</strong>.
               </div>
 
               {/* Footer Actions */}

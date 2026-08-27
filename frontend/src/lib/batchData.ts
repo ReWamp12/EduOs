@@ -48,11 +48,29 @@ export const SEEDED_STUDENTS_LIST: Student[] = [
 ];
 
 export const SEEDED_TIMETABLE: TimetableSlot[] = [
-  { id: 'tt-1', dayOfWeek: 1, periodNumber: 1, startTime: '09:00 AM', endTime: '09:45 AM', subjectName: 'English Literature', subjectColor: '#3B82F6', teacherName: 'Meera Iyer', roomNumber: 'Room 101', batchId: seededClass10Batch.id },
-  { id: 'tt-2', dayOfWeek: 2, periodNumber: 2, startTime: '09:45 AM', endTime: '10:30 AM', subjectName: 'Hindi Course A', subjectColor: '#EC4899', teacherName: 'Suresh Pillai', roomNumber: 'Room 101', batchId: seededClass10Batch.id },
-  { id: 'tt-3', dayOfWeek: 3, periodNumber: 3, startTime: '10:30 AM', endTime: '11:15 AM', subjectName: 'Mathematics', subjectColor: '#10B981', teacherName: 'Anjali Deshmukh', roomNumber: 'Room 101', batchId: seededClass10Batch.id },
-  { id: 'tt-4', dayOfWeek: 4, periodNumber: 4, startTime: '11:30 AM', endTime: '12:15 PM', subjectName: 'Science', subjectColor: '#8B5CF6', teacherName: 'Karan Bhatt', roomNumber: 'Science Lab 1', batchId: seededClass10Batch.id },
-  { id: 'tt-5', dayOfWeek: 5, periodNumber: 5, startTime: '12:15 PM', endTime: '01:00 PM', subjectName: 'Social Science', subjectColor: '#F59E0B', teacherName: 'Priya Menon', roomNumber: 'Room 101', batchId: seededClass10Batch.id },
+  // Monday
+  { id: 'tt-101', dayOfWeek: 1, periodNumber: 1, startTime: '08:00 AM', endTime: '08:45 AM', subjectName: 'Mathematics', subjectColor: '#3B82F6', teacherName: 'Suresh Pillai', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-102', dayOfWeek: 1, periodNumber: 2, startTime: '08:45 AM', endTime: '09:30 AM', subjectName: 'Physics Lab', subjectColor: '#6366F1', teacherName: 'Dr. Anjali Deshmukh', roomNumber: 'Science Lab 1', batchId: seededClass10Batch.id, type: 'lab' },
+  { id: 'tt-103', dayOfWeek: 1, periodNumber: 3, startTime: '09:30 AM', endTime: '10:15 AM', subjectName: 'Chemistry', subjectColor: '#EC4899', teacherName: 'Priya Menon', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-104', dayOfWeek: 1, periodNumber: 4, startTime: '10:35 AM', endTime: '11:20 AM', subjectName: 'Biology', subjectColor: '#10B981', teacherName: 'Karan Bhatt', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-105', dayOfWeek: 1, periodNumber: 5, startTime: '11:20 AM', endTime: '12:05 PM', subjectName: 'Computer Science', subjectColor: '#F59E0B', teacherName: 'Meera Iyer', roomNumber: 'IT Lab 2', batchId: seededClass10Batch.id, type: 'lab' },
+  { id: 'tt-106', dayOfWeek: 1, periodNumber: 6, startTime: '12:05 PM', endTime: '12:50 PM', subjectName: 'Mathematics Remedial', subjectColor: '#3B82F6', teacherName: 'Suresh Pillai', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'remedial' },
+
+  // Tuesday
+  { id: 'tt-201', dayOfWeek: 2, periodNumber: 1, startTime: '08:00 AM', endTime: '08:45 AM', subjectName: 'Chemistry Lab', subjectColor: '#EC4899', teacherName: 'Priya Menon', roomNumber: 'Chem Lab', batchId: seededClass10Batch.id, type: 'lab' },
+  { id: 'tt-202', dayOfWeek: 2, periodNumber: 2, startTime: '08:45 AM', endTime: '09:30 AM', subjectName: 'Mathematics', subjectColor: '#3B82F6', teacherName: 'Suresh Pillai', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-203', dayOfWeek: 2, periodNumber: 3, startTime: '09:30 AM', endTime: '10:15 AM', subjectName: 'Biology Lab', subjectColor: '#10B981', teacherName: 'Karan Bhatt', roomNumber: 'Bio Lab', batchId: seededClass10Batch.id, type: 'lab' },
+  { id: 'tt-204', dayOfWeek: 2, periodNumber: 4, startTime: '10:35 AM', endTime: '11:20 AM', subjectName: 'Physics', subjectColor: '#6366F1', teacherName: 'Dr. Anjali Deshmukh', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-205', dayOfWeek: 2, periodNumber: 5, startTime: '11:20 AM', endTime: '12:05 PM', subjectName: 'Computer Science', subjectColor: '#F59E0B', teacherName: 'Meera Iyer', roomNumber: 'IT Lab 2', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-206', dayOfWeek: 2, periodNumber: 6, startTime: '12:05 PM', endTime: '12:50 PM', subjectName: 'Physical Education', subjectColor: '#14B8A6', teacherName: 'Coach Imran', roomNumber: 'Sports Complex', batchId: seededClass10Batch.id, type: 'activity' },
+
+  // Wednesday
+  { id: 'tt-301', dayOfWeek: 3, periodNumber: 1, startTime: '08:00 AM', endTime: '08:45 AM', subjectName: 'Physics', subjectColor: '#6366F1', teacherName: 'Dr. Anjali Deshmukh', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-302', dayOfWeek: 3, periodNumber: 2, startTime: '08:45 AM', endTime: '09:30 AM', subjectName: 'Chemistry Lab', subjectColor: '#EC4899', teacherName: 'Priya Menon', roomNumber: 'Chem Lab', batchId: seededClass10Batch.id, type: 'lab' },
+  { id: 'tt-303', dayOfWeek: 3, periodNumber: 3, startTime: '09:30 AM', endTime: '10:15 AM', subjectName: 'Mathematics', subjectColor: '#3B82F6', teacherName: 'Suresh Pillai', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-304', dayOfWeek: 3, periodNumber: 4, startTime: '10:35 AM', endTime: '11:20 AM', subjectName: 'Biology', subjectColor: '#10B981', teacherName: 'Karan Bhatt', roomNumber: 'Room 204', batchId: seededClass10Batch.id, type: 'lecture' },
+  { id: 'tt-305', dayOfWeek: 3, periodNumber: 5, startTime: '11:20 AM', endTime: '12:05 PM', subjectName: 'Computer Science Lab', subjectColor: '#F59E0B', teacherName: 'Meera Iyer', roomNumber: 'IT Lab 2', batchId: seededClass10Batch.id, type: 'lab' },
+  { id: 'tt-306', dayOfWeek: 3, periodNumber: 6, startTime: '12:05 PM', endTime: '12:50 PM', subjectName: 'Library Research', subjectColor: '#8B5CF6', teacherName: 'Librarian', roomNumber: 'Central Library', batchId: seededClass10Batch.id, type: 'activity' },
 ];
 
 /** Roster per batch id */
@@ -74,6 +92,7 @@ export const defaultTeacherBatch: Batch = seededClass10Batch;
 export const timetableByBatch: Record<string, TimetableSlot[]> = {
   [seededClass10Batch.id]: SEEDED_TIMETABLE,
   '10A': SEEDED_TIMETABLE,
+  'a5000000-0000-0000-0000-000000000001': SEEDED_TIMETABLE,
 };
 
 /** Look up students for a batch id */
@@ -123,6 +142,18 @@ export async function syncBatchDataFromSupabase(): Promise<{ batches: Batch[]; s
       `)
       .order('roll_number', { ascending: true });
 
+    // Fetch live timetables
+    const { data: timetableData } = await authClient
+      .from('timetables')
+      .select(`
+        id, tenant_id, batch_id, subject_id, teacher_id, day_of_week, period_number, start_time, end_time, room_number, type,
+        subjects:subject_id (id, name, color),
+        batches:batch_id (id, name),
+        user_profiles:teacher_id (first_name, last_name)
+      `)
+      .order('day_of_week', { ascending: true })
+      .order('period_number', { ascending: true });
+
     if (batchesData && batchesData.length > 0) {
       teacherBatches = batchesData.map((b: any) => ({
         id: b.id,
@@ -137,6 +168,45 @@ export async function syncBatchDataFromSupabase(): Promise<{ batches: Batch[]; s
       }));
     }
 
+    if (timetableData && timetableData.length > 0) {
+      const formatTimeStr = (t: string) => {
+        if (!t) return '';
+        if (t.includes('AM') || t.includes('PM')) return t;
+        const parts = t.split(':');
+        if (parts.length >= 2) {
+          let h = parseInt(parts[0], 10);
+          const m = parts[1];
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          h = h % 12 || 12;
+          return `${h.toString().padStart(2, '0')}:${m} ${ampm}`;
+        }
+        return t;
+      };
+
+      timetableData.forEach((row: any) => {
+        if (!timetableByBatch[row.batch_id]) {
+          timetableByBatch[row.batch_id] = [];
+        }
+        timetableByBatch[row.batch_id].push({
+          id: row.id,
+          tenantId: row.tenant_id,
+          batchId: row.batch_id,
+          batchName: row.batches?.name || 'Classroom',
+          subjectId: row.subject_id,
+          subjectName: row.subjects?.name || 'Subject',
+          subjectColor: row.subjects?.color || '#2563EB',
+          teacherId: row.teacher_id,
+          teacherName: row.user_profiles ? `${row.user_profiles.first_name} ${row.user_profiles.last_name}`.trim() : 'Faculty',
+          roomNumber: row.room_number || 'Room 101',
+          dayOfWeek: row.day_of_week,
+          periodNumber: row.period_number,
+          startTime: formatTimeStr(row.start_time),
+          endTime: formatTimeStr(row.end_time),
+          type: (row.type as any) || 'lecture',
+        });
+      });
+    }
+
     if (studentsData && studentsData.length > 0) {
       allStudentsInSchool = studentsData.map((s: any, idx: number) => {
         const prof = s.user_profiles;
@@ -148,12 +218,12 @@ export async function syncBatchDataFromSupabase(): Promise<{ batches: Batch[]; s
           name,
           email: prof?.email || '',
           rollNumber: s.roll_number || `${idx + 1}`,
-          admissionNumber: s.admission_number || `MPS2026${String(idx + 1).padStart(3, '0')}`,
+          admissionNumber: s.admission_number || `GIA-2026-${String(idx + 1).padStart(3, '0')}`,
           batchId: s.batch_id || seededClass10Batch.id,
           batchName: batch?.name || 'Class 10 - A',
           targetExam: batch?.target_exam || 'CBSE',
-          attendancePct: 90 + ((idx % 10) * 0.8),
-          rankInBatch: idx + 1,
+          attendancePct: null,
+          rankInBatch: null,
           parentName: s.parent_name || 'Parent',
           parentPhone: s.parent_phone || '+91-9810111000',
           parentEmail: s.parent_email || '',
@@ -162,7 +232,7 @@ export async function syncBatchDataFromSupabase(): Promise<{ batches: Batch[]; s
           gender: s.gender || 'male',
           qrCodeId: s.qr_code_id || s.id,
           avatarUrl: prof?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
-          tenantName: s.tenants?.name || 'Modern Public School',
+          tenantName: s.tenants?.name || 'Greenfield International Academy',
         };
       });
 
@@ -177,3 +247,4 @@ export async function syncBatchDataFromSupabase(): Promise<{ batches: Batch[]; s
     return { batches: teacherBatches, students: allStudentsInSchool };
   }
 }
+

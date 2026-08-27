@@ -62,7 +62,7 @@ const PRESET_TEMPLATES = [
   {
     title: 'Consent for Inter-School Zonal Sports Tournament & Travel',
     category: 'Sports & Tournaments' as const,
-    desc: 'Authorization for student to represent Modern Public School in CBSE Zonal Athletic & Football Meet.',
+    desc: 'Authorization for student to represent the institution in Inter-School Zonal Athletic & Football Meet.',
     instructions: '1. Sports kit and medical kit provided by physical education department.\n2. Coach will accompany team on bus.',
   },
 ];

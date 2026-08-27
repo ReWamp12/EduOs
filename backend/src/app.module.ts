@@ -27,6 +27,7 @@ import { HrModule } from './hr/hr.module';
 import { AuthModule } from './auth/auth.module';
 import { CommonServicesModule } from './common/common.module';
 import { FinanceModule } from './finance/finance.module';
+import { ComplianceModule } from './compliance/compliance.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { FinanceModule } from './finance/finance.module';
     AuthModule,
     CommonServicesModule,
     FinanceModule,
+    ComplianceModule,
   ],
   controllers: [AppController],
   providers: [RagService],

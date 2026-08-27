@@ -18,7 +18,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 
-type DayStatus = 'present' | 'absent' | 'holiday';
+type DayStatus = 'present' | 'absent' | 'holiday' | 'unmarked';
 
 interface AttendanceApiRecord {
   id: string;
@@ -53,10 +53,12 @@ export const StudentAttendance: React.FC = () => {
         setStudent(st);
         dataService.getStudentAttendance(st.id, session?.userId).then((att) => {
           if (active) {
-            setRecords(att as AttendanceApiRecord[]);
+            setRecords((att || []) as AttendanceApiRecord[]);
             setLoading(false);
           }
         });
+      } else if (active) {
+        setLoading(false);
       }
     });
 
@@ -65,36 +67,45 @@ export const StudentAttendance: React.FC = () => {
     };
   }, [session?.userId]);
 
-  // Overall attendance statistics computed from real Supabase records
+  // Overall attendance statistics computed strictly from real Supabase records
   const stats = useMemo(() => {
-    if (records.length === 0) {
-      return { total: 58, present: 55, absent: 3, pct: 94.8, leavesRemaining: 14 };
+    if (!records || records.length === 0) {
+      return { total: 0, present: 0, absent: 0, pct: 0, leavesRemaining: 0 };
     }
     const total = records.length;
     const present = records.filter((r) => r.status === 'present').length;
     const absent = records.filter((r) => r.status === 'absent').length;
-    const pct = total > 0 ? Number(((present / total) * 100).toFixed(1)) : 100;
-    // Calculate how many more classes can be missed before dropping below 75%
-    // (present) / (total + x) >= 0.75 => x <= (present / 0.75) - total
+    const pct = total > 0 ? Number(((present / total) * 100).toFixed(1)) : 0;
+    // Calculate missable sessions before falling below 75% threshold
     const maxMissable = Math.max(0, Math.floor(present / 0.75 - total));
     return { total, present, absent, pct, leavesRemaining: maxMissable };
   }, [records]);
 
-  // Class 10 CBSE Subject-wise Breakdown based on real database records
+  // Subject-wise Breakdown based on real database records
   const subjectBreakdown = useMemo(() => {
     const subjects = [
-      { name: 'Mathematics Standard (NCERT)', weight: 1.0 },
-      { name: 'Science (Physics, Chemistry, Biology)', weight: 0.98 },
-      { name: 'English Language & Literature', weight: 1.0 },
-      { name: 'Social Science (History, Civics, Geography)', weight: 0.97 },
-      { name: 'Hindi Course A (Kshitij / Kritika)', weight: 1.0 },
+      { name: 'Mathematics Standard (NCERT)', code: 'MATH-10' },
+      { name: 'Science (Physics, Chemistry, Biology)', code: 'SCI-10' },
+      { name: 'English Language & Literature', code: 'ENG-10' },
+      { name: 'Social Science (History, Civics, Geography)', code: 'SST-10' },
+      { name: 'Hindi Course A (Kshitij / Kritika)', code: 'HIN-10' },
     ];
 
-    const totalLecturesPerSubject = Math.round(stats.total * 0.9);
+    if (stats.total === 0) {
+      return subjects.map((sub) => ({
+        subject: sub.name,
+        attended: 0,
+        total: 0,
+        pct: 0,
+        tone: 'neutral' as const,
+      }));
+    }
+
+    const totalLecturesPerSubject = Math.max(1, Math.round(stats.total / subjects.length));
     return subjects.map((sub) => {
       const attended = Math.min(
         totalLecturesPerSubject,
-        Math.round((stats.present / (stats.total || 1)) * totalLecturesPerSubject * sub.weight)
+        Math.round((stats.present / stats.total) * totalLecturesPerSubject)
       );
       const pct = Number(((attended / totalLecturesPerSubject) * 100).toFixed(1));
       const tone: 'success' | 'warning' | 'primary' = pct >= 90 ? 'success' : pct >= 75 ? 'primary' : 'warning';
@@ -123,45 +134,28 @@ export const StudentAttendance: React.FC = () => {
       const dayOfWeek = new Date(year, month - 1, day).getDay();
       const isSunday = dayOfWeek === 0;
 
-      let status: DayStatus = 'present';
+      let status: DayStatus = 'unmarked';
       if (isSunday) {
         status = 'holiday';
       } else if (recordMap.has(dateStr)) {
         status = recordMap.get(dateStr) === 'present' ? 'present' : 'absent';
-      } else {
-        // Fallback for dates beyond current term
-        status = day > 23 && selectedMonth === '2026-08' ? 'holiday' : 'present';
       }
 
       return { day, dateStr, status };
     });
   }, [selectedMonth, records]);
 
-  // History list from Supabase for selected month
+  // History list strictly from Supabase for selected month
   const historyList = useMemo(() => {
     const filtered = records.filter((r) => r.date.startsWith(selectedMonth));
-    if (filtered.length > 0) {
-      return filtered.map((r) => ({
-        key: r.id,
-        date: r.date,
-        day: Number(r.date.split('-')[2]),
-        status: (r.status === 'present' ? 'present' : 'absent') as DayStatus,
-        remarks: r.remarks || (r.status === 'present' ? 'On time · Morning roll call' : 'Absence recorded · Parent notified'),
-      })).sort((a, b) => b.day - a.day);
-    }
-
-    // Fallback based on calendar
-    return daysInMonth
-      .filter((d) => d.status !== 'holiday')
-      .map((d) => ({
-        key: d.dateStr,
-        date: d.dateStr,
-        day: d.day,
-        status: d.status,
-        remarks: d.status === 'absent' ? 'Medical leave · Parent notified' : 'On time · Morning roll call',
-      }))
-      .sort((a, b) => b.day - a.day);
-  }, [records, selectedMonth, daysInMonth]);
+    return filtered.map((r) => ({
+      key: r.id,
+      date: r.date,
+      day: Number(r.date.split('-')[2]),
+      status: (r.status === 'present' ? 'present' : 'absent') as DayStatus,
+      remarks: r.remarks || (r.status === 'present' ? 'On time · Morning roll call' : 'Absence recorded · Parent notified'),
+    })).sort((a, b) => b.day - a.day);
+  }, [records, selectedMonth]);
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -198,10 +192,21 @@ export const StudentAttendance: React.FC = () => {
         }
         actions={
           <>
-            <Badge tone={stats.pct >= 75 ? 'success' : 'danger'}>
-              <ShieldCheck size={14} /> {stats.pct >= 75 ? `CBSE Exam Eligible · ${stats.pct}% ≥ 75%` : `Attendance Risk · ${stats.pct}% < 75%`}
+            <Badge tone={stats.total === 0 ? 'neutral' : stats.pct >= 75 ? 'success' : 'danger'}>
+              {stats.total === 0 ? (
+                <>
+                  <CalendarDays size={14} /> Academic Session Active
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={14} />{' '}
+                  {stats.pct >= 75
+                    ? `CBSE Exam Eligible · ${stats.pct}% ≥ 75%`
+                    : `Attendance Risk · ${stats.pct}% < 75%`}
+                </>
+              )}
             </Badge>
-            <button className="btn-secondary" onClick={handleDownload} disabled={downloading}>
+            <button className="btn-secondary" onClick={handleDownload} disabled={downloading || stats.total === 0}>
               <Download size={16} /> {downloading ? 'Preparing…' : 'Download report'}
             </button>
           </>
@@ -212,11 +217,10 @@ export const StudentAttendance: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Overall Attendance"
-          value={`${stats.pct}%`}
-          tone={stats.pct >= 75 ? 'success' : 'destructive'}
+          value={stats.total > 0 ? `${stats.pct}%` : 'N/A'}
+          tone={stats.total === 0 ? 'neutral' : stats.pct >= 75 ? 'success' : 'destructive'}
           icon={<Percent size={16} />}
-          trend={{ value: '+1.2%', direction: 'up' }}
-          hint={`${stats.present} of ${stats.total} sessions attended`}
+          hint={stats.total > 0 ? `${stats.present} of ${stats.total} sessions attended` : 'No sessions recorded yet'}
         />
         <StatCard
           label="Present Sessions"
@@ -234,7 +238,16 @@ export const StudentAttendance: React.FC = () => {
         />
         <StatCard
           label="Leaves Remaining"
-          value={<>{stats.leavesRemaining}<span className="text-base font-medium text-text-tertiary"> days</span></>}
+          value={
+            stats.total > 0 ? (
+              <>
+                {stats.leavesRemaining}
+                <span className="text-base font-medium text-text-tertiary"> days</span>
+              </>
+            ) : (
+              '—'
+            )
+          }
           tone="warning"
           icon={<CalendarCheck size={16} />}
           hint="Before falling below 75% threshold"
@@ -250,12 +263,12 @@ export const StudentAttendance: React.FC = () => {
                 <span className="font-semibold text-foreground">{item.subject}</span>
                 <span className="shrink-0 font-semibold text-text-secondary">
                   {item.attended}/{item.total}{' '}
-                  <span className={cn(item.tone === 'warning' ? 'text-warning' : item.tone === 'primary' ? 'text-primary' : 'text-success')}>
+                  <span className={cn(item.tone === 'warning' ? 'text-warning' : item.tone === 'primary' ? 'text-primary' : item.tone === 'success' ? 'text-success' : 'text-text-tertiary')}>
                     ({item.pct}%)
                   </span>
                 </span>
               </div>
-              <ProgressBar value={item.pct} tone={item.tone} />
+              <ProgressBar value={item.pct} tone={item.tone === 'neutral' ? 'primary' : item.tone} />
             </div>
           ))}
         </SectionCard>
@@ -306,6 +319,7 @@ export const StudentAttendance: React.FC = () => {
                   d.status === 'present' && 'border-success/25 bg-success-soft text-success',
                   d.status === 'absent' && 'border-destructive/30 bg-destructive-soft text-destructive',
                   d.status === 'holiday' && 'border-transparent bg-muted text-text-tertiary',
+                  d.status === 'unmarked' && 'border-border/40 bg-surface/50 text-text-tertiary font-normal',
                 )}
               >
                 {d.day}
@@ -327,6 +341,10 @@ export const StudentAttendance: React.FC = () => {
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-12 w-full rounded-md" />
             ))}
+          </div>
+        ) : historyList.length === 0 ? (
+          <div className="p-8 text-center text-text-secondary">
+            No attendance entries recorded yet for {monthLabel}. Roll calls marked by faculty will appear here in real-time.
           </div>
         ) : (
           <div className="overflow-x-auto">

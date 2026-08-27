@@ -138,9 +138,17 @@ const INITIAL_STAFF_PAYROLL: PayrollStaffRecord[] = [
 // collection posts its own double-entry voucher inside the payment
 // transaction, so the ledger always equals the fee register.
 
+import { useSession } from '@/lib/auth/AuthProvider';
+import { Tenant } from '@/lib/types';
+
 export const FinanceWorkspace: React.FC = () => {
+  const session = useSession();
   const [activeTab, setActiveTab] = useState<FinanceTab>('overview');
   const { feeInvoices } = useAppStore();
+
+  // Multi-school tenancy context
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('all');
 
   // EDUOS-125: Supabase fee_invoices is the ledger of record for the counter
   // terminal; the local store only backs it when Supabase is unreachable.
@@ -162,6 +170,9 @@ export const FinanceWorkspace: React.FC = () => {
 
   useEffect(() => {
     let active = true;
+    dataService.getTenants().then((list) => {
+      if (active && list) setTenants(list);
+    });
     dataService.getFeeInvoices().then((rows) => {
       if (active && rows && rows.length > 0) setDbInvoices(rows);
     });
@@ -170,7 +181,15 @@ export const FinanceWorkspace: React.FC = () => {
       active = false;
     };
   }, [reloadLedger]);
-  const posInvoices = dbInvoices ?? feeInvoices;
+
+  const isSuperAdmin = !session?.tenantId || (session?.roles ?? []).includes('super_admin');
+  const allPosInvoices = dbInvoices ?? feeInvoices;
+
+  // Filter invoices by selected school if specific school chosen
+  const posInvoices = useMemo(() => {
+    if (selectedTenantId === 'all') return allPosInvoices;
+    return allPosInvoices.filter((inv: any) => !inv.tenantId || inv.tenantId === selectedTenantId);
+  }, [allPosInvoices, selectedTenantId]);
 
   // Cashier POS Search and State
   const [searchStudent, setSearchStudent] = useState('');
@@ -308,6 +327,58 @@ export const FinanceWorkspace: React.FC = () => {
         title="Institutional Finance & General Ledger"
         subtitle="Fee schedule builder, counter POS cashier, statutory payroll engine & double-entry accounting"
       />
+
+      {/* Super Admin Multi-School Scope Switcher */}
+      {isSuperAdmin && tenants.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary-soft text-primary font-bold text-sm">
+              🏛️
+            </div>
+            <div>
+              <div className="text-xs font-bold text-foreground">Multi-School Finance Scope</div>
+              <div className="text-[11px] text-text-tertiary">
+                {selectedTenantId === 'all'
+                  ? 'Viewing consolidated balance & collections across all institutions'
+                  : `Viewing records for ${tenants.find((t) => t.id === selectedTenantId)?.name}`}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedTenantId('all')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all border shadow-2xs',
+                selectedTenantId === 'all'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                  : 'border-border bg-surface-muted text-text-secondary hover:border-primary/50 hover:bg-surface'
+              )}
+            >
+              🌐 Consolidated (All Schools)
+            </button>
+            {tenants.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSelectedTenantId(t.id)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all border shadow-2xs',
+                  selectedTenantId === t.id
+                    ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-border bg-surface-muted text-text-secondary hover:border-primary/50 hover:bg-surface'
+                )}
+              >
+                <span
+                  className="h-2 w-2 rounded-full ring-1 ring-white/40"
+                  style={{ backgroundColor: t.primaryColor || '#2563EB' }}
+                />
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-1.5 border-b border-border pb-1 overflow-x-auto">

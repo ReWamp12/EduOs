@@ -12,16 +12,12 @@ export const StudentIDCard: React.FC = () => {
   const { session } = useAuth();
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showQr, setShowQr] = useState(false);
+  const [showQr, setShowQr] = useState(true);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      // A student session resolves to their own Supabase row. Any other
-      // viewer (staff previewing via the role switcher) falls back to the
-      // first enrolled student, so the card always shows live DB data
-      // instead of placeholder dashes.
       let s: Student | null = null;
       try {
         s = await dataService.getStudentOverview(session?.userId);
@@ -48,19 +44,42 @@ export const StudentIDCard: React.FC = () => {
   }, [session?.userId]);
 
   const handleDownload = async () => {
+    if (!student) return;
     setDownloading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setDownloading(false);
-    toast('ID card downloaded', 'success', 'Saved to your wallet as PDF.');
+    try {
+      const schoolName = student.tenantName || 'Greenfield International Academy';
+      const blob = await generateIdCardPng(student, schoolName);
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const cleanName = (student.name || 'Student').replace(/[^a-zA-Z0-9]/g, '_');
+        a.download = `EduOS_ID_Card_${cleanName}_${student.rollNumber || '1'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('Digital ID Card Downloaded', 'success', `Saved ${a.download} to your downloads.`);
+      } else {
+        toast('Could not render ID card', 'error');
+      }
+    } catch (err: any) {
+      toast('Download failed', 'error', err?.message || 'Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handlePrint = () => {
-    toast('Print dialog opened', 'info', 'Sending digital ID to printer.');
+    toast('Opening Print View', 'info', 'Preparing print-ready laminated ID card.');
+    setTimeout(() => {
+      window.print();
+    }, 200);
   };
 
   const handleToggleQr = () => {
     setShowQr((v) => !v);
-    toast(showQr ? 'QR hidden' : 'QR revealed', 'info', showQr ? undefined : 'Valid for gate & exam terminal.');
+    toast(showQr ? 'QR code hidden' : 'QR code revealed', 'info', showQr ? 'QR blurred for privacy.' : 'Valid for gate & terminal authentication.');
   };
 
   if (loading) {
@@ -93,10 +112,30 @@ export const StudentIDCard: React.FC = () => {
     );
   }
 
-  const schoolName = student.tenantName || 'Modern Public School';
+  const schoolName = student.tenantName || 'Greenfield International Academy';
 
   return (
     <div className="flex flex-col gap-6">
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-student-id-card,
+          #printable-student-id-card * {
+            visibility: visible !important;
+          }
+          #printable-student-id-card {
+            position: fixed !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) scale(1.1) !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: 1px solid #cbd5e1 !important;
+          }
+        }
+      `}</style>
       <PageHeader
         title="Digital QR Identity Card"
         subtitle="Official student identity for campus gate entry, library & exam halls"
@@ -108,11 +147,10 @@ export const StudentIDCard: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
-        {/* Physical-style school ID card — deliberately theme-independent: a
-            real laminated card is always white with printed brand bands, so
-            every color here is explicit rather than a theme token. */}
+        {/* Physical-style school ID card */}
         <div className="flex flex-col items-center gap-5">
           <div
+            id="printable-student-id-card"
             className="w-full max-w-[340px] overflow-hidden rounded-2xl"
             style={{
               background: '#ffffff',
@@ -322,3 +360,272 @@ export const StudentIDCard: React.FC = () => {
     </div>
   );
 };
+
+function generateIdCardPng(student: Student, schoolName: string): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(null);
+    const canvas = document.createElement('canvas');
+    const width = 680;
+    const height = 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return resolve(null);
+
+    // Background Card
+    ctx.fillStyle = '#ffffff';
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(0, 0, width, height, 32);
+      ctx.fill();
+    } else {
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    // Outer Border
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#cbd5e1';
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(0, 0, width, height, 32);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(0, 0, width, height);
+    }
+
+    // Header Gradient Band
+    const grad = ctx.createLinearGradient(0, 0, width, 240);
+    grad.addColorStop(0, '#1e3a8a');
+    grad.addColorStop(0.6, '#1d4ed8');
+    grad.addColorStop(1, '#2563eb');
+    ctx.fillStyle = grad;
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(0, 0, width, 240, [32, 32, 0, 0]);
+      ctx.fill();
+    } else {
+      ctx.fillRect(0, 0, width, 240);
+    }
+
+    // School Badge
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(width / 2 - 170, 75, 34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#bfdbfe';
+    ctx.stroke();
+
+    ctx.fillStyle = '#1d4ed8';
+    ctx.font = 'bold 34px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((schoolName.charAt(0) || 'G').toUpperCase(), width / 2 - 170, 75);
+
+    // School Name & Affiliation
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText(schoolName.toUpperCase(), width / 2 - 115, 68);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = '500 16px sans-serif';
+    ctx.fillText('Affiliated to CBSE · New Delhi', width / 2 - 115, 94);
+
+    // Badge Pill
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(width / 2 - 160, 150, 320, 36, 18);
+    else ctx.rect(width / 2 - 160, 150, 320, 36);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('STUDENT IDENTITY CARD · 2026-27', width / 2, 173);
+
+    // Avatar Box
+    const avatarX = width / 2 - 80;
+    const avatarY = 190;
+    const avatarW = 160;
+    const avatarH = 190;
+
+    const initials = (student.name || 'Student')
+      .split(' ')
+      .map((w) => w.charAt(0))
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+
+    const avatarGrad = ctx.createLinearGradient(avatarX, avatarY, avatarX + avatarW, avatarY + avatarH);
+    avatarGrad.addColorStop(0, '#dbeafe');
+    avatarGrad.addColorStop(1, '#eff6ff');
+    ctx.fillStyle = avatarGrad;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(avatarX, avatarY, avatarW, avatarH, 18);
+    else ctx.rect(avatarX, avatarY, avatarW, avatarH);
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    ctx.fillStyle = '#1d4ed8';
+    ctx.font = 'bold 64px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, width / 2, avatarY + avatarH / 2);
+
+    // Student Name
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 34px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((student.name || 'Student Name').toUpperCase(), width / 2, 430);
+
+    // Batch Pill
+    ctx.fillStyle = '#eff6ff';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(width / 2 - 150, 460, 300, 36, 18);
+    else ctx.rect(width / 2 - 150, 460, 300, 36);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#bfdbfe';
+    ctx.stroke();
+    ctx.fillStyle = '#1d4ed8';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(`${student.batchName || 'Class 10 - A'} · Roll ${student.rollNumber || '1'}`, width / 2, 484);
+
+    // Divider 1
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(40, 525);
+    ctx.lineTo(width - 40, 525);
+    ctx.stroke();
+
+    // Particulars
+    const fields = [
+      { label: 'ADMISSION NO', val: student.admissionNumber || 'GIA2026001' },
+      { label: 'BLOOD GROUP', val: student.bloodGroup || 'O+' },
+      { label: 'DATE OF BIRTH', val: student.dob || '2011-03-15' },
+      { label: 'VALID TILL', val: '31 Mar 2027' },
+      { label: 'GUARDIAN', val: student.parentName || 'Parent' },
+      { label: 'EMERGENCY', val: student.parentPhone || '+91-9810111000' },
+    ];
+
+    fields.forEach((f, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const fx = col === 0 ? 60 : width / 2 + 20;
+      const fy = 560 + row * 60;
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(f.label, fx, fy);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText(f.val, fx, fy + 26);
+    });
+
+    // Divider 2
+    ctx.beginPath();
+    ctx.moveTo(40, 750);
+    ctx.lineTo(width - 40, 750);
+    ctx.stroke();
+
+    // QR Simulation Box
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(50, 770, 110, 110, 12);
+    else ctx.rect(50, 770, 110, 110);
+    ctx.fill();
+    ctx.stroke();
+
+    // QR pattern
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(62, 782, 30, 30);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(68, 788, 18, 18);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(72, 792, 10, 10);
+
+    ctx.fillRect(118, 782, 30, 30);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(124, 788, 18, 18);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(128, 792, 10, 10);
+
+    ctx.fillRect(62, 838, 30, 30);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(68, 844, 18, 18);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(72, 848, 10, 10);
+
+    ctx.fillRect(104, 825, 14, 14);
+    ctx.fillRect(124, 838, 20, 20);
+
+    // QR Label
+    ctx.fillStyle = '#047857';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('✨ Dynamic Auth QR', 180, 810);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '16px monospace';
+    ctx.fillText(student.qrCodeId || `QR-${student.admissionNumber || '001'}`, 180, 840);
+
+    // Principal Signature
+    ctx.font = 'italic 26px serif';
+    ctx.fillStyle = '#334155';
+    ctx.textAlign = 'right';
+    ctx.fillText('A. Rao', width - 60, 830);
+
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(width - 160, 845);
+    ctx.lineTo(width - 50, 845);
+    ctx.stroke();
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('PRINCIPAL', width - 60, 865);
+
+    // Barcode Strip
+    const barcodeY = 910;
+    const barcodeH = 50;
+    const barcodeW = width - 120;
+    const bx = 60;
+    ctx.fillStyle = '#0f172a';
+    for (let x = 0; x < barcodeW; x += 10) {
+      const barW = x % 3 === 0 ? 5 : x % 2 === 0 ? 3 : 2;
+      ctx.fillRect(bx + x, barcodeY, barW, barcodeH);
+    }
+
+    ctx.font = 'bold 15px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#334155';
+    ctx.fillText(student.admissionNumber || 'GIA2026001', width / 2, barcodeY + barcodeH + 22);
+
+    // Footer Band
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(0, 1000, width, 80, [0, 0, 32, 32]);
+    else ctx.fillRect(0, 1000, width, 80);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = '500 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`If found, please return to ${schoolName} · +91-11-2634-8800`, width / 2, 1032);
+
+    ctx.fillStyle = '#34d399';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('🛡️ Gate · Library · Exam Hall Verified', width / 2, 1058);
+
+    canvas.toBlob((blob) => resolve(blob), 'image/png');
+  });
+}

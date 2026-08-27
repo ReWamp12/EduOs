@@ -89,6 +89,33 @@ export const ParentPTM: React.FC = () => {
 
   const isVideo = (mode: string) => (mode || '').toLowerCase().includes('video');
 
+  const defaultSlots = [
+    {
+      id: '4d9ada55-6040-4d40-a853-18a7359fae50',
+      teacherName: 'Dr. Amit Verma',
+      subject: 'Physics (Faculty Lead)',
+      date: 'Friday, 28 Aug 2026',
+      time: '03:00 PM – 05:30 PM',
+      mode: 'In-person · Room 204',
+      status: 'Open',
+      room: 'Room 204 (Science Block)',
+      availableSlots: ['03:00 PM', '03:20 PM', '03:40 PM', '04:00 PM', '04:20 PM'],
+    },
+    {
+      id: '2e4e2df7-6730-4c99-b36a-a1e25208234c',
+      teacherName: 'Mrs. Priya Nair',
+      subject: 'Mathematics (Class Mentor)',
+      date: 'Saturday, 29 Aug 2026',
+      time: '10:00 AM – 01:00 PM',
+      mode: 'Video Call (Google Meet)',
+      status: 'Open',
+      room: 'Online Video Room',
+      availableSlots: ['10:00 AM', '10:20 AM', '10:40 AM', '11:00 AM', '11:20 AM'],
+    },
+  ];
+
+  const ptmSlotsList = defaultSlots;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -117,17 +144,8 @@ export const ParentPTM: React.FC = () => {
         )}
       </div>
 
-      {(!mockPTMSlots || mockPTMSlots.length === 0) ? (
-        <Card className="flex flex-col items-center justify-center p-12 text-center">
-          <Calendar size={40} className="text-text-tertiary mb-3 opacity-50" />
-          <h3 className="text-section font-semibold text-foreground">No PTM Slots Scheduled</h3>
-          <p className="mt-1 text-body text-text-secondary max-w-md">
-            There are currently no active parent-teacher meeting slots published. You will receive an alert when faculty publish open consultation slots.
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {mockPTMSlots.map((ptm) => {
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {ptmSlotsList.map((ptm) => {
             const chosen = selected[ptm.id];
             const slots: string[] = ptm.availableSlots || [];
             const ptmMode = ptm.mode || 'In-Person';
@@ -210,7 +228,6 @@ export const ParentPTM: React.FC = () => {
             );
           })}
         </div>
-      )}
     </div>
   );
 };

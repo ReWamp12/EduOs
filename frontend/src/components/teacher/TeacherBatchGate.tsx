@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { teacherBatches, studentsForBatch, defaultTeacherBatch } from '@/lib/batchData';
-import { mockProfiles } from '@/lib/mockData';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { GraduationCap, Users, ArrowRight, LayoutGrid, CalendarOff } from 'lucide-react';
 
 export const TeacherBatchGate: React.FC<{ onSelect: (batchId: string) => void }> = ({ onSelect }) => {
-  const teacher = mockProfiles.teacher;
+  const { session } = useAuth();
   const batches = teacherBatches || [];
 
   return (
@@ -16,7 +16,7 @@ export const TeacherBatchGate: React.FC<{ onSelect: (batchId: string) => void }>
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-primary">
           <LayoutGrid size={22} />
         </div>
-        <h2 className="text-title text-foreground">Welcome, {teacher?.firstName || 'Faculty'} {teacher?.lastName || ''}</h2>
+        <h2 className="text-title text-foreground">Welcome, {session?.firstName || 'Faculty'} {session?.lastName || ''}</h2>
         <p className="mt-1.5 text-body text-text-secondary">
           Select the class you're working with. Your attendance, gradebook, exams and roster will be scoped to it.
         </p>

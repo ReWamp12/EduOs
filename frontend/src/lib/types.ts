@@ -87,16 +87,23 @@ export interface Student {
 
 export interface TimetableSlot {
   id: string;
-  dayOfWeek: number; // 1 = Monday
+  tenantId?: string;
+  batchId: string;
+  batchName?: string;
+  subjectId?: string;
+  subjectName: string;
+  subjectColor: string;
+  teacherId?: string;
+  teacherName: string;
+  roomNumber: string;
+  dayOfWeek: number; // 1 = Monday, ..., 6 = Saturday, 7 = Sunday
+  dayName?: string;
   periodNumber: number;
   startTime: string;
   endTime: string;
-  subjectName: string;
-  subjectColor: string;
-  teacherName: string;
-  roomNumber: string;
-  batchId: string;
+  type?: 'lecture' | 'lab' | 'activity' | 'remedial';
 }
+
 
 export interface AttendanceRecord {
   id: string;
@@ -109,8 +116,33 @@ export interface AttendanceRecord {
   remarks?: string;
 }
 
+export interface LMSNote {
+  id: string;
+  userId: string;
+  lessonId: string;
+  tenantId?: string;
+  timestampSeconds: number;
+  timestampLabel: string;
+  noteText: string;
+  tag: 'key_concept' | 'formula' | 'doubt' | 'summary';
+  color?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface LMSCourse {
+  id: string;
+  tenantId?: string;
+  subjectId?: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  lessons: LMSLesson[];
+}
+
 export interface LMSLesson {
   id: string;
+  courseId?: string;
   courseTitle?: string;
   subject?: string;
   chapter?: string;
@@ -122,6 +154,8 @@ export interface LMSLesson {
   url?: string;
   contentUrl?: string;
   completed?: boolean;
+  notesCount?: number;
+  orderIndex?: number;
 }
 
 export interface AssignmentAttachment {

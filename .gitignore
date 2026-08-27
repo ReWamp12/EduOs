@@ -6,18 +6,21 @@ frontend/node_modules/
 frontend/.next/
 frontend/build/
 *.log
-*.md
+.env
 .env.local
 frontend/.env.local
 backend/.env
 
+# Temporary and local test scratchpads
+scratchpad/
 seed-credentials.md
 
 # RAG local artifacts
 backend/.model-cache/
 backend/.rag-cache/
 
-# Held back pending secret cleanup (contain hardcoded DB password) — EDUOS
+# Held back pending secret cleanup
 backend/scripts/
 backend/_pdftest.mjs
 class 10 all boards resources.txt
+
