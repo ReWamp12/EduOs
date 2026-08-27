@@ -12,6 +12,18 @@ export class AppController {
     private readonly ragService: RagService,
   ) {}
 
+  @Get('health')
+  getHealth() {
+    return {
+      status: 'healthy',
+      service: 'EduOS NestJS Backend API',
+      version: '1.2.0',
+      timestamp: new Date().toISOString(),
+      database: this.supabaseService.isConfigured() ? 'connected' : 'standalone',
+    };
+  }
+
+
   @Get('student/overview/:id')
   async getStudentOverview(@Param('id') studentId: string) {
     if (this.supabaseService.isConfigured()) {

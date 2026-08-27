@@ -94,16 +94,21 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Right: stakeholder switcher — only for sessions that hold >1 role
-          (i.e. the fixture sandbox today; real multi-role users once the
-          user_roles join table lands). */}
-      {canSwitch && setActiveRole && (
-        <div className="relative shrink-0" ref={dropdownRef}>
-          <button
-            onClick={() => setDropdownOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary-soft/40 px-3 py-1.5 text-xs font-semibold text-primary transition-all hover:bg-primary-soft hover:border-primary/50 shadow-2xs"
-            aria-label="Switch Dashboard Role"
-          >
+      {/* Right: Live Cloud Badge + stakeholder switcher */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Cloud Active</span>
+        </div>
+
+        {canSwitch && setActiveRole && (
+          <div className="relative shrink-0" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen((v) => !v)}
+              className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary-soft/40 px-3 py-1.5 text-xs font-semibold text-primary transition-all hover:bg-primary-soft hover:border-primary/50 shadow-2xs"
+              aria-label="Switch Dashboard Role"
+            >
+
             <Sparkles size={14} className="text-primary animate-pulse" />
             <span className="hidden sm:inline text-text-secondary font-medium">Switch Role:</span>
             <span className="font-bold text-primary">{ROLE_LABEL[activeRole]}</span>
