@@ -183,16 +183,70 @@ function LoginForm() {
               {pending ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
+
+          {/* Quick Fill Demo Roles */}
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider text-center mb-2.5">
+              Quick Fill Demo Accounts
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('rajesh.sharma@gmail.com');
+                  setPassword('Password123!');
+                }}
+                className="rounded-lg border border-border bg-surface-muted/50 p-2 text-left hover:bg-primary-soft hover:border-primary/40 transition group"
+              >
+                <div className="text-xs font-bold text-foreground group-hover:text-primary">👨‍👩‍👧 Parent</div>
+                <div className="text-[10px] text-text-tertiary truncate">rajesh.sharma@gmail.com</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('deepak.mehta@gmail.com');
+                  setPassword('Password123!');
+                }}
+                className="rounded-lg border border-border bg-surface-muted/50 p-2 text-left hover:bg-primary-soft hover:border-primary/40 transition group"
+              >
+                <div className="text-xs font-bold text-foreground group-hover:text-primary">👨‍👩‍👦 Parent (Mehta)</div>
+                <div className="text-[10px] text-text-tertiary truncate">deepak.mehta@gmail.com</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('aarav.sharma@student.greenfield.edu.in');
+                  setPassword('Password123!');
+                }}
+                className="rounded-lg border border-border bg-surface-muted/50 p-2 text-left hover:bg-primary-soft hover:border-primary/40 transition group"
+              >
+                <div className="text-xs font-bold text-foreground group-hover:text-primary">👨‍🎓 Student</div>
+                <div className="text-[10px] text-text-tertiary truncate">aarav.sharma@...</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('principal.sharma@greenfield.edu.in');
+                  setPassword('Password123!');
+                }}
+                className="rounded-lg border border-border bg-surface-muted/50 p-2 text-left hover:bg-primary-soft hover:border-primary/40 transition group"
+              >
+                <div className="text-xs font-bold text-foreground group-hover:text-primary">🏛️ Principal</div>
+                <div className="text-[10px] text-text-tertiary truncate">principal.sharma@...</div>
+              </button>
+            </div>
+          </div>
         </div>
 
         <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-text-tertiary">
           <ShieldCheck size={13} />
-          Privileged roles require two-factor authentication.
+          All demo account passwords are: <span className="font-mono font-semibold text-primary">Password123!</span>
         </p>
       </div>
     </main>
   );
 }
+
 
 export default function LoginPage() {
   // useSearchParams needs a Suspense boundary to avoid opting the whole route
