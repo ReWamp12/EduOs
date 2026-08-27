@@ -150,6 +150,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       )}
+      </div>
     </header>
   );
 };
+
