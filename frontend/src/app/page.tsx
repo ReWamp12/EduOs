@@ -305,7 +305,9 @@ export default function Home() {
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div key={`${activeRole}-${activeTab}`} className="mx-auto max-w-[1360px] animate-fade-in">
-            {activeRole === 'teacher' ? (
+            {activeTab === 'settings' ? (
+              <SettingsView onNavigate={setActiveTab} />
+            ) : activeRole === 'teacher' ? (
               <TeacherWorkspace
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
@@ -316,6 +318,7 @@ export default function Home() {
               renderContent()
             )}
           </div>
+
         </main>
       </div>
 

@@ -16,7 +16,9 @@ import { TeacherAIQuestions } from './TeacherAIQuestions';
 import { TeacherLeavePortal } from './TeacherLeavePortal';
 import { CurriculumTracker } from './CurriculumTracker';
 import { NoticeBoard } from '@/components/common/NoticeBoard';
+import { SettingsView } from '@/components/common/SettingsView';
 import { Users, ChevronsUpDown, Check, LayoutGrid } from 'lucide-react';
+
 import { cn } from '@/components/ui';
 
 interface Props {
@@ -108,6 +110,10 @@ const BatchSwitcher: React.FC<{ batchId: string; setBatchId: (id: string | null)
 };
 
 export const TeacherWorkspace: React.FC<Props> = ({ activeTab, setActiveTab, batchId, setBatchId }) => {
+  if (activeTab === 'settings') {
+    return <SettingsView onNavigate={setActiveTab} />;
+  }
+
   if (!batchId) {
     return <TeacherBatchGate onSelect={setBatchId} />;
   }
@@ -138,10 +144,13 @@ export const TeacherWorkspace: React.FC<Props> = ({ activeTab, setActiveTab, bat
         return <TeacherLeavePortal />;
       case 'notices':
         return <NoticeBoard role="teacher" />;
+      case 'settings':
+        return <SettingsView onNavigate={setActiveTab} />;
       default:
         return <TeacherOverview onNavigate={setActiveTab} />;
     }
   };
+
 
   return (
     <TeacherBatchProvider batchId={batchId} setBatchId={setBatchId}>
