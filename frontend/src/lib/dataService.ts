@@ -4,7 +4,7 @@ import { isSupabaseConfigured } from './supabase';
 import { TutorResponse } from './tutorTypes';
 import type { FeeInvoiceRecord, NoticeMessage } from './store';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 
 /** Supabase fee_invoices row → the FeeInvoiceRecord shape the UI already uses. */
 function mapFeeInvoiceRow(row: any): FeeInvoiceRecord {
