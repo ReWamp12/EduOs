@@ -45,6 +45,16 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
 
   const batchShortName = batch?.name ? batch.name.split(' - ')[0].split(' — ')[0] : 'Class 10-A';
 
+  const todayDayIndex = typeof window !== 'undefined' ? new Date().getDay() : 1;
+  const activeDayIndex = todayDayIndex === 0 || todayDayIndex === 6 ? 1 : todayDayIndex;
+  const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const activeDayName = dayNames[activeDayIndex] || 'Monday';
+
+  const todayLectures = slots.filter(
+    (s) => s.dayOfWeek === activeDayIndex || s.dayName === activeDayName || (!s.dayOfWeek && !s.dayName)
+  );
+
+
   return (
     <div className="flex flex-col gap-6">
       {/* Welcome banner */}
@@ -87,10 +97,10 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
         />
         <StatCard
           label="Today's Lectures"
-          value={<>{slots.length}<span className="text-base font-medium text-text-tertiary"> periods</span></>}
+          value={<>{todayLectures.length}<span className="text-base font-medium text-text-tertiary"> periods</span></>}
           tone="primary"
           icon={<Clock size={16} />}
-          hint={slots[0] ? `${slots[0].startTime} · ${slots[0].roomNumber}` : 'No lectures today'}
+          hint={todayLectures[0] ? `${todayLectures[0].startTime} · ${todayLectures[0].roomNumber}` : 'No lectures today'}
         />
         <StatCard
           label="Avg Attendance"
@@ -118,17 +128,18 @@ export const TeacherOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
         <SectionCard
           title="Today's Assigned Classes"
           icon={<Clock size={18} />}
-          action={<Badge tone="primary">Monday</Badge>}
+          action={<Badge tone="primary">{activeDayName}</Badge>}
           bodyClassName="flex flex-col gap-2.5"
         >
-          {slots.length === 0 ? (
+          {todayLectures.length === 0 ? (
             <EmptyState
               icon={<CalendarOff size={22} />}
               title="No lectures scheduled"
               description="This class has no periods scheduled today."
             />
           ) : (
-            slots.map((slot: TimetableSlot, i: number) => (
+            todayLectures.map((slot: TimetableSlot, i: number) => (
+
               <div
                 key={slot.id}
                 className={[
