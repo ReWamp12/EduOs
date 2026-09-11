@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { dataService } from '@/lib/dataService';
 import { useSession } from '@/lib/auth/AuthProvider';
-import { NoticeMessage } from '@/lib/store';
+import { useAppStore, NoticeMessage } from '@/lib/store';
 import { Notice } from '@/lib/types';
 import { PageHeader, Card, Badge, EmptyState, Skeleton, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -36,6 +36,7 @@ const categoryBorder: Record<Category, string> = {
 
 export const StudentNotices: React.FC = () => {
   const session = useSession();
+  const { notices: appStoreNotices } = useAppStore();
   const [storeNotices, setStoreNotices] = useState<NoticeMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
@@ -52,11 +53,20 @@ export const StudentNotices: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [session?.tenantId]);
+  }, [session?.tenantId, appStoreNotices]);
+
+  const combinedNotices = useMemo(() => {
+    const map = new Map<string, NoticeMessage>();
+    (storeNotices || []).forEach((n) => map.set(n.id, n));
+    (appStoreNotices || []).forEach((n) => {
+      if (!map.has(n.id)) map.set(n.id, n);
+    });
+    return Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }, [storeNotices, appStoreNotices]);
 
   const notices: Notice[] = useMemo(() => {
-    return storeNotices
-      .filter((n) => n.audience.includes('student'))
+    return combinedNotices
+      .filter((n) => !n.audience || n.audience.includes('student'))
       .map((n) => ({
         id: n.id,
         title: n.title,

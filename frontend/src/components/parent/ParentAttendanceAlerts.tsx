@@ -7,7 +7,7 @@ import { SectionCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { BellRing, CheckCheck, UserX, UserCheck, Clock, Award, CalendarClock, CheckCircle2, X, IndianRupee } from 'lucide-react';
 
-const MAX_QUEUE_SIZE = 3;
+const MAX_QUEUE_SIZE = 6;
 
 const iconFor = (a: ParentAlert) => {
   if (a.type === 'fee') return <IndianRupee size={15} />;
@@ -54,9 +54,18 @@ export const ParentAttendanceAlerts: React.FC = () => {
     };
   }, []);
 
-  const alerts = childNames.length > 0
-    ? parentAlerts.filter((a) => childNames.some((name) => name.toLowerCase() === a.studentName.toLowerCase())).slice(0, MAX_QUEUE_SIZE)
-    : parentAlerts.slice(0, MAX_QUEUE_SIZE);
+  const alerts = React.useMemo(() => {
+    if (childNames.length > 0) {
+      const lowerNames = childNames.map((n) => n.toLowerCase().trim());
+      const firstNames = lowerNames.map((n) => n.split(' ')[0]);
+      const matched = (parentAlerts || []).filter((a) => {
+        const aName = (a.studentName || '').toLowerCase().trim();
+        return lowerNames.includes(aName) || firstNames.some((f) => f && aName.includes(f));
+      });
+      if (matched.length > 0) return matched.slice(0, MAX_QUEUE_SIZE);
+    }
+    return (parentAlerts || []).slice(0, MAX_QUEUE_SIZE);
+  }, [parentAlerts, childNames]);
 
   const unread = alerts.filter((a) => !a.read).length;
 

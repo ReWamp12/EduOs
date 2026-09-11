@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Assignment, AssignmentAttachment, DigitalConsentForm, ConsentResponse, Student, LeaveRequest } from './types';
-import { allStudentsInSchool, studentsByBatch } from './batchData';
+import { allStudentsInSchool, studentsByBatch, SEEDED_STUDENTS_LIST, seededClass10Batch } from './batchData';
 import { authClient } from './auth/client';
 import { isSupabaseConfigured } from './supabase';
 
@@ -168,19 +168,205 @@ export interface AppState {
 // Bumped for EDUOS-129: v4 persisted client-generated fee invoices whose ids
 // do not exist in Supabase. Loading them alongside the live ledger let a
 // parent click "Pay" on a phantom invoice, which the database then rejected.
-const STORAGE_KEY = 'eduos-store-v6';
+const STORAGE_KEY = 'eduos-store-v7';
 
 function seed(): AppState {
+  const now = Date.now();
+  const students = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+
+  const defaultConsentForms: DigitalConsentForm[] = [
+    {
+      id: 'consent-stem-2026',
+      title: 'Annual STEM & Robotics Exhibition Excursion',
+      description: 'Educational field trip to the National Science Centre & Robotics Expo. Transport and guided tour provided by the school.',
+      category: 'Excursion & Field Visit',
+      targetType: 'all_school',
+      targetBatchIds: [seededClass10Batch.id],
+      targetBatchNames: ['Class 10 - A'],
+      authorRole: 'principal',
+      authorName: 'Dr. Meenakshi Sundaram',
+      eventDate: '2026-09-12',
+      deadline: '2026-09-08',
+      instructions: '1. Standard school uniform with student ID card is mandatory.\n2. Packed lunch and water bottle should be carried.\n3. Return to campus by 04:30 PM.',
+      createdAt: now - 86400000 * 2,
+      responses: students.map((s) => ({
+        studentId: s.id,
+        studentName: s.name,
+        rollNumber: s.rollNumber,
+        batchName: s.batchName,
+        parentName: s.parentName,
+        parentPhone: s.parentPhone,
+        parentEmail: s.parentEmail,
+        status: 'pending' as const,
+      })),
+    },
+    {
+      id: 'consent-sports-2026',
+      title: 'Inter-School Zonal Sports Tournament & Travel',
+      description: 'Authorization for student participation in the CBSE Inter-School Zonal Athletics Meet.',
+      category: 'Sports & Tournaments',
+      targetType: 'batch',
+      targetBatchIds: [seededClass10Batch.id],
+      targetBatchNames: ['Class 10 - A'],
+      authorRole: 'teacher',
+      authorName: 'Meera Iyer',
+      eventDate: '2026-09-20',
+      deadline: '2026-09-15',
+      instructions: '1. Sports kit provided by the Physical Education department.\n2. School coach and nurse will accompany the contingent.',
+      createdAt: now - 86400000,
+      responses: students.map((s) => ({
+        studentId: s.id,
+        studentName: s.name,
+        rollNumber: s.rollNumber,
+        batchName: s.batchName,
+        parentName: s.parentName,
+        parentPhone: s.parentPhone,
+        parentEmail: s.parentEmail,
+        status: s.rollNumber === '1' ? ('signed' as const) : ('pending' as const),
+        signedAt: s.rollNumber === '1' ? now - 3600000 : undefined,
+        signedByName: s.rollNumber === '1' ? s.parentName : undefined,
+        parentRelation: 'Father',
+      })),
+    },
+  ];
+
+  const defaultNotices: NoticeMessage[] = [
+    {
+      id: 'not-01',
+      title: 'Term-1 Examination Schedule & Admit Cards',
+      content: 'The official datesheet for Term-1 Assessments has been published. Students can view exam timetables and syllabus guidelines on their dashboard.',
+      category: 'exam',
+      audience: ['student', 'parent', 'teacher'],
+      senderRole: 'principal',
+      senderName: 'Dr. Meenakshi Sundaram',
+      date: todayLabel(),
+      createdAt: now - 3600000 * 4,
+    },
+    {
+      id: 'not-02',
+      title: 'Parent-Teacher Meeting (PTM) Schedule',
+      content: 'Parent-Teacher consultations for Term 1 progress review will be conducted this Saturday from 09:00 AM to 01:00 PM. Book slots via the PTM portal.',
+      category: 'general',
+      audience: ['parent', 'teacher'],
+      senderRole: 'principal',
+      senderName: 'Dr. Meenakshi Sundaram',
+      date: todayLabel(),
+      createdAt: now - 3600000 * 8,
+    },
+    {
+      id: 'not-03',
+      title: 'Mathematics Practice DPP & Assignment Published',
+      content: 'Class 10-A: Quadratic Equations Practice Sheet 04 is now active. Please submit step-by-step solutions before the due date.',
+      category: 'academic',
+      audience: ['student', 'parent'],
+      senderRole: 'teacher',
+      senderName: 'Prof. Amit Verma',
+      date: todayLabel(),
+      createdAt: now - 3600000 * 12,
+    },
+  ];
+
+  const defaultExams: ExamRecord[] = [
+    {
+      id: 'exam-01',
+      title: 'All-India CBSE Mock Assessment 01',
+      subject: 'Mathematics',
+      batchName: 'Class 10 - A',
+      examType: 'Mock Test',
+      examDate: '15 Sep 2026',
+      maxMarks: 100,
+      status: 'scheduled',
+      createdBy: 'Prof. Amit Verma',
+      createdAt: now - 86400000 * 3,
+    },
+    {
+      id: 'exam-02',
+      title: 'Physics Term 1 Diagnostic Test',
+      subject: 'Physics',
+      batchName: 'Class 10 - A',
+      examType: 'Unit Test',
+      examDate: '24 Aug 2026',
+      maxMarks: 50,
+      status: 'completed',
+      createdBy: 'Dr. Anjali Deshmukh',
+      createdAt: now - 86400000 * 7,
+      studentName: 'Aarav Sharma',
+      marksObtained: 47,
+      percentile: 96.5,
+      rankInBatch: 1,
+    },
+  ];
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const defaultAttendance: AttendanceSessionRecord[] = [
+    {
+      id: `att-${seededClass10Batch.id}-${todayStr}-p1`,
+      batchId: seededClass10Batch.id,
+      batchName: 'Class 10 - A',
+      date: todayStr,
+      periodId: 'p1',
+      periodName: 'Period 1',
+      markedBy: 'Meera Iyer',
+      markedAt: now - 7200000,
+      records: students.map((s, idx) => ({
+        studentId: s.id,
+        studentName: s.name,
+        rollNumber: s.rollNumber,
+        status: idx === 4 ? 'absent' : idx === 6 ? 'late' : 'present',
+        remarks: idx === 4 ? 'Informed leave' : idx === 6 ? 'Arrived 10 min late' : 'Attended',
+      })),
+    },
+  ];
+
+  const defaultAlerts: ParentAlert[] = [
+    {
+      id: `alert-init-1`,
+      type: 'attendance',
+      studentName: 'Aarav Sharma',
+      title: 'Marked Present',
+      message: 'Aarav Sharma was marked PRESENT in Period 1 (Mathematics) today.',
+      tone: 'success',
+      date: todayStr,
+      source: 'Meera Iyer',
+      read: false,
+      createdAt: now - 7200000,
+    },
+    {
+      id: `alert-init-2`,
+      type: 'result',
+      studentName: 'Aarav Sharma',
+      title: 'Result published · Physics Term 1 Diagnostic Test',
+      message: 'Aarav scored 47/50 (94%) in Physics Term 1 Diagnostic Test.',
+      tone: 'success',
+      date: todayLabel(),
+      source: 'Dr. Anjali Deshmukh',
+      read: false,
+      createdAt: now - 86400000,
+    },
+    {
+      id: `alert-init-3`,
+      type: 'assignment',
+      studentName: 'Aarav Sharma',
+      title: 'Digital Consent Required',
+      message: 'Digital consent form for "Annual STEM & Robotics Exhibition Excursion" requires your e-signature.',
+      tone: 'info',
+      date: todayLabel(),
+      source: 'Dr. Meenakshi Sundaram',
+      read: false,
+      createdAt: now - 86400000 * 2,
+    },
+  ];
+
   return {
     ptmBookings: [],
     assignments: [],
     submissions: [],
-    parentAlerts: [],
-    notices: [],
-    exams: [],
-    consentForms: [],
+    parentAlerts: defaultAlerts,
+    notices: defaultNotices,
+    exams: defaultExams,
+    consentForms: defaultConsentForms,
     feeInvoices: [],
-    attendanceSessions: [],
+    attendanceSessions: defaultAttendance,
     leaveRequests: [],
   };
 }
@@ -217,23 +403,19 @@ function hydrate() {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AppState>;
       if (parsed && typeof parsed === 'object') {
-        if (parsed.parentAlerts && Array.isArray(parsed.parentAlerts)) {
-          parsed.parentAlerts = parsed.parentAlerts.slice(0, MAX_PARENT_ALERTS);
-        }
-        if (!parsed.consentForms || !Array.isArray(parsed.consentForms)) {
-          parsed.consentForms = [];
-        }
-        if (!parsed.feeInvoices || !Array.isArray(parsed.feeInvoices)) {
-          parsed.feeInvoices = [];
-        }
-        if (!parsed.attendanceSessions || !Array.isArray(parsed.attendanceSessions)) {
-          parsed.attendanceSessions = [];
-        }
-        if (!parsed.leaveRequests || !Array.isArray(parsed.leaveRequests)) {
-          parsed.leaveRequests = [];
-        }
-        // Merge over seed defaults so older persisted shapes stay valid.
-        state = { ...seed(), ...parsed };
+        const base = seed();
+        state = {
+          ptmBookings: parsed.ptmBookings && Array.isArray(parsed.ptmBookings) && parsed.ptmBookings.length > 0 ? parsed.ptmBookings : base.ptmBookings,
+          assignments: parsed.assignments && Array.isArray(parsed.assignments) && parsed.assignments.length > 0 ? parsed.assignments : base.assignments,
+          submissions: parsed.submissions && Array.isArray(parsed.submissions) ? parsed.submissions : base.submissions,
+          parentAlerts: parsed.parentAlerts && Array.isArray(parsed.parentAlerts) && parsed.parentAlerts.length > 0 ? parsed.parentAlerts.slice(0, MAX_PARENT_ALERTS) : base.parentAlerts,
+          notices: parsed.notices && Array.isArray(parsed.notices) && parsed.notices.length > 0 ? parsed.notices : base.notices,
+          exams: parsed.exams && Array.isArray(parsed.exams) && parsed.exams.length > 0 ? parsed.exams : base.exams,
+          consentForms: parsed.consentForms && Array.isArray(parsed.consentForms) && parsed.consentForms.length > 0 ? parsed.consentForms : base.consentForms,
+          feeInvoices: parsed.feeInvoices && Array.isArray(parsed.feeInvoices) ? parsed.feeInvoices : base.feeInvoices,
+          attendanceSessions: parsed.attendanceSessions && Array.isArray(parsed.attendanceSessions) && parsed.attendanceSessions.length > 0 ? parsed.attendanceSessions : base.attendanceSessions,
+          leaveRequests: parsed.leaveRequests && Array.isArray(parsed.leaveRequests) ? parsed.leaveRequests : base.leaveRequests,
+        };
         emit();
       }
     }
@@ -344,10 +526,10 @@ export function addSubmission(input: Omit<Submission, 'id' | 'status' | 'submitt
   return submission;
 }
 
-const MAX_PARENT_ALERTS = 3;
+const MAX_PARENT_ALERTS = 10;
 
 function pushAlerts(alerts: ParentAlert[]) {
-  // FIFO Queue: Keep maximum 3 alerts. If size exceeds 3, earliest/oldest is dropped.
+  // FIFO Queue: Keep up to 10 alerts for multi-child households
   const combined = [...alerts, ...state.parentAlerts].slice(0, MAX_PARENT_ALERTS);
   setState({ parentAlerts: combined });
 }
@@ -474,11 +656,12 @@ export function sendStudentReminder(assignmentId: string, studentName: string): 
   return true;
 }
 
-function attendanceMessage(name: string, status: 'present' | 'absent' | 'late', period: string, batchName: string) {
+function attendanceMessage(name: string, status: 'present' | 'absent' | 'late' | 'medical', period: string, batchName: string) {
   const first = name.split(' ')[0];
   if (status === 'absent') return `${first} was marked ABSENT for ${period} in ${batchName} today. Please contact the school if this is unexpected.`;
   if (status === 'late') return `${first} arrived LATE for ${period} in ${batchName} today.`;
-  return `${first} was marked present for ${period} in ${batchName} today.`;
+  if (status === 'medical') return `${first} was recorded on Medical Leave for ${period} in ${batchName} today.`;
+  return `${first} was marked PRESENT for ${period} in ${batchName} today.`;
 }
 
 /** Teacher saves attendance session → updates reactive attendanceSessions and dispatches parent alerts. */
@@ -498,21 +681,22 @@ export function saveAttendanceSession(session: Omit<AttendanceSessionRecord, 'id
 
   const updatedSessions = [newSession, ...filtered];
 
-  // Dispatch real-time alerts for absent and late students
-  const alertRecords: ParentAlert[] = session.records
-    .filter((r) => r.status === 'absent' || r.status === 'late')
-    .map((r, idx) => ({
+  // Dispatch real-time alerts for all students (prioritize absent and late alerts, but include present confirmations)
+  const alertRecords: ParentAlert[] = session.records.map((r, idx) => {
+    const tone: ParentAlert['tone'] = r.status === 'absent' ? 'danger' : r.status === 'late' ? 'warning' : r.status === 'medical' ? 'info' : 'success';
+    return {
       id: `alert-att-${now}-${idx}`,
       type: 'attendance' as const,
       studentName: r.studentName,
       title: `Marked ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`,
       message: `${r.studentName} was marked ${r.status.toUpperCase()} in ${session.periodName} (${session.batchName}) on ${session.date}.${r.remarks ? ` Note: ${r.remarks}` : ''}`,
-      tone: r.status === 'absent' ? ('danger' as const) : ('warning' as const),
+      tone,
       date: session.date,
       source: session.markedBy,
       read: false,
       createdAt: now,
-    }));
+    };
+  });
 
   setState({ attendanceSessions: updatedSessions });
   if (alertRecords.length > 0) {
@@ -528,7 +712,7 @@ export function recordAttendance(input: {
   markedBy: string;
   period: string;
   date: string;
-  records: { studentName: string; status: 'present' | 'absent' | 'late' }[];
+  records: { studentName: string; status: 'present' | 'absent' | 'late' | 'medical' }[];
 }): ParentAlert[] {
   const now = Date.now();
   const alerts: ParentAlert[] = input.records.map((r, i) => ({
@@ -537,7 +721,7 @@ export function recordAttendance(input: {
     studentName: r.studentName,
     title: `Marked ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`,
     message: attendanceMessage(r.studentName, r.status, input.period, input.batchName),
-    tone: r.status === 'absent' ? 'danger' : r.status === 'late' ? 'warning' : 'success',
+    tone: r.status === 'absent' ? 'danger' : r.status === 'late' ? 'warning' : r.status === 'medical' ? 'info' : 'success',
     date: input.date,
     source: input.markedBy,
     read: false,
@@ -565,17 +749,92 @@ function resultAlert(studentName: string, title: string, obtained: number, max: 
   };
 }
 
-/** Teacher publishes gradebook marks → a result alert per student for parents. */
+/** Teacher publishes gradebook marks → updates exams list with results and alerts parents. */
 export function recordResults(input: {
   assessmentTitle: string;
   maxMarks: number;
   markedBy: string;
-  results: { studentName: string; obtainedMarks: number }[];
+  results: { studentName: string; obtainedMarks: number; percentile?: number; rankInBatch?: number }[];
 }): ParentAlert[] {
-  const alerts = input.results.map((r, i) => ({
-    ...resultAlert(r.studentName, input.assessmentTitle, r.obtainedMarks, input.maxMarks, input.markedBy),
-    id: `res-${Date.now()}-${i}`,
-  }));
+  const now = Date.now();
+  
+  // Sort results by obtained marks descending to compute ranks and percentiles
+  const sorted = [...input.results].sort((a, b) => b.obtainedMarks - a.obtainedMarks);
+  const total = sorted.length || 1;
+
+  // Update existing exam or add completed exam record
+  const existingExam = state.exams.find((e) => e.title.toLowerCase() === input.assessmentTitle.toLowerCase());
+  let updatedExams = [...state.exams];
+
+  if (existingExam) {
+    updatedExams = updatedExams.map((e) => {
+      if (e.id === existingExam.id) {
+        const topResult = sorted[0];
+        return {
+          ...e,
+          status: 'completed' as const,
+          maxMarks: input.maxMarks,
+          marksObtained: topResult?.obtainedMarks,
+          percentile: 95.0,
+          rankInBatch: 1,
+        };
+      }
+      return e;
+    });
+  } else {
+    updatedExams.unshift({
+      id: `exam-res-${now}`,
+      title: input.assessmentTitle,
+      subject: 'Academic Assessment',
+      batchName: 'Class 10 - A',
+      examType: 'Unit Test',
+      examDate: todayLabel(),
+      maxMarks: input.maxMarks,
+      status: 'completed',
+      createdBy: input.markedBy,
+      createdAt: now,
+      marksObtained: sorted[0]?.obtainedMarks,
+      percentile: 95.0,
+      rankInBatch: 1,
+    });
+  }
+
+  // Create Parent Alerts
+  const alerts: ParentAlert[] = sorted.map((r, i) => {
+    const rank = i + 1;
+    const pct = input.maxMarks > 0 ? Math.round((r.obtainedMarks / input.maxMarks) * 100) : 0;
+    const percentile = Number((((total - rank + 1) / total) * 100).toFixed(1));
+    return {
+      id: `res-${now}-${i}`,
+      type: 'result',
+      studentName: r.studentName,
+      title: `Result published · ${input.assessmentTitle}`,
+      message: `${r.studentName.split(' ')[0]} scored ${r.obtainedMarks}/${input.maxMarks} (${pct}%, Rank #${rank}) in ${input.assessmentTitle}.`,
+      tone: pct >= 75 ? 'success' : pct >= 40 ? 'info' : 'warning',
+      date: todayLabel(),
+      source: input.markedBy,
+      read: false,
+      createdAt: now,
+    };
+  });
+
+  // Also publish a notice to students and parents
+  const notice: NoticeMessage = {
+    id: `notice-res-${now}`,
+    title: `📊 Results Published: ${input.assessmentTitle}`,
+    content: `Results for ${input.assessmentTitle} (Max ${input.maxMarks} Marks) have been evaluated by ${input.markedBy} and published to student scorecards.`,
+    category: 'exam',
+    audience: ['student', 'parent'],
+    senderRole: 'teacher',
+    senderName: input.markedBy,
+    date: todayLabel(),
+    createdAt: now,
+  };
+
+  setState({
+    exams: updatedExams,
+    notices: [notice, ...state.notices],
+  });
   pushAlerts(alerts);
   return alerts;
 }
@@ -594,9 +853,6 @@ export function addExam(input: {
   const { id, ...rest } = input;
   const exam: ExamRecord = {
     ...rest,
-    // EDUOS-108 — when the caller has already persisted the exam to Supabase it
-    // passes the real row id, so the gradebook can publish marks against it
-    // (exam_results.exam_id FK). Only the demo path falls back to a local id.
     id: id || `exam-${Date.now()}`,
     status: 'scheduled',
     createdAt: Date.now(),
@@ -604,8 +860,9 @@ export function addExam(input: {
 
   // Notify parents of students in this batch (parent dashboard alert feed).
   const now = Date.now();
-  const examAlerts: ParentAlert[] = allStudentsInSchool
-    .filter((s) => s.batchName === exam.batchName)
+  const students = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+  const examAlerts: ParentAlert[] = students
+    .filter((s) => !exam.batchName || s.batchName === exam.batchName || s.batchName.includes(exam.batchName))
     .map((s, i) => ({
       id: `exam-alert-${now}-${i}`,
       type: 'exam',
@@ -663,7 +920,7 @@ export function markParentAlertsRead(studentNames?: string[]) {
   // When marking as read, remove all read alerts from queue so the widget clears
   setState({
     parentAlerts: state.parentAlerts.filter((a) =>
-      studentNames ? !studentNames.includes(a.studentName) : false
+      studentNames ? !studentNames.some((n) => n.toLowerCase() === a.studentName.toLowerCase()) : false,
     ),
   });
 }
@@ -692,19 +949,26 @@ export function createConsentForm(input: {
   const formId = input.id || `consent-${Date.now()}`;
   const now = Date.now();
 
+  const allStudents = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+
   // Find target students
   let targetStudents: Student[] = [];
   if (input.targetType === 'all_school') {
-    targetStudents = allStudentsInSchool;
+    targetStudents = allStudents;
   } else {
     input.targetBatchIds.forEach((bId) => {
-      const bStudents = studentsByBatch[bId] || [];
-      targetStudents.push(...bStudents);
+      const bStudents = studentsByBatch[bId] || allStudents.filter((s) => s.batchId === bId || s.batchName.includes(bId));
+      if (bStudents && bStudents.length > 0) {
+        targetStudents.push(...bStudents);
+      }
     });
+    if (targetStudents.length === 0) {
+      targetStudents = allStudents;
+    }
   }
 
   // Deduplicate target students
-  const uniqueStudents = Array.from(new Map(targetStudents.map((s) => [s.id, s])).values());
+  const uniqueStudents = Array.from(new Map(targetStudents.map((s) => [s.id || s.name, s])).values());
 
   const initialResponses: ConsentResponse[] = uniqueStudents.map((s) => ({
     studentId: s.id,
@@ -747,8 +1011,8 @@ export function createConsentForm(input: {
     createdAt: now,
   };
 
-  // Notify parent of first student (or all target students)
-  const alerts: ParentAlert[] = uniqueStudents.slice(0, 3).map((s, idx) => ({
+  // Notify parents of target students
+  const alerts: ParentAlert[] = uniqueStudents.map((s, idx) => ({
     id: `alert-consent-${now}-${idx}`,
     type: 'assignment',
     studentName: s.name,
@@ -762,7 +1026,7 @@ export function createConsentForm(input: {
   }));
 
   setState({
-    consentForms: [form, ...state.consentForms],
+    consentForms: [form, ...state.consentForms.filter((f) => f.id !== form.id)],
     notices: [notice, ...state.notices],
   });
   pushAlerts(alerts);
@@ -783,22 +1047,45 @@ export function signConsentForm(
 
   const now = Date.now();
   const trimmedName = parentFullName.trim();
+  const stdNameNorm = studentName.toLowerCase().trim();
+
   const updatedForms = state.consentForms.map((f) => {
     if (f.id !== formId) return f;
-    const updatedResponses = f.responses.map((r) => {
-      if (r.studentName.toLowerCase().trim() === studentName.toLowerCase().trim()) {
-        return {
-          ...r,
-          status: 'signed' as const,
+    const existing = f.responses.some((r) => r.studentName.toLowerCase().trim() === stdNameNorm);
+    let updatedResponses: ConsentResponse[];
+
+    if (existing) {
+      updatedResponses = f.responses.map((r) => {
+        if (r.studentName.toLowerCase().trim() === stdNameNorm) {
+          return {
+            ...r,
+            status: 'signed' as const,
+            signedAt: now,
+            signedByName: trimmedName,
+            parentName: trimmedName || r.parentName,
+            parentRelation,
+            parentPhone: emergencyPhone?.trim() || r.parentPhone,
+          };
+        }
+        return r;
+      });
+    } else {
+      updatedResponses = [
+        ...f.responses,
+        {
+          studentId: `std-${stdNameNorm}`,
+          studentName,
+          rollNumber: '1',
+          batchName: 'Class 10 - A',
+          parentName: trimmedName,
+          status: 'signed',
           signedAt: now,
           signedByName: trimmedName,
-          parentName: trimmedName || r.parentName,
           parentRelation,
-          parentPhone: emergencyPhone?.trim() || r.parentPhone,
-        };
-      }
-      return r;
-    });
+          parentPhone: emergencyPhone?.trim(),
+        },
+      ];
+    }
     return { ...f, responses: updatedResponses };
   });
 
@@ -811,18 +1098,37 @@ export function declineConsentForm(formId: string, studentName: string, declineR
   const form = state.consentForms.find((f) => f.id === formId);
   if (!form) return false;
 
+  const stdNameNorm = studentName.toLowerCase().trim();
   const updatedForms = state.consentForms.map((f) => {
     if (f.id !== formId) return f;
-    const updatedResponses = f.responses.map((r) => {
-      if (r.studentName.toLowerCase().trim() === studentName.toLowerCase().trim()) {
-        return {
-          ...r,
-          status: 'declined' as const,
+    const existing = f.responses.some((r) => r.studentName.toLowerCase().trim() === stdNameNorm);
+    let updatedResponses: ConsentResponse[];
+
+    if (existing) {
+      updatedResponses = f.responses.map((r) => {
+        if (r.studentName.toLowerCase().trim() === stdNameNorm) {
+          return {
+            ...r,
+            status: 'declined' as const,
+            declineReason: declineReason || 'Parent opted out.',
+          };
+        }
+        return r;
+      });
+    } else {
+      updatedResponses = [
+        ...f.responses,
+        {
+          studentId: `std-${stdNameNorm}`,
+          studentName,
+          rollNumber: '1',
+          batchName: 'Class 10 - A',
+          parentName: 'Parent',
+          status: 'declined',
           declineReason: declineReason || 'Parent opted out.',
-        };
-      }
-      return r;
-    });
+        },
+      ];
+    }
     return { ...f, responses: updatedResponses };
   });
 

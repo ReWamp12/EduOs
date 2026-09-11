@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
 import { Student } from '@/lib/types';
+import { useAppStore } from '@/lib/store';
 import { PageHeader, StatCard, SectionCard, Badge, ProgressBar, Skeleton, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import {
@@ -38,8 +39,9 @@ const MONTHS = [
 
 export const StudentAttendance: React.FC = () => {
   const { session } = useAuth();
+  const { attendanceSessions } = useAppStore();
   const [student, setStudent] = useState<Student | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState('2026-08');
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7) || '2026-08');
   const [records, setRecords] = useState<AttendanceApiRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -58,14 +60,19 @@ export const StudentAttendance: React.FC = () => {
           }
         });
       } else if (active) {
-        setLoading(false);
+        dataService.getStudentAttendance().then((att) => {
+          if (active) {
+            setRecords((att || []) as AttendanceApiRecord[]);
+            setLoading(false);
+          }
+        });
       }
     });
 
     return () => {
       active = false;
     };
-  }, [session?.userId]);
+  }, [session?.userId, attendanceSessions]);
 
   // Overall attendance statistics computed strictly from real Supabase records
   const stats = useMemo(() => {

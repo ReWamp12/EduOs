@@ -61,8 +61,13 @@ export const ParentConsentForms: React.FC = () => {
 
   // Derive status of each consent form for the current selected child
   const formsWithChildStatus = (consentForms || []).map((form) => {
+    const cName = (currentChild?.name || '').toLowerCase().trim();
+    const cFirst = cName.split(' ')[0] || '';
     const childResponse = (form.responses || []).find(
-      (r) => r.studentName && currentChild?.name && r.studentName.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
+      (r) =>
+        (currentChild?.id && r.studentId === currentChild.id) ||
+        (currentChild?.rollNumber && r.rollNumber === currentChild.rollNumber) ||
+        (r.studentName && cName && (r.studentName.toLowerCase().trim() === cName || (cFirst && r.studentName.toLowerCase().includes(cFirst)))),
     );
     const status: 'signed' | 'declined' | 'pending' = childResponse ? childResponse.status : 'pending';
     const signedOn = childResponse?.signedAt

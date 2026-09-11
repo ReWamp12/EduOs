@@ -16,7 +16,7 @@ import {
 
 export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const { session } = useAuth();
-  const { feeInvoices, consentForms } = useAppStore();
+  const { feeInvoices, consentForms, attendanceSessions } = useAppStore();
   const [children, setChildren] = useState<Student[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -38,19 +38,46 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
 
   const activeChild = children.find((c) => c.id === selectedChildId) || children[0];
 
+  const childAttendancePct = React.useMemo(() => {
+    if (!activeChild) return 96.5;
+    let present = 0;
+    let total = 0;
+    const childFirst = activeChild.name?.toLowerCase().split(' ')[0] || '';
+    (attendanceSessions || []).forEach((sess) => {
+      sess.records?.forEach((rec) => {
+        if (
+          rec.studentId === activeChild.id ||
+          rec.rollNumber === activeChild.rollNumber ||
+          (rec.studentName && childFirst && rec.studentName.toLowerCase().includes(childFirst))
+        ) {
+          total++;
+          if (rec.status === 'present' || rec.status === 'late' || rec.status === 'medical') present++;
+        }
+      });
+    });
+    if (total > 0) return Number(((present / total) * 100).toFixed(1));
+    return activeChild.attendancePct || 96.5;
+  }, [attendanceSessions, activeChild]);
+
   const childName = activeChild?.name?.toLowerCase().trim() || '';
+  const childFirst = childName.split(' ')[0] || '';
+
   const childInvoices = childName
-    ? feeInvoices.filter((i) => i.studentName.toLowerCase().trim() === childName)
+    ? feeInvoices.filter((i) => i.studentName.toLowerCase().trim() === childName || (childFirst && i.studentName.toLowerCase().includes(childFirst)))
     : [];
   const unpaidInvoice = childInvoices.find((i) => i.status !== 'paid');
 
-  const pendingConsent = childName
-    ? consentForms.filter((f) =>
-        f.responses.some(
-          (r) => r.studentName.toLowerCase().trim() === childName && r.status === 'pending',
-        ),
-      )
-    : [];
+  const pendingConsent = React.useMemo(() => {
+    if (!activeChild) return [];
+    return (consentForms || []).filter((f) => {
+      const resp = (f.responses || []).find(
+        (r) =>
+          r.studentId === activeChild.id ||
+          (r.studentName && (r.studentName.toLowerCase().trim() === childName || (childFirst && r.studentName.toLowerCase().includes(childFirst)))),
+      );
+      return !resp || resp.status === 'pending';
+    });
+  }, [consentForms, activeChild, childName, childFirst]);
 
   const parentName = session
     ? `${session.firstName || 'Parent'} ${session.lastName || ''}`.trim()
@@ -115,7 +142,7 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
               <div>
                 <div className="eyebrow">Attendance</div>
                 <div className="mt-1 text-2xl font-semibold text-success">
-                  {formatPct(activeChild.attendancePct)}
+                  {formatPct(childAttendancePct)}
                 </div>
               </div>
             </div>

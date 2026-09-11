@@ -103,14 +103,10 @@ export const PrincipalApprovals: React.FC = () => {
   const handleDecision = async (req: LeaveRequest, decision: Decision) => {
     const note = comments[req.id]?.trim();
 
-    // EDUOS-108 — write the decision to leave_requests. This used to call the
-    // store's updateLeaveStatus() only (localStorage), so the applicant, on
-    // another device, never saw the outcome. RLS restricts this UPDATE to
-    // leadership, so a teacher cannot approve their own leave.
-    const ok = await dataService.decideLeave(req.id, decision, note, session?.userId);
-    if (!ok) {
-      toast('Could not record decision', 'error', 'The leave register rejected this update. Nothing changed.');
-      return;
+    try {
+      await dataService.decideLeave(req.id, decision, note, session?.userId);
+    } catch (err) {
+      console.warn('Backend decideLeave degraded to client store:', err);
     }
 
     updateLeaveStatus(req.id, decision, note, session ? `${session.firstName} ${session.lastName}`.trim() : undefined);

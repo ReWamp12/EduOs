@@ -63,12 +63,15 @@ export const ParentFees: React.FC = () => {
 
   // Filter invoices for the selected child. RLS already limits the rows to
   // this guardian's children; the name match picks one child of several.
-  const sourceInvoices = dbInvoices ?? feeInvoices ?? [];
+  const sourceInvoices = (dbInvoices && dbInvoices.length > 0) ? dbInvoices : (feeInvoices ?? []);
   const childInvoices = currentChild
     ? sourceInvoices.filter(
-        (i) => i.studentName?.toLowerCase().trim() === currentChild.name.toLowerCase().trim(),
+        (i) =>
+          !i.studentName ||
+          i.studentName?.toLowerCase().trim() === currentChild.name.toLowerCase().trim() ||
+          (currentChild.name && i.studentName?.toLowerCase().includes(currentChild.name.toLowerCase().split(' ')[0])),
       )
-    : [];
+    : sourceInvoices;
 
   const pendingInvoices = childInvoices.filter((i) => i.status !== 'paid');
   const paidInvoices = childInvoices.filter((i) => i.status === 'paid');

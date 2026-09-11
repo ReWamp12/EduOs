@@ -30,9 +30,17 @@ export const ParentExamHistory: React.FC = () => {
 
   const child = children.find((c) => c.id === childId) || children[0];
 
-  // Exams for this child: matched by batch or explicit result name.
+  const cName = (child?.name || '').toLowerCase().trim();
+  const cFirst = cName.split(' ')[0] || '';
+
+  // Exams for this child: matched by batch or student result.
   const childExams = (exams || []).filter(
-    (e) => (child?.batchName && e.batchName === child.batchName) || (child?.name && e.studentName === child.name),
+    (e) =>
+      !e.batchName ||
+      !child?.batchName ||
+      e.batchName === child.batchName ||
+      e.batchName.includes(child.batchName) ||
+      (e.studentName && cName && (e.studentName.toLowerCase().trim() === cName || (cFirst && e.studentName.toLowerCase().includes(cFirst)))),
   );
   const completed = childExams.filter((e) => e.status === 'completed');
   const upcoming = childExams.filter((e) => e.status === 'scheduled');

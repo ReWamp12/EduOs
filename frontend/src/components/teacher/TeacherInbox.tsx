@@ -17,10 +17,23 @@ export const TeacherInbox: React.FC = () => {
   const { ptmBookings, submissions } = useAppStore();
   const [marks, setMarks] = useState<Record<string, string>>({});
 
-  // Scope to students in the selected batch.
-  const names = new Set(students.map((s) => s.name));
-  const batchPtm = ptmBookings.filter((b) => names.has(b.studentName));
-  const batchSubs = submissions.filter((s) => names.has(s.studentName));
+  // Scope to students in the selected batch (or show all if batch students empty / fallback)
+  const names = new Set(students.map((s) => (s.name || '').toLowerCase().trim()));
+  const firstNames = new Set(students.map((s) => (s.name || '').toLowerCase().split(' ')[0]));
+
+  const batchPtm = ptmBookings.filter((b) => {
+    if (!b.studentName) return true;
+    const sName = (b.studentName || '').toLowerCase().trim();
+    const sFirst = sName.split(' ')[0];
+    return students.length === 0 || names.has(sName) || firstNames.has(sFirst);
+  });
+
+  const batchSubs = submissions.filter((s) => {
+    if (!s.studentName) return true;
+    const sName = (s.studentName || '').toLowerCase().trim();
+    const sFirst = sName.split(' ')[0];
+    return students.length === 0 || names.has(sName) || firstNames.has(sFirst);
+  });
 
   const pendingSubs = batchSubs.filter((s) => s.status === 'submitted');
   const gradedCount = batchSubs.filter((s) => s.status === 'graded').length;

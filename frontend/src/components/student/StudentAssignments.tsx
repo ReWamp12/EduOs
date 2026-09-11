@@ -58,7 +58,13 @@ export const StudentAssignments: React.FC = () => {
   const studentBatchAssignments = useMemo(() => {
     if (!student) return storeAssignments;
     return storeAssignments.filter(
-      (a) => !a.batchName || a.batchName === student.batchName || a.batchId === student.batchId,
+      (a) =>
+        !a.batchName ||
+        !student.batchName ||
+        a.batchName === student.batchName ||
+        a.batchId === student.batchId ||
+        student.batchName.includes(a.batchName) ||
+        a.batchName.includes(student.batchName),
     );
   }, [storeAssignments, student]);
 

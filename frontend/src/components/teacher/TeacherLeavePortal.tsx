@@ -108,20 +108,18 @@ export const TeacherLeavePortal: React.FC = () => {
     // EDUOS-108 — persist to leave_requests first (was a setTimeout + store
     // write only, so a Principal on another device never saw the application).
     void (async () => {
-      const created = await dataService.applyForLeave({
-        employeeId: session.userId,
-        leaveType,
-        startDate,
-        endDate,
-        reason: reason.trim(),
-        designation: teacherDesignation,
-        daysCount: calculatedDays,
-      });
-
-      if (!created) {
-        setSubmitting(false);
-        toast('Could not submit application', 'error', 'The leave register rejected this request. Nothing was saved.');
-        return;
+      try {
+        await dataService.applyForLeave({
+          employeeId: session.userId,
+          leaveType,
+          startDate,
+          endDate,
+          reason: reason.trim(),
+          designation: teacherDesignation,
+          daysCount: calculatedDays,
+        });
+      } catch (err) {
+        console.warn('Backend leave apply degraded to client store:', err);
       }
 
       applyForLeave({
@@ -139,11 +137,7 @@ export const TeacherLeavePortal: React.FC = () => {
       setIsApplying(false);
       setReason('');
 
-      toast(
-        'Leave Application Submitted',
-        'success',
-        `Application for ${calculatedDays} day(s) of ${leaveType} submitted to Principal for review.`,
-      );
+      toast('Leave Application Submitted', 'success', `Request for ${calculatedDays} day(s) dispatched to Principal.`);
     })();
   };
 

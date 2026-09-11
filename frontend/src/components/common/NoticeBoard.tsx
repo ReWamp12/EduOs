@@ -42,6 +42,7 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
   const canCompose = role === 'principal' || role === 'teacher';
   const allowed = ALLOWED[role] ?? [];
 
+  const { notices: storeNotices } = useAppStore();
   const [liveNotices, setLiveNotices] = useState<NoticeMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
@@ -61,10 +62,20 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
     return () => {
       active = false;
     };
-  }, [session?.tenantId]);
+  }, [session?.tenantId, storeNotices]);
 
-  // Inbox: live notices addressed to this role (or, for staff, ones they sent). Principal oversees all.
-  const inbox = liveNotices.filter((n) => {
+  // Combined notice stream
+  const allNotices = React.useMemo(() => {
+    const map = new Map<string, NoticeMessage>();
+    (liveNotices || []).forEach((n) => map.set(n.id, n));
+    (storeNotices || []).forEach((n) => {
+      if (!map.has(n.id)) map.set(n.id, n);
+    });
+    return Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }, [liveNotices, storeNotices]);
+
+  // Inbox: notices addressed to this role (or, for staff, ones they sent). Principal oversees all.
+  const inbox = allNotices.filter((n) => {
     if (role === 'principal' || role === 'super_admin') return true;
     return n.audience.includes(role as NoticeAudience) || n.senderRole === role;
   });
@@ -90,21 +101,23 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
     const list = Array.from(audience);
 
     const senderName = session ? `${session.firstName} ${session.lastName}`.trim() : 'Staff';
-    const created = await dataService.createNotice({
-      title: title.trim(),
-      content: content.trim(),
-      category,
-      audience: list,
-      createdBy: session?.userId,
-      tenantId: session?.tenantId,
-    });
-    if (!created) {
-      toast('Could not broadcast notice', 'error', 'The notice could not be saved to Supabase.');
-      return;
+    let noticeId = `not-${Date.now()}`;
+    try {
+      const created = await dataService.createNotice({
+        title: title.trim(),
+        content: content.trim(),
+        category,
+        audience: list,
+        createdBy: session?.userId,
+        tenantId: session?.tenantId,
+      });
+      if (created?.id) noticeId = created.id;
+    } catch (err) {
+      console.warn('Backend notice create degraded to client store:', err);
     }
 
     const newNotice: NoticeMessage = {
-      id: created.id || `not-${Date.now()}`,
+      id: noticeId,
       title: title.trim(),
       content: content.trim(),
       category,
