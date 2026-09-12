@@ -2,345 +2,517 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTeacherBatch } from '@/lib/teacherContext';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
+import { SyllabusChapter, SyllabusTopic, LearningMaterial, TopicStatus, MaterialType } from '@/lib/types';
 import {
   BookOpen,
   CheckCircle2,
   Clock,
-  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Sparkles,
   Layers,
-  Calendar,
   FileCheck,
   Plus,
+  FileText,
+  Video,
+  StickyNote,
+  ExternalLink,
+  Trash2,
+  X,
+  Loader2,
+  AlertCircle,
+  Edit3,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  CalendarCheck,
+  BarChart3,
+  UploadCloud,
+  Download,
 } from 'lucide-react';
-import { PageHeader, SectionCard, StatCard, Badge, ProgressBar, Card, cn } from '@/components/ui';
+import { PageHeader, StatCard, Badge, ProgressBar, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 
-interface Topic {
+interface SubjectOption {
   id: string;
   name: string;
-  periods: number;
-  completed: boolean;
-  targetDate: string;
-  hasLessonPlan: boolean;
+  code: string;
 }
 
-interface Chapter {
-  id: string;
-  number: number;
-  title: string;
-  topics: Topic[];
+const DEFAULT_SUBJECTS: SubjectOption[] = [
+  { id: 'a6000000-0000-0000-0000-000000000001', name: 'Mathematics', code: 'MATH-10' },
+  { id: 'a6000000-0000-0000-0000-000000000002', name: 'Physics', code: 'PHY-10' },
+  { id: 'a6000000-0000-0000-0000-000000000003', name: 'Chemistry', code: 'CHEM-10' },
+  { id: 'a6000000-0000-0000-0000-000000000004', name: 'Biology', code: 'BIO-10' },
+  { id: 'a6000000-0000-0000-0000-000000000005', name: 'Computer Science', code: 'CS-10' },
+];
+
+interface CurriculumTrackerProps {
+  onNavigate?: (tab: string) => void;
 }
 
-interface Unit {
-  id: string;
-  name: string;
-  weightageMarks: number;
-  chapters: Chapter[];
-}
+export const CurriculumTracker: React.FC<CurriculumTrackerProps> = ({ onNavigate }) => {
+  const { session } = useAuth();
+  const { batch, teacher } = useTeacherBatch();
 
-const CURRICULUM_DATA: Record<string, Unit[]> = {
-  Mathematics: [
-    {
-      id: 'u1',
-      name: 'Unit I: Number Systems',
-      weightageMarks: 6,
-      chapters: [
-        {
-          id: 'c1',
-          number: 1,
-          title: 'Real Numbers',
-          topics: [
-            { id: 't1', name: 'Fundamental Theorem of Arithmetic', periods: 4, completed: true, targetDate: '15 Jul 2026', hasLessonPlan: true },
-            { id: 't2', name: 'Revisiting Irrational Numbers (Proofs of √2, √3)', periods: 4, completed: true, targetDate: '22 Jul 2026', hasLessonPlan: true },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'u2',
-      name: 'Unit II: Algebra',
-      weightageMarks: 20,
-      chapters: [
-        {
-          id: 'c2',
-          number: 2,
-          title: 'Polynomials',
-          topics: [
-            { id: 't3', name: 'Zeros of a Polynomial & Geometric Meaning', periods: 4, completed: true, targetDate: '02 Aug 2026', hasLessonPlan: true },
-            { id: 't4', name: 'Relationship between Zeros and Coefficients of Quadratic Polynomials', periods: 4, completed: true, targetDate: '10 Aug 2026', hasLessonPlan: true },
-          ],
-        },
-        {
-          id: 'c3',
-          number: 3,
-          title: 'Pair of Linear Equations in Two Variables',
-          topics: [
-            { id: 't5', name: 'Graphical Method of Solution & Consistency', periods: 5, completed: true, targetDate: '18 Aug 2026', hasLessonPlan: true },
-            { id: 't6', name: 'Algebraic Methods: Substitution & Elimination', periods: 6, completed: true, targetDate: '28 Aug 2026', hasLessonPlan: true },
-          ],
-        },
-        {
-          id: 'c4',
-          number: 4,
-          title: 'Quadratic Equations',
-          topics: [
-            { id: 't7', name: 'Standard Form of Quadratic Equations', periods: 3, completed: true, targetDate: '05 Sep 2026', hasLessonPlan: true },
-            { id: 't8', name: 'Solution by Factorisation & Quadratic Formula', periods: 6, completed: false, targetDate: '15 Sep 2026', hasLessonPlan: true },
-            { id: 't9', name: 'Discriminant and Nature of Roots', periods: 4, completed: false, targetDate: '22 Sep 2026', hasLessonPlan: false },
-          ],
-        },
-        {
-          id: 'c5',
-          number: 5,
-          title: 'Arithmetic Progressions',
-          topics: [
-            { id: 't10', name: 'nth Term of an AP', periods: 4, completed: false, targetDate: '05 Oct 2026', hasLessonPlan: true },
-            { id: 't11', name: 'Sum of First n Terms of an AP', periods: 6, completed: false, targetDate: '15 Oct 2026', hasLessonPlan: false },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'u3',
-      name: 'Unit III: Coordinate Geometry',
-      weightageMarks: 6,
-      chapters: [
-        {
-          id: 'c6',
-          number: 6,
-          title: 'Coordinate Geometry',
-          topics: [
-            { id: 't12', name: 'Distance Formula & Applications', periods: 4, completed: false, targetDate: '28 Oct 2026', hasLessonPlan: true },
-            { id: 't13', name: 'Section Formula (Internal Division)', periods: 4, completed: false, targetDate: '05 Nov 2026', hasLessonPlan: false },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'u4',
-      name: 'Unit IV: Geometry',
-      weightageMarks: 15,
-      chapters: [
-        {
-          id: 'c7',
-          number: 7,
-          title: 'Triangles',
-          topics: [
-            { id: 't14', name: 'Basic Proportionality Theorem (Thales Theorem)', periods: 6, completed: false, targetDate: '15 Nov 2026', hasLessonPlan: true },
-            { id: 't15', name: 'Criteria for Similarity of Triangles (AAA, SSS, SAS)', periods: 6, completed: false, targetDate: '25 Nov 2026', hasLessonPlan: false },
-          ],
-        },
-        {
-          id: 'c8',
-          number: 8,
-          title: 'Circles',
-          topics: [
-            { id: 't16', name: 'Tangent to a Circle & Theorem Proofs', periods: 6, completed: false, targetDate: '05 Dec 2026', hasLessonPlan: false },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'u5',
-      name: 'Unit V: Trigonometry',
-      weightageMarks: 12,
-      chapters: [
-        {
-          id: 'c9',
-          number: 9,
-          title: 'Introduction to Trigonometry & Identities',
-          topics: [
-            { id: 't17', name: 'Trigonometric Ratios of Specific Angles (30°, 45°, 60°)', periods: 5, completed: false, targetDate: '15 Dec 2026', hasLessonPlan: true },
-            { id: 't18', name: 'Proof and Application of sin²θ + cos²θ = 1', periods: 5, completed: false, targetDate: '22 Dec 2026', hasLessonPlan: false },
-          ],
-        },
-      ],
-    },
-  ],
-  Science: [
-    {
-      id: 'su1',
-      name: 'Unit I: Chemical Substances - Nature and Behaviour',
-      weightageMarks: 25,
-      chapters: [
-        {
-          id: 'sc1',
-          number: 1,
-          title: 'Chemical Reactions and Equations',
-          topics: [
-            { id: 'st1', name: 'Balanced Chemical Equations & Types of Reactions', periods: 6, completed: true, targetDate: '20 Jul 2026', hasLessonPlan: true },
-            { id: 'st2', name: 'Oxidation, Reduction, Corrosion & Rancidity', periods: 4, completed: true, targetDate: '30 Jul 2026', hasLessonPlan: true },
-          ],
-        },
-        {
-          id: 'sc2',
-          number: 2,
-          title: 'Acids, Bases and Salts',
-          topics: [
-            { id: 'st3', name: 'pH Scale & Importance in Everyday Life', periods: 5, completed: true, targetDate: '15 Aug 2026', hasLessonPlan: true },
-            { id: 'st4', name: 'Preparation and Uses of Plaster of Paris, Bleaching Powder', periods: 5, completed: false, targetDate: '28 Aug 2026', hasLessonPlan: true },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'su2',
-      name: 'Unit II: World of Living',
-      weightageMarks: 25,
-      chapters: [
-        {
-          id: 'sc3',
-          number: 3,
-          title: 'Life Processes',
-          topics: [
-            { id: 'st5', name: 'Nutrition in Plants and Animals (Human Alimentary Canal)', periods: 6, completed: true, targetDate: '08 Sep 2026', hasLessonPlan: true },
-            { id: 'st6', name: 'Respiration & Transportation in Human Beings (Heart & Circulation)', periods: 7, completed: false, targetDate: '20 Sep 2026', hasLessonPlan: true },
-            { id: 'st7', name: 'Excretion in Human Beings & Nephron Structure', periods: 5, completed: false, targetDate: '30 Sep 2026', hasLessonPlan: false },
-          ],
-        },
-      ],
-    },
-  ],
-};
+  const [subjects, setSubjects] = useState<SubjectOption[]>(DEFAULT_SUBJECTS);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(DEFAULT_SUBJECTS[0].id);
+  const [chapters, setChapters] = useState<SyllabusChapter[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
 
-export const CurriculumTracker: React.FC = () => {
-  const { batch } = useTeacherBatch();
-  const subjects = Object.keys(CURRICULUM_DATA);
-  const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0]);
-  const [units, setUnits] = useState<Unit[]>(CURRICULUM_DATA[subjects[0]]);
-  const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>({ u1: true, u2: true, su1: true });
-  const [topicDbIds, setTopicDbIds] = useState<Record<string, string>>({});
+  // Add Material Modal State
+  const [materialModalTopic, setMaterialModalTopic] = useState<SyllabusTopic | null>(null);
+  const [matTitle, setMatTitle] = useState('');
+  const [matType, setMatType] = useState<MaterialType>('pdf');
+  const [matUrl, setMatUrl] = useState('');
+  const [savingMaterial, setSavingMaterial] = useState(false);
+
+  // Add Chapter Modal State
+  const [showAddChapterModal, setShowAddChapterModal] = useState(false);
+  const [newChNumber, setNewChNumber] = useState(1);
+  const [newChTitle, setNewChTitle] = useState('');
+  const [newChUnit, setNewChUnit] = useState('Unit I: Core');
+  const [savingChapter, setSavingChapter] = useState(false);
+
+  // Edit Chapter Modal State
+  const [editingChapter, setEditingChapter] = useState<SyllabusChapter | null>(null);
+  const [editChTitle, setEditChTitle] = useState('');
+  const [editChUnit, setEditChUnit] = useState('');
+  const [editChNumber, setEditChNumber] = useState(1);
+  const [savingEditChapter, setSavingEditChapter] = useState(false);
+
+  // Add Topic Modal State
+  const [topicModalChapter, setTopicModalChapter] = useState<SyllabusChapter | null>(null);
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+  const [newTopicPeriods, setNewTopicPeriods] = useState(4);
+  const [savingTopic, setSavingTopic] = useState(false);
+
+  // Edit Topic Modal State
+  const [editingTopic, setEditingTopic] = useState<SyllabusTopic | null>(null);
+  const [editTopicTitle, setEditTopicTitle] = useState('');
+  const [editTopicPeriods, setEditTopicPeriods] = useState(4);
+  const [editTopicDescription, setEditTopicDescription] = useState('');
+  const [savingEditTopic, setSavingEditTopic] = useState(false);
+
+  // Material Viewer Modal State
+  const [viewingMaterial, setViewingMaterial] = useState<LearningMaterial | null>(null);
+
+  // Active Batch ID (defaults to Greenfield Class 10-A if not set)
+  const activeBatchId = batch?.id || 'a5000000-0000-0000-0000-000000000001';
+
+  // Load syllabus from Supabase on batch/subject change
+  const loadSyllabus = async () => {
+    setLoading(true);
+    try {
+      const data = await dataService.getSyllabus(activeBatchId, selectedSubjectId, session?.tenantId);
+      setChapters(data);
+      // Auto-expand all chapters by default
+      const exp: Record<string, boolean> = {};
+      data.forEach((c) => {
+        exp[c.id] = true;
+      });
+      setExpandedChapters(exp);
+    } catch (e) {
+      console.warn('[CurriculumTracker] Error fetching syllabus:', e);
+      toast('Failed to load syllabus', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    if (batch?.id) {
-      dataService.getCurriculumTopics(batch.id).then((rows) => {
-        if (!active || !rows || rows.length === 0) return;
-        const idMap: Record<string, string> = {};
-        const completedMap: Record<string, boolean> = {};
-        rows.forEach((r: any) => {
-          idMap[r.topicName] = r.id;
-          completedMap[r.topicName] = r.isCompleted;
-        });
-        setTopicDbIds(idMap);
-        setUnits((prevUnits) =>
-          prevUnits.map((u) => ({
-            ...u,
-            chapters: u.chapters.map((c) => ({
-              ...c,
-              topics: c.topics.map((t) => ({
-                ...t,
-                completed: completedMap[t.name] !== undefined ? completedMap[t.name] : t.completed,
-              })),
-            })),
-          }))
-        );
-      });
-    }
-    return () => {
-      active = false;
-    };
-  }, [batch?.id]);
+    loadSyllabus();
+  }, [activeBatchId, selectedSubjectId, session?.tenantId]);
 
-  const handleSubjectChange = (subj: string) => {
-    setSelectedSubject(subj);
-    setUnits(CURRICULUM_DATA[subj] || []);
-  };
+  const selectedSubject = useMemo(
+    () => subjects.find((s) => s.id === selectedSubjectId) || subjects[0],
+    [subjects, selectedSubjectId]
+  );
 
-  const toggleUnit = (unitId: string) => {
-    setExpandedUnits((prev) => ({ ...prev, [unitId]: !prev[unitId] }));
-  };
-
-  const toggleTopic = async (unitId: string, chapterId: string, topicId: string) => {
-    let targetedTopic: Topic | undefined;
-    let targetedUnitName = '';
-
-    const nextUnits = units.map((u) => {
-      if (u.id !== unitId) return u;
-      targetedUnitName = u.name;
-      return {
-        ...u,
-        chapters: u.chapters.map((c) => {
-          if (c.id !== chapterId) return c;
-          return {
-            ...c,
-            topics: c.topics.map((t) => {
-              if (t.id !== topicId) return t;
-              targetedTopic = t;
-              const nextState = !t.completed;
-              if (nextState) {
-                toast('Topic completed', 'success', `${t.name} marked as taught & saved.`);
-              }
-              return { ...t, completed: nextState };
-            }),
-          };
-        }),
-      };
+  // Group chapters by Unit if available
+  const unitsGrouped = useMemo(() => {
+    const map = new Map<string, SyllabusChapter[]>();
+    chapters.forEach((ch) => {
+      const unit = ch.unitName || 'Core Curriculum';
+      if (!map.has(unit)) map.set(unit, []);
+      map.get(unit)!.push(ch);
     });
+    return Array.from(map.entries()).map(([unitName, chList]) => ({
+      unitName,
+      chapters: chList,
+    }));
+  }, [chapters]);
 
-    setUnits(nextUnits);
+  // Aggregate Metrics
+  const allTopics = useMemo(() => {
+    return chapters.flatMap((c) => c.topics);
+  }, [chapters]);
 
-    if (targetedTopic && batch?.id) {
-      const nextCompleted = !targetedTopic.completed;
-      const existingDbId = topicDbIds[targetedTopic.name];
-      if (existingDbId) {
-        await dataService.updateCurriculumTopic(existingDbId, nextCompleted);
-      } else {
-        // Find subject id or default
-        const subjectId = 'bb24b10a-a844-4a27-993e-dac168f2787b'; // default Maths
-        const res = await dataService.createCurriculumTopic({
-          batchId: batch.id,
-          subjectId,
-          unitName: targetedUnitName,
-          topicName: targetedTopic.name,
-        });
-        if (res?.id) {
-          setTopicDbIds((prev) => ({ ...prev, [targetedTopic!.name]: res.id }));
-          if (nextCompleted) {
-            await dataService.updateCurriculumTopic(res.id, true);
-          }
-        }
-      }
+  const allMaterials = useMemo(() => {
+    const list: LearningMaterial[] = [];
+    chapters.forEach((c) => {
+      if (c.materials) list.push(...c.materials);
+      c.topics.forEach((t) => {
+        if (t.materials) list.push(...t.materials);
+      });
+    });
+    return list;
+  }, [chapters]);
+
+  const completedTopicsCount = allTopics.filter((t) => t.status === 'completed').length;
+  const inProgressTopicsCount = allTopics.filter((t) => t.status === 'in_progress').length;
+  const totalTopicsCount = allTopics.length;
+  const syllabusProgressPct =
+    totalTopicsCount > 0 ? Math.round((completedTopicsCount / totalTopicsCount) * 100) : 0;
+  const totalPeriods = allTopics.reduce((sum, t) => sum + (t.estimatedPeriods || 4), 0);
+  const completedPeriods = allTopics
+    .filter((t) => t.status === 'completed')
+    .reduce((sum, t) => sum + (t.estimatedPeriods || 4), 0);
+
+  // Cycle topic status: not_started -> in_progress -> completed -> not_started
+  const handleCycleStatus = async (topic: SyllabusTopic) => {
+    const nextStatus: TopicStatus =
+      topic.status === 'not_started'
+        ? 'in_progress'
+        : topic.status === 'in_progress'
+        ? 'completed'
+        : 'not_started';
+
+    // Optimistic UI update
+    setChapters((prev) =>
+      prev.map((ch) => {
+        if (ch.id !== topic.chapterId) return ch;
+        const updatedTopics = ch.topics.map((t) =>
+          t.id === topic.id ? { ...t, status: nextStatus } : t
+        );
+        const compCount = updatedTopics.filter((t) => t.status === 'completed').length;
+        const pct = Math.round((compCount / updatedTopics.length) * 100);
+        return {
+          ...ch,
+          topics: updatedTopics,
+          progressPct: pct,
+          status:
+            compCount === updatedTopics.length
+              ? 'completed'
+              : compCount > 0 || updatedTopics.some((t) => t.status === 'in_progress')
+              ? 'in_progress'
+              : 'not_started',
+        };
+      })
+    );
+
+    const success = await dataService.updateTopicStatus(topic.id, nextStatus);
+    if (success) {
+      const statusLabel =
+        nextStatus === 'completed'
+          ? 'Completed ✓'
+          : nextStatus === 'in_progress'
+          ? 'In Progress ◐'
+          : 'Not Started ○';
+      toast(`Topic status updated to ${statusLabel}`, 'success');
+    } else {
+      toast('Failed to update status in Supabase', 'error');
+      void loadSyllabus();
     }
   };
 
-  const allTopics = useMemo(() => {
-    const list: Topic[] = [];
-    units.forEach((u) => u.chapters.forEach((c) => list.push(...c.topics)));
-    return list;
-  }, [units]);
+  // Add Material submit handler
+  const handleSaveMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!materialModalTopic || !matTitle.trim() || !matUrl.trim()) return;
+    setSavingMaterial(true);
+    try {
+      const created = await dataService.addLearningMaterial({
+        tenantId: session?.tenantId,
+        subjectId: selectedSubjectId,
+        batchId: activeBatchId,
+        chapterId: materialModalTopic.chapterId,
+        topicId: materialModalTopic.id,
+        title: matTitle,
+        materialType: matType,
+        fileUrl: matUrl,
+        fileSize: matType === 'pdf' ? '2.5 MB' : matType === 'video' ? '15 mins' : 'Web Link',
+        authorName: teacher?.name || 'Faculty',
+      });
 
-  const completedCount = allTopics.filter((t) => t.completed).length;
-  const totalCount = allTopics.length;
-  const completionPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const totalPeriods = allTopics.reduce((sum, t) => sum + t.periods, 0);
-  const completedPeriods = allTopics.filter((t) => t.completed).reduce((sum, t) => sum + t.periods, 0);
+      if (created) {
+        toast('Learning material attached!', 'success', `${created.title} added to topic.`);
+        setMaterialModalTopic(null);
+        setMatTitle('');
+        setMatUrl('');
+        void loadSyllabus();
+      } else {
+        toast('Failed to attach material', 'error');
+      }
+    } finally {
+      setSavingMaterial(false);
+    }
+  };
 
-  // Target expected completion by late August is ~40%
-  const pacingStatus = completionPct >= 40 ? 'on_track' : 'needs_pacing';
+  // Delete Material handler
+  const handleDeleteMaterial = async (matId: string) => {
+    if (!confirm('Remove this learning material?')) return;
+    const ok = await dataService.deleteLearningMaterial(matId);
+    if (ok) {
+      toast('Material removed', 'info');
+      void loadSyllabus();
+    } else {
+      toast('Failed to delete material', 'error');
+    }
+  };
+
+  // Add Chapter submit handler
+  const handleSaveChapter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChTitle.trim()) return;
+    setSavingChapter(true);
+    try {
+      const created = await dataService.createChapter({
+        tenantId: session?.tenantId,
+        batchId: activeBatchId,
+        subjectId: selectedSubjectId,
+        chapterNumber: newChNumber,
+        title: newChTitle,
+        unitName: newChUnit,
+        sequenceOrder: newChNumber,
+      });
+      if (created) {
+        toast('Chapter created successfully!', 'success');
+        setShowAddChapterModal(false);
+        setNewChTitle('');
+        setNewChNumber((prev) => prev + 1);
+        void loadSyllabus();
+      }
+    } finally {
+      setSavingChapter(false);
+    }
+  };
+
+  // Edit Chapter open
+  const handleOpenEditChapter = (ch: SyllabusChapter) => {
+    setEditingChapter(ch);
+    setEditChTitle(ch.title);
+    setEditChUnit(ch.unitName || 'Core Curriculum');
+    setEditChNumber(ch.chapterNumber);
+  };
+
+  // Edit Chapter submit handler
+  const handleSaveEditChapter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChapter || !editChTitle.trim()) return;
+    setSavingEditChapter(true);
+    try {
+      const ok = await dataService.updateChapter(editingChapter.id, {
+        title: editChTitle,
+        unitName: editChUnit,
+        chapterNumber: editChNumber,
+      });
+      if (ok) {
+        toast('Chapter updated successfully!', 'success');
+        setEditingChapter(null);
+        void loadSyllabus();
+      } else {
+        toast('Failed to update chapter', 'error');
+      }
+    } finally {
+      setSavingEditChapter(false);
+    }
+  };
+
+  // Delete Chapter handler
+  const handleDeleteChapter = async (chId: string, chTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${chTitle}" and all its topics? This action cannot be undone.`)) return;
+    const ok = await dataService.deleteChapter(chId);
+    if (ok) {
+      toast('Chapter deleted', 'info', `Chapter "${chTitle}" removed.`);
+      void loadSyllabus();
+    } else {
+      toast('Failed to delete chapter', 'error');
+    }
+  };
+
+  // Add Topic submit handler
+  const handleSaveTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!topicModalChapter || !newTopicTitle.trim()) return;
+    setSavingTopic(true);
+    try {
+      const nextSeq = topicModalChapter.topics.length + 1;
+      const created = await dataService.createTopic({
+        tenantId: session?.tenantId,
+        chapterId: topicModalChapter.id,
+        subjectId: selectedSubjectId,
+        batchId: activeBatchId,
+        title: newTopicTitle,
+        estimatedPeriods: newTopicPeriods,
+        sequenceOrder: nextSeq,
+      });
+      if (created) {
+        toast('Topic added to chapter!', 'success');
+        setTopicModalChapter(null);
+        setNewTopicTitle('');
+        void loadSyllabus();
+      }
+    } finally {
+      setSavingTopic(false);
+    }
+  };
+
+  // Edit Topic open
+  const handleOpenEditTopic = (topic: SyllabusTopic) => {
+    setEditingTopic(topic);
+    setEditTopicTitle(topic.title);
+    setEditTopicPeriods(topic.estimatedPeriods || 4);
+    setEditTopicDescription(topic.description || '');
+  };
+
+  // Edit Topic submit handler
+  const handleSaveEditTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTopic || !editTopicTitle.trim()) return;
+    setSavingEditTopic(true);
+    try {
+      const ok = await dataService.updateTopic(editingTopic.id, {
+        title: editTopicTitle,
+        estimatedPeriods: editTopicPeriods,
+        description: editTopicDescription,
+      });
+      if (ok) {
+        toast('Topic updated successfully!', 'success');
+        setEditingTopic(null);
+        void loadSyllabus();
+      } else {
+        toast('Failed to update topic', 'error');
+      }
+    } finally {
+      setSavingEditTopic(false);
+    }
+  };
+
+  // Delete Topic handler
+  const handleDeleteTopic = async (topicId: string, topicTitle: string) => {
+    if (!confirm(`Delete topic "${topicTitle}"?`)) return;
+    const ok = await dataService.deleteTopic(topicId);
+    if (ok) {
+      toast('Topic deleted', 'info');
+      void loadSyllabus();
+    } else {
+      toast('Failed to delete topic', 'error');
+    }
+  };
+
+  // Reorder Topic handler (Up / Down)
+  const handleReorderTopic = async (chapter: SyllabusChapter, topicIdx: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? topicIdx - 1 : topicIdx + 1;
+    if (targetIdx < 0 || targetIdx >= chapter.topics.length) return;
+
+    const currentTopic = chapter.topics[topicIdx];
+    const targetTopic = chapter.topics[targetIdx];
+
+    // Swap sequence orders
+    const currentOrder = currentTopic.sequenceOrder || topicIdx + 1;
+    const targetOrder = targetTopic.sequenceOrder || targetIdx + 1;
+
+    // Optimistically update
+    const newTopics = [...chapter.topics];
+    newTopics[topicIdx] = { ...targetTopic, sequenceOrder: currentOrder };
+    newTopics[targetIdx] = { ...currentTopic, sequenceOrder: targetOrder };
+
+    setChapters((prev) =>
+      prev.map((c) => (c.id === chapter.id ? { ...c, topics: newTopics } : c))
+    );
+
+    // Call Supabase
+    await Promise.all([
+      dataService.reorderTopic(currentTopic.id, targetOrder),
+      dataService.reorderTopic(targetTopic.id, currentOrder),
+    ]);
+    toast(`Topic moved ${direction}`, 'success');
+  };
+
+  const toggleChapter = (chId: string) => {
+    setExpandedChapters((prev) => ({ ...prev, [chId]: !prev[chId] }));
+  };
+
+  const getStatusBadge = (status: TopicStatus) => {
+    switch (status) {
+      case 'completed':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <CheckCircle2 size={12} /> Completed
+          </span>
+        );
+      case 'in_progress':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" /> In Progress
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+            ○ Not Started
+          </span>
+        );
+    }
+  };
+
+  const getMaterialIcon = (type: MaterialType) => {
+    switch (type) {
+      case 'pdf':
+        return <FileText size={13} className="text-rose-500" />;
+      case 'video':
+        return <Video size={13} className="text-blue-500" />;
+      case 'notes':
+        return <StickyNote size={13} className="text-amber-500" />;
+      default:
+        return <ExternalLink size={13} className="text-emerald-500" />;
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       <PageHeader
-        title="Curriculum & Syllabus Completion Tracker"
-        subtitle="CBSE Class 10 NCERT-aligned unit hierarchy, syllabus pacing & period breakdown"
+        title="Curriculum & Syllabus Management"
+        subtitle="Manage live CBSE/ICSE chapters, teach topics, upload learning materials, and track academic progress."
         actions={
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedSubject}
-              onChange={(e) => handleSubjectChange(e.target.value)}
-              className="input text-xs font-semibold"
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1.5 bg-surface border border-border rounded-lg px-2.5 py-1.5">
+              <BookOpen size={15} className="text-primary" />
+              <select
+                value={selectedSubjectId}
+                onChange={(e) => setSelectedSubjectId(e.target.value)}
+                className="bg-transparent text-xs font-bold text-foreground focus:outline-hidden cursor-pointer"
+              >
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('performance')}
+                className="btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3"
+              >
+                <BarChart3 size={14} className="text-primary" /> Class Performance
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setNewChNumber(chapters.length + 1);
+                setShowAddChapterModal(true);
+              }}
+              className="btn-primary text-xs flex items-center gap-1.5 py-1.5 px-3"
             >
-              {subjects.map((s) => (
-                <option key={s} value={s}>
-                  {s} (CBSE Class 10)
-                </option>
-              ))}
-            </select>
+              <Plus size={14} /> Add Chapter
+            </button>
           </div>
         }
       />
@@ -349,144 +521,794 @@ export const CurriculumTracker: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Syllabus Completed"
-          value={<>{completionPct}<span className="text-base font-medium text-text-tertiary">%</span></>}
-          tone={completionPct >= 50 ? 'success' : 'primary'}
+          value={<>{syllabusProgressPct}<span className="text-base font-medium text-text-tertiary">%</span></>}
+          tone={syllabusProgressPct >= 50 ? 'success' : 'primary'}
           icon={<CheckCircle2 size={16} />}
-          hint={`${completedCount} of ${totalCount} topics covered`}
+          hint={`${completedTopicsCount} of ${totalTopicsCount} topics covered`}
         />
         <StatCard
-          label="Periods Taught"
+          label="Teaching Progress"
           value={<>{completedPeriods}<span className="text-base font-medium text-text-tertiary"> / {totalPeriods}</span></>}
           tone="info"
           icon={<Clock size={16} />}
-          hint="45-min periods allocated"
+          hint={`${inProgressTopicsCount} topics currently in progress`}
         />
         <StatCard
-          label="Pacing Health"
-          value={pacingStatus === 'on_track' ? 'On Track' : 'Needs Pacing'}
-          tone={pacingStatus === 'on_track' ? 'success' : 'warning'}
-          icon={pacingStatus === 'on_track' ? <Sparkles size={16} /> : <AlertTriangle size={16} />}
-          hint="Pre-Board target: 100% by 15 Dec"
-        />
-        <StatCard
-          label="Lesson Plans Attached"
-          value={`${allTopics.filter((t) => t.hasLessonPlan).length}/${totalCount}`}
+          label="Active Chapters"
+          value={<>{chapters.length}<span className="text-base font-medium text-text-tertiary"> chapters</span></>}
           tone="primary"
+          icon={<Layers size={16} />}
+          hint={`${chapters.filter((c) => c.status === 'completed').length} completed chapters`}
+        />
+        <StatCard
+          label="Learning Resources"
+          value={<>{allMaterials.length}<span className="text-base font-medium text-text-tertiary"> files</span></>}
+          tone="success"
           icon={<FileCheck size={16} />}
-          hint="Inspection-ready pedagogy notes"
+          hint="PDFs, videos & notes attached"
         />
       </div>
 
       {/* Progress Bar Header */}
       <div className="p-4 rounded-xl border border-border bg-surface shadow-xs space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-semibold text-foreground flex items-center gap-1.5">
-            <BookOpen size={14} className="text-primary" /> {selectedSubject} Total Academic Progress
+          <span className="font-semibold text-foreground flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+            <span>{selectedSubject.name} — Live Academic Pacing</span>
           </span>
-          <span className="font-mono text-primary font-bold">{completionPct}% Completed</span>
+          <span className="font-mono text-primary font-bold">{syllabusProgressPct}% Covered</span>
         </div>
-        <ProgressBar value={completionPct} tone={completionPct >= 75 ? 'success' : 'primary'} />
+        <ProgressBar value={syllabusProgressPct} tone={syllabusProgressPct >= 75 ? 'success' : 'primary'} />
       </div>
 
-      {/* Unit Hierarchy List */}
-      <div className="space-y-4">
-        {units.map((unit) => {
-          const unitTopics: Topic[] = [];
-          unit.chapters.forEach((c) => unitTopics.push(...c.topics));
-          const unitCompleted = unitTopics.filter((t) => t.completed).length;
-          const unitPct = Math.round((unitCompleted / unitTopics.length) * 100);
-          const isExpanded = expandedUnits[unit.id] ?? true;
+      {/* Main Syllabus Content */}
+      {loading ? (
+        <div className="p-12 rounded-xl border border-border bg-surface flex flex-col items-center justify-center gap-3">
+          <Loader2 size={32} className="animate-spin text-primary" />
+          <p className="text-sm text-text-secondary">Loading live syllabus from Supabase database...</p>
+        </div>
+      ) : chapters.length === 0 ? (
+        <div className="p-12 rounded-xl border border-dashed border-border bg-surface text-center space-y-3">
+          <AlertCircle size={36} className="mx-auto text-text-tertiary" />
+          <h3 className="font-bold text-foreground">No Chapters Configured</h3>
+          <p className="text-sm text-text-secondary max-w-md mx-auto">
+            No syllabus chapters have been added for {selectedSubject.name} in this class. Click "Add Chapter" to create the first unit.
+          </p>
+          <button
+            onClick={() => setShowAddChapterModal(true)}
+            className="btn-primary text-xs inline-flex items-center gap-1.5"
+          >
+            <Plus size={14} /> Create Chapter 1
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {unitsGrouped.map((group, gIdx) => (
+            <div key={gIdx} className="space-y-3">
+              <div className="flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wider text-text-tertiary">
+                <Layers size={14} /> {group.unitName}
+              </div>
 
-          return (
-            <div key={unit.id} className="rounded-xl border border-border bg-surface shadow-xs overflow-hidden">
-              {/* Unit Header */}
-              <div
-                onClick={() => toggleUnit(unit.id)}
-                className="p-4 bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer flex items-center justify-between gap-3 select-none"
+              {group.chapters.map((chapter) => {
+                const isExpanded = expandedChapters[chapter.id] ?? true;
+                const chCompleted = chapter.topics.filter((t) => t.status === 'completed').length;
+                const chTotal = chapter.topics.length;
+                const chPct = chTotal > 0 ? Math.round((chCompleted / chTotal) * 100) : 0;
+
+                return (
+                  <div key={chapter.id} className="rounded-xl border border-border bg-surface shadow-xs overflow-hidden">
+                    {/* Chapter Header */}
+                    <div
+                      onClick={() => toggleChapter(chapter.id)}
+                      className="p-4 bg-muted/15 hover:bg-muted/30 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 select-none"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {isExpanded ? (
+                          <ChevronDown size={18} className="text-text-tertiary shrink-0" />
+                        ) : (
+                          <ChevronRight size={18} className="text-text-tertiary shrink-0" />
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                              Ch {chapter.chapterNumber}
+                            </span>
+                            <h3 className="font-bold text-sm sm:text-base text-foreground tracking-tight">
+                              {chapter.title}
+                            </h3>
+                          </div>
+                          {chapter.description && (
+                            <p className="text-xs text-text-secondary mt-0.5">{chapter.description}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <div className="text-right text-xs mr-2">
+                          <span className="font-bold text-foreground">{chCompleted}/{chTotal}</span>
+                          <span className="text-text-tertiary ml-1">topics</span>
+                        </div>
+                        <Badge tone={chPct === 100 ? 'success' : chPct > 0 ? 'primary' : 'neutral'}>
+                          {chPct}%
+                        </Badge>
+
+                        {/* Chapter Actions: Edit & Delete */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditChapter(chapter);
+                          }}
+                          title="Edit Chapter"
+                          className="p-1 rounded-md text-text-tertiary hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteChapter(chapter.id, chapter.title);
+                          }}
+                          title="Delete Chapter"
+                          className="p-1 rounded-md text-text-tertiary hover:text-rose-500 hover:bg-muted transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTopicModalChapter(chapter);
+                          }}
+                          className="btn-secondary py-1 px-2.5 text-[11px] flex items-center gap-1 ml-1"
+                        >
+                          <Plus size={12} /> Add Topic
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Topics List */}
+                    {isExpanded && (
+                      <div className="p-4 sm:p-5 border-t border-border space-y-3 bg-surface">
+                        {chapter.topics.length === 0 ? (
+                          <p className="text-xs text-text-tertiary italic">No topics added to this chapter yet.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-2.5">
+                            {chapter.topics.map((topic, topicIdx) => (
+                              <div
+                                key={topic.id}
+                                className={cn(
+                                  'p-3.5 rounded-lg border transition-all flex flex-col gap-2.5',
+                                  topic.status === 'completed'
+                                    ? 'border-emerald-500/20 bg-emerald-500/5'
+                                    : topic.status === 'in_progress'
+                                    ? 'border-amber-500/25 bg-amber-500/5'
+                                    : 'border-border bg-surface hover:border-border-strong'
+                                )}
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                                  <div className="flex items-start gap-3 min-w-0">
+                                    {/* Interactive 3-State Status Toggle */}
+                                    <button
+                                      onClick={() => handleCycleStatus(topic)}
+                                      title="Click to cycle status: Not Started -> In Progress -> Completed"
+                                      className="mt-0.5 shrink-0 transition-transform active:scale-95 focus:outline-hidden"
+                                    >
+                                      {getStatusBadge(topic.status)}
+                                    </button>
+
+                                    <div className="min-w-0">
+                                      <span
+                                        className={cn(
+                                          'text-sm font-semibold text-foreground',
+                                          topic.status === 'completed' && 'line-through text-text-secondary'
+                                        )}
+                                      >
+                                        {topic.title}
+                                      </span>
+                                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-tertiary mt-1">
+                                        <span className="flex items-center gap-1">
+                                          <Clock size={12} /> {topic.estimatedPeriods || 4} Periods
+                                        </span>
+                                        {topic.description && (
+                                          <span className="text-text-secondary">
+                                            · {topic.description}
+                                          </span>
+                                        )}
+                                        {topic.completionDate && (
+                                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                            · Completed on {topic.completionDate}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-1.5 self-end sm:self-auto shrink-0">
+                                    {/* Topic Reorder Controls */}
+                                    <button
+                                      disabled={topicIdx === 0}
+                                      onClick={() => handleReorderTopic(chapter, topicIdx, 'up')}
+                                      title="Move topic up"
+                                      className="p-1 rounded-md text-text-tertiary hover:text-foreground hover:bg-muted disabled:opacity-20 transition-all"
+                                    >
+                                      <ArrowUp size={13} />
+                                    </button>
+                                    <button
+                                      disabled={topicIdx === chapter.topics.length - 1}
+                                      onClick={() => handleReorderTopic(chapter, topicIdx, 'down')}
+                                      title="Move topic down"
+                                      className="p-1 rounded-md text-text-tertiary hover:text-foreground hover:bg-muted disabled:opacity-20 transition-all"
+                                    >
+                                      <ArrowDown size={13} />
+                                    </button>
+
+                                    {/* Edit & Delete Topic */}
+                                    <button
+                                      onClick={() => handleOpenEditTopic(topic)}
+                                      title="Edit Topic"
+                                      className="p-1 rounded-md text-text-tertiary hover:text-foreground hover:bg-muted transition-colors"
+                                    >
+                                      <Edit3 size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteTopic(topic.id, topic.title)}
+                                      title="Delete Topic"
+                                      className="p-1 rounded-md text-text-tertiary hover:text-rose-500 hover:bg-muted transition-colors"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+
+                                    {/* Attach Material Button */}
+                                    <button
+                                      onClick={() => setMaterialModalTopic(topic)}
+                                      className="btn-secondary py-1 px-2 text-xs flex items-center gap-1 ml-1"
+                                    >
+                                      <Plus size={11} /> Material
+                                    </button>
+
+                                    {/* Workflow: Take Attendance shortcut */}
+                                    {onNavigate && (
+                                      <button
+                                        onClick={() => onNavigate('attendance')}
+                                        title="Take Batch Attendance for this class"
+                                        className="py-1 px-2 rounded-md bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors flex items-center gap-1"
+                                      >
+                                        <CalendarCheck size={11} /> Attendance
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Attached Learning Materials Row */}
+                                {topic.materials && topic.materials.length > 0 && (
+                                  <div className="pt-2 border-t border-border/50 flex flex-wrap items-center gap-2">
+                                    <span className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider">
+                                      Materials:
+                                    </span>
+                                    {topic.materials.map((mat) => (
+                                      <div
+                                        key={mat.id}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/40 border border-border text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
+                                      >
+                                        {getMaterialIcon(mat.materialType)}
+                                        <button
+                                          onClick={() => setViewingMaterial(mat)}
+                                          className="hover:underline max-w-[200px] truncate text-left"
+                                        >
+                                          {mat.title}
+                                        </button>
+                                        <span className="text-[10px] text-text-tertiary">({mat.fileSize})</span>
+                                        <button
+                                          onClick={() => setViewingMaterial(mat)}
+                                          title="Preview material"
+                                          className="text-text-tertiary hover:text-primary transition-colors ml-0.5"
+                                        >
+                                          <Eye size={12} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteMaterial(mat.id)}
+                                          title="Delete material"
+                                          className="text-text-tertiary hover:text-rose-500 transition-colors ml-0.5"
+                                        >
+                                          <Trash2 size={11} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal: Attach Learning Material */}
+      {materialModalTopic && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="font-bold text-foreground">Attach Learning Material</h3>
+                <p className="text-xs text-text-secondary truncate max-w-sm">
+                  Topic: {materialModalTopic.title}
+                </p>
+              </div>
+              <button
+                onClick={() => setMaterialModalTopic(null)}
+                className="rounded-md p-1 hover:bg-muted text-text-tertiary hover:text-foreground"
               >
-                <div className="flex items-center gap-2.5">
-                  {isExpanded ? <ChevronDown size={18} className="text-text-tertiary" /> : <ChevronRight size={18} className="text-text-tertiary" />}
-                  <div>
-                    <h3 className="font-bold text-sm sm:text-base text-foreground tracking-tight">
-                      {unit.name}
-                    </h3>
-                    <p className="text-micro text-text-secondary">
-                      Weightage: <strong className="text-foreground">{unit.weightageMarks} Marks</strong> in CBSE Board Blueprint · {unit.chapters.length} Chapters
-                    </p>
-                  </div>
-                </div>
+                <X size={18} />
+              </button>
+            </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:block text-right text-xs">
-                    <span className="font-bold text-foreground">{unitCompleted}/{unitTopics.length}</span>
-                    <span className="text-text-tertiary ml-1">topics</span>
-                  </div>
-                  <Badge tone={unitPct === 100 ? 'success' : unitPct > 0 ? 'primary' : 'neutral'}>
-                    {unitPct}%
-                  </Badge>
+            <form onSubmit={handleSaveMaterial} className="space-y-3.5">
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">Resource Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. NCERT Practice Questions Handout"
+                  value={matTitle}
+                  onChange={(e) => setMatTitle(e.target.value)}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-foreground block mb-1">Resource Type</label>
+                  <select
+                    value={matType}
+                    onChange={(e) => setMatType(e.target.value as MaterialType)}
+                    className="input w-full text-sm"
+                  >
+                    <option value="pdf">PDF Document</option>
+                    <option value="notes">Chapter Notes</option>
+                    <option value="video">Lecture Video</option>
+                    <option value="link">Interactive Web Link</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-foreground block mb-1">Author</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={teacher?.name || 'Faculty'}
+                    className="input w-full text-sm opacity-75"
+                  />
                 </div>
               </div>
 
-              {/* Chapters & Topics */}
-              {isExpanded && (
-                <div className="p-4 sm:p-5 border-t border-border space-y-4 bg-surface">
-                  {unit.chapters.map((chapter) => (
-                    <div key={chapter.id} className="space-y-2.5">
-                      <div className="flex items-center justify-between text-xs font-bold text-text-secondary border-b border-border/60 pb-1.5">
-                        <span>Chapter {chapter.number}: {chapter.title}</span>
-                        <span className="text-micro font-normal text-text-tertiary">{chapter.topics.length} Key Concepts</span>
-                      </div>
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  File URL or Online Link *
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://ncert.nic.in/... or YouTube link"
+                  value={matUrl}
+                  onChange={(e) => setMatUrl(e.target.value)}
+                  className="input w-full text-sm"
+                />
+                <p className="text-[11px] text-text-tertiary mt-1">
+                  Supports Google Drive, NCERT PDF links, or YouTube video links.
+                </p>
+              </div>
 
-                      <div className="grid grid-cols-1 gap-2">
-                        {chapter.topics.map((topic) => (
-                          <div
-                            key={topic.id}
-                            className={cn(
-                              'p-3 rounded-lg border transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5',
-                              topic.completed
-                                ? 'border-success/30 bg-success-soft/30'
-                                : 'border-border bg-surface hover:border-border-strong',
-                            )}
-                          >
-                            <div className="flex items-start sm:items-center gap-3 min-w-0">
-                              <input
-                                type="checkbox"
-                                checked={topic.completed}
-                                onChange={() => toggleTopic(unit.id, chapter.id, topic.id)}
-                                className="mt-0.5 sm:mt-0 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
-                              />
-                              <div className="min-w-0">
-                                <span className={cn('text-xs font-semibold text-foreground', topic.completed && 'line-through text-text-secondary')}>
-                                  {topic.name}
-                                </span>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-tertiary mt-0.5">
-                                  <span>{topic.periods} Periods</span>
-                                  <span>Target: {topic.targetDate}</span>
-                                  {topic.hasLessonPlan && (
-                                    <span className="text-primary font-medium inline-flex items-center gap-0.5">
-                                      <FileCheck size={11} /> Lesson Plan Attached
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
+              {/* Quick file preset helper for non-technical users */}
+              <div className="p-3 rounded-lg border border-dashed border-border bg-muted/20 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-text-secondary">
+                  <UploadCloud size={16} className="text-primary shrink-0" />
+                  <span>Use sample study material preset?</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMatTitle(`${materialModalTopic.title} — Comprehensive Revision Notes`);
+                    setMatUrl('https://ncert.nic.in/textbook/pdf/jemh101.pdf');
+                  }}
+                  className="text-xs text-primary font-semibold hover:underline"
+                >
+                  Fill Sample NCERT PDF
+                </button>
+              </div>
 
-                            <div className="shrink-0 flex items-center gap-2 self-end sm:self-auto">
-                              <Badge tone={topic.completed ? 'success' : 'neutral'} className="text-[10px]">
-                                {topic.completed ? 'Completed' : 'Pending Teaching'}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setMaterialModalTopic(null)}
+                  className="btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMaterial}
+                  className="btn-primary text-xs flex items-center gap-1.5"
+                >
+                  {savingMaterial && <Loader2 size={13} className="animate-spin" />}
+                  Save Material
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Chapter */}
+      {showAddChapterModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-bold text-foreground">Add Syllabus Chapter</h3>
+              <button
+                onClick={() => setShowAddChapterModal(false)}
+                className="rounded-md p-1 hover:bg-muted text-text-tertiary hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveChapter} className="space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-foreground block mb-1">Ch No. *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={newChNumber}
+                    onChange={(e) => setNewChNumber(parseInt(e.target.value, 10))}
+                    className="input w-full text-sm font-mono"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-foreground block mb-1">Unit / Section</label>
+                  <input
+                    type="text"
+                    value={newChUnit}
+                    onChange={(e) => setNewChUnit(e.target.value)}
+                    placeholder="e.g. Unit I: Number Systems"
+                    className="input w-full text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">Chapter Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Arithmetic Progressions"
+                  value={newChTitle}
+                  onChange={(e) => setNewChTitle(e.target.value)}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowAddChapterModal(false)}
+                  className="btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingChapter}
+                  className="btn-primary text-xs flex items-center gap-1.5"
+                >
+                  {savingChapter && <Loader2 size={13} className="animate-spin" />}
+                  Create Chapter
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Chapter */}
+      {editingChapter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-bold text-foreground">Edit Syllabus Chapter</h3>
+              <button
+                onClick={() => setEditingChapter(null)}
+                className="rounded-md p-1 hover:bg-muted text-text-tertiary hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditChapter} className="space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-foreground block mb-1">Ch No. *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={editChNumber}
+                    onChange={(e) => setEditChNumber(parseInt(e.target.value, 10))}
+                    className="input w-full text-sm font-mono"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-foreground block mb-1">Unit / Section</label>
+                  <input
+                    type="text"
+                    value={editChUnit}
+                    onChange={(e) => setEditChUnit(e.target.value)}
+                    className="input w-full text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">Chapter Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={editChTitle}
+                  onChange={(e) => setEditChTitle(e.target.value)}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setEditingChapter(null)}
+                  className="btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditChapter}
+                  className="btn-primary text-xs flex items-center gap-1.5"
+                >
+                  {savingEditChapter && <Loader2 size={13} className="animate-spin" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Topic */}
+      {topicModalChapter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="font-bold text-foreground">Add Topic</h3>
+                <p className="text-xs text-text-secondary">
+                  Chapter {topicModalChapter.chapterNumber}: {topicModalChapter.title}
+                </p>
+              </div>
+              <button
+                onClick={() => setTopicModalChapter(null)}
+                className="rounded-md p-1 hover:bg-muted text-text-tertiary hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTopic} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">Topic Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. nth Term of an AP"
+                  value={newTopicTitle}
+                  onChange={(e) => setNewTopicTitle(e.target.value)}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  Estimated Periods (45 mins each)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={newTopicPeriods}
+                  onChange={(e) => setNewTopicPeriods(parseInt(e.target.value, 10))}
+                  className="input w-full text-sm font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setTopicModalChapter(null)}
+                  className="btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingTopic}
+                  className="btn-primary text-xs flex items-center gap-1.5"
+                >
+                  {savingTopic && <Loader2 size={13} className="animate-spin" />}
+                  Add Topic to Supabase
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Topic */}
+      {editingTopic && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-bold text-foreground">Edit Topic</h3>
+              <button
+                onClick={() => setEditingTopic(null)}
+                className="rounded-md p-1 hover:bg-muted text-text-tertiary hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTopic} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">Topic Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editTopicTitle}
+                  onChange={(e) => setEditTopicTitle(e.target.value)}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  Estimated Periods
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={editTopicPeriods}
+                  onChange={(e) => setEditTopicPeriods(parseInt(e.target.value, 10))}
+                  className="input w-full text-sm font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  Description / Sub-topics (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editTopicDescription}
+                  onChange={(e) => setEditTopicDescription(e.target.value)}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setEditingTopic(null)}
+                  className="btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditTopic}
+                  className="btn-primary text-xs flex items-center gap-1.5"
+                >
+                  {savingEditTopic && <Loader2 size={13} className="animate-spin" />}
+                  Save Topic
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Learning Material Viewer / Document Reader */}
+      {viewingMaterial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  {getMaterialIcon(viewingMaterial.materialType)}
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground text-base">{viewingMaterial.title}</h3>
+                  <p className="text-xs text-text-secondary">
+                    Uploaded by {viewingMaterial.authorName || 'Faculty'} · {viewingMaterial.fileSize}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingMaterial(null)}
+                className="rounded-md p-1.5 hover:bg-muted text-text-tertiary hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Document / Video Preview Container */}
+            <div className="rounded-xl border border-border bg-muted/20 p-6 min-h-[220px] flex flex-col justify-center items-center text-center space-y-4">
+              {viewingMaterial.materialType === 'video' ? (
+                <div className="w-full space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mx-auto">
+                    <Video size={32} />
+                  </div>
+                  <h4 className="font-semibold text-foreground text-sm">Online Video Lecture</h4>
+                  <p className="text-xs text-text-secondary max-w-md mx-auto">
+                    This video lesson is hosted externally. Click below to stream the high-definition video lecture.
+                  </p>
+                  <a
+                    href={viewingMaterial.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary text-xs inline-flex items-center gap-1.5"
+                  >
+                    <ExternalLink size={13} /> Open Lecture Stream
+                  </a>
+                </div>
+              ) : (
+                <div className="w-full space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
+                    <FileText size={32} />
+                  </div>
+                  <h4 className="font-semibold text-foreground text-sm">{viewingMaterial.title}</h4>
+                  <p className="text-xs text-text-secondary max-w-md mx-auto">
+                    Official curriculum study material and pedagogical notes prepared for Class 10 students.
+                  </p>
+                  <div className="flex items-center justify-center gap-3">
+                    <a
+                      href={viewingMaterial.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary text-xs inline-flex items-center gap-1.5"
+                    >
+                      <Download size={13} /> Open / Download File
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
-          );
-        })}
-      </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border text-xs text-text-tertiary">
+              <span>Verified against CBSE Class 10 Syllabus standards</span>
+              <button
+                onClick={() => setViewingMaterial(null)}
+                className="btn-secondary text-xs"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

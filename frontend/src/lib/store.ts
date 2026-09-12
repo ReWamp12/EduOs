@@ -1082,7 +1082,7 @@ export function signConsentForm(
           signedAt: now,
           signedByName: trimmedName,
           parentRelation,
-          parentPhone: emergencyPhone?.trim(),
+          parentPhone: emergencyPhone?.trim() || '',
         },
       ];
     }
@@ -1124,6 +1124,7 @@ export function declineConsentForm(formId: string, studentName: string, declineR
           rollNumber: '1',
           batchName: 'Class 10 - A',
           parentName: 'Parent',
+          parentPhone: '+91 98765 43210',
           status: 'declined',
           declineReason: declineReason || 'Parent opted out.',
         },

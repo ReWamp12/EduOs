@@ -34,6 +34,8 @@ import {
   FolderLock,
   Settings,
   Bot,
+  TrendingUp,
+  BarChart3,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -43,6 +45,7 @@ export interface NavItem {
   badge?: string;
   badgeTone?: 'primary' | 'info' | 'warning' | 'success' | 'danger' | 'neutral' | 'gradient';
   isFlagged?: boolean;
+  disabled?: boolean;
 }
 
 export interface NavGroup {
@@ -61,9 +64,11 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'overview', label: 'My Dashboard', icon: <LayoutDashboard size={ICON} /> },
     ]},
     { label: 'Academics', items: [
+      { id: 'performance', label: 'Academic Performance', icon: <TrendingUp size={ICON} />, badge: 'Live', badgeTone: 'primary' },
       { id: 'ai_chatbot', label: 'AI Study Chatbot', icon: <Bot size={ICON} />, badge: 'RAG AI', badgeTone: 'primary', isFlagged: true },
+      { id: 'syllabus', label: 'Syllabus & Learning', icon: <BookOpen size={ICON} />, badge: 'Live', badgeTone: 'primary' },
       { id: 'attendance', label: 'Attendance', icon: <CalendarCheck2 size={ICON} /> },
-      { id: 'lms', label: 'LMS Classroom', icon: <BookOpen size={ICON} /> },
+      { id: 'lms', label: 'LMS Classroom', icon: <BookMarked size={ICON} /> },
       { id: 'assignments', label: 'Assignments / DPP', icon: <FileText size={ICON} /> },
       { id: 'exams', label: 'Exams & AI Insights', icon: <Trophy size={ICON} /> },
     ]},
@@ -101,6 +106,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'overview', label: 'Teacher Overview', icon: <LayoutDashboard size={ICON} /> },
     ]},
     { label: 'Teaching', items: [
+      { id: 'performance', label: 'Class Performance', icon: <TrendingUp size={ICON} />, badge: 'Live', badgeTone: 'primary' },
       { id: 'attendance', label: 'Mark Attendance', icon: <CalendarCheck2 size={ICON} /> },
       { id: 'students', label: 'Student Directory & IDs', icon: <Users size={ICON} /> },
       { id: 'curriculum', label: 'Curriculum & Syllabus', icon: <BookOpen size={ICON} /> },
@@ -124,6 +130,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'overview', label: 'Operations Command', icon: <LayoutDashboard size={ICON} /> },
     ]},
     { label: 'Operations & Finance', items: [
+      { id: 'academic_overview', label: 'Academic Overview', icon: <BarChart3 size={ICON} />, badge: 'Live', badgeTone: 'primary' },
       { id: 'finance', label: 'Finance, Fees & Ledger', icon: <CreditCard size={ICON} /> },
       { id: 'students', label: 'Institutional Student Directory', icon: <Users size={ICON} /> },
       { id: 'consent', label: 'Digital Consent Hub', icon: <FileSignature size={ICON} /> },

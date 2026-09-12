@@ -15,6 +15,7 @@ import { TeacherTimetable } from './TeacherTimetable';
 import { TeacherAIQuestions } from './TeacherAIQuestions';
 import { TeacherLeavePortal } from './TeacherLeavePortal';
 import { CurriculumTracker } from './CurriculumTracker';
+import { FacultyPerformanceView } from './FacultyPerformanceView';
 import { NoticeBoard } from '@/components/common/NoticeBoard';
 import { SettingsView } from '@/components/common/SettingsView';
 import { Users, ChevronsUpDown, Check, LayoutGrid } from 'lucide-react';
@@ -122,12 +123,14 @@ export const TeacherWorkspace: React.FC<Props> = ({ activeTab, setActiveTab, bat
     switch (activeTab) {
       case 'overview':
         return <TeacherOverview onNavigate={setActiveTab} />;
+      case 'performance':
+        return <FacultyPerformanceView onNavigate={setActiveTab} />;
       case 'attendance':
         return <TeacherAttendance />;
       case 'students':
         return <TeacherStudentDirectory />;
       case 'curriculum':
-        return <CurriculumTracker />;
+        return <CurriculumTracker onNavigate={setActiveTab} />;
       case 'assignments':
         return <TeacherAssignments />;
       case 'consent':

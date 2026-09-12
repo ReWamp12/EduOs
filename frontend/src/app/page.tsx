@@ -22,6 +22,9 @@ import { StudentExams } from '@/components/student/StudentExams';
 import { StudentIDCard } from '@/components/student/StudentIDCard';
 import { StudentNotices } from '@/components/student/StudentNotices';
 import { StudentSupport } from '@/components/student/StudentSupport';
+import { StudentSyllabus } from '@/components/student/StudentSyllabus';
+import { StudentPerformanceView } from '@/components/student/StudentPerformanceView';
+import { AdminAcademicOverview } from '@/components/admin/AdminAcademicOverview';
 
 // Parent Components
 import { ParentOverview } from '@/components/parent/ParentOverview';
@@ -148,8 +151,12 @@ export default function Home() {
             return <StudentOverview onNavigate={setActiveTab} />;
           // case 'ai_chatbot': // Flagged/hidden until RAG feature rollout is complete
           //   return <StudentAIChatbot />;
+          case 'performance':
+            return <StudentPerformanceView onNavigate={setActiveTab} />;
           case 'attendance':
             return <StudentAttendance />;
+          case 'syllabus':
+            return <StudentSyllabus onNavigate={setActiveTab} />;
           case 'lms':
             return <StudentLMS />;
           case 'assignments':
@@ -222,6 +229,8 @@ export default function Home() {
         switch (activeTab) {
           case 'overview':
             return <PrincipalOverview onNavigate={setActiveTab} />;
+          case 'academic_overview':
+            return <AdminAcademicOverview />;
           case 'finance':
             return <FinanceWorkspace />;
           case 'students':
@@ -244,6 +253,8 @@ export default function Home() {
         switch (activeTab) {
           case 'overview':
             return <AdminOverview onNavigate={setActiveTab} />;
+          case 'academic_overview':
+            return <AdminAcademicOverview />;
           case 'tenants':
             return <TenantManager />;
           case 'feature_matrix':

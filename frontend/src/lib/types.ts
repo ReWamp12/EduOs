@@ -415,5 +415,176 @@ export interface TrainingRecord {
   isVerifiedByPrincipal: boolean;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                      Syllabus & Learning Types (Phase 1)                   */
+/* -------------------------------------------------------------------------- */
 
+export type TopicStatus = 'not_started' | 'in_progress' | 'completed';
+export type MaterialType = 'pdf' | 'video' | 'notes' | 'link' | 'image';
+
+export interface LearningMaterial {
+  id: string;
+  tenantId: string;
+  subjectId: string;
+  batchId: string;
+  chapterId?: string;
+  topicId?: string;
+  title: string;
+  materialType: MaterialType;
+  fileUrl: string;
+  fileSize?: string;
+  authorId?: string;
+  authorName: string;
+  createdAt: string;
+}
+
+export interface SyllabusTopic {
+  id: string;
+  tenantId: string;
+  chapterId: string;
+  subjectId: string;
+  batchId: string;
+  title: string;
+  description?: string;
+  sequenceOrder: number;
+  status: TopicStatus;
+  completionDate?: string;
+  facultyNotes?: string;
+  estimatedPeriods: number;
+  targetDate?: string;
+  materials?: LearningMaterial[];
+}
+
+export interface SyllabusChapter {
+  id: string;
+  tenantId: string;
+  batchId: string;
+  subjectId: string;
+  chapterNumber: number;
+  title: string;
+  description?: string;
+  unitName?: string;
+  sequenceOrder: number;
+  status: TopicStatus;
+  topics: SyllabusTopic[];
+  materials?: LearningMaterial[];
+  progressPct?: number;
+}
+
+export interface SyllabusProgressSummary {
+  subjectId: string;
+  subjectName: string;
+  totalChapters: number;
+  completedChapters: number;
+  totalTopics: number;
+  completedTopics: number;
+  inProgressTopics: number;
+  progressPercentage: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                  Student Performance Types (Phase 2 - EDUOS-113)           */
+/* -------------------------------------------------------------------------- */
+
+export interface StudentPerformanceSummary {
+  studentId: string;
+  studentName: string;
+  admissionNumber?: string;
+  rollNumber?: string;
+  overallScore: number; // weighted composite score: 60% Exam, 15% Attendance, 10% Assignments, 15% Syllabus
+  attendancePercentage: number;
+  totalClasses: number;
+  attendedClasses: number;
+  absentClasses: number;
+  syllabusProgressPercentage: number;
+  assignmentsTotal: number;
+  assignmentsCompleted: number;
+  assignmentsPercentage: number;
+  assessmentsAverage: number;
+  totalExamsTaken: number;
+  attentionStatus: 'good' | 'attention';
+  attentionReasons: string[];
+}
+
+export interface SubjectPerformanceBreakdown {
+  subjectId: string;
+  subjectName: string;
+  subjectCode: string;
+  color?: string;
+  assessmentAvg: number;
+  attendancePct: number;
+  assignmentPct: number;
+  syllabusPct: number;
+  compositeScore: number;
+  status: 'good' | 'attention';
+}
+
+export interface AssessmentScoreHistoryItem {
+  examId: string;
+  examTitle: string;
+  subjectId: string;
+  subjectName: string;
+  examDate: string;
+  marksObtained: number;
+  totalMarks: number;
+  percentage: number;
+  feedback?: string;
+}
+
+export type AssessmentTrendDirection = 'improving' | 'steady' | 'declining';
+
+export interface AssessmentTrendSummary {
+  direction: AssessmentTrendDirection;
+  label: string;
+  firstScore: number;
+  latestScore: number;
+  scoreProgression: number[];
+}
+
+export interface FacultyRemarkItem {
+  id: string;
+  studentId: string;
+  facultyId?: string;
+  facultyName: string;
+  subjectId?: string;
+  subjectName?: string;
+  remarkText: string;
+  category: 'academic' | 'attendance' | 'behavior' | 'general';
+  createdAt: string;
+}
+
+export interface ClassStudentPerformanceRow {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber: string;
+  avatarUrl?: string;
+  overallScore: number;
+  attendancePct: number;
+  syllabusPct: number;
+  assignmentPct: number;
+  assessmentAvg: number;
+  status: 'good' | 'attention';
+  attentionReasons: string[];
+  remarksCount: number;
+  latestRemark?: string;
+}
+
+export interface AdminAcademicOverviewData {
+  totalStudents: number;
+  averagePerformance: number;
+  averageAttendance: number;
+  averageSyllabusProgress: number;
+  studentsNeedingAttentionCount: number;
+  subjectAverages: {
+    subjectId: string;
+    subjectName: string;
+    subjectCode: string;
+    averagePerformance: number;
+    averageAttendance: number;
+    averageSyllabusProgress: number;
+    completedTopics: number;
+    totalTopics: number;
+  }[];
+}
 

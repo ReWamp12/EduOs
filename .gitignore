@@ -23,4 +23,4 @@ backend/.rag-cache/
 backend/scripts/
 backend/_pdftest.mjs
 class 10 all boards resources.txt
-
+*.tsbuildinfo
