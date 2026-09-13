@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTenant } from '@/lib/useTenant';
 import Link from 'next/link';
 import {
   Building,
@@ -20,7 +21,6 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { JobOpening } from '@/lib/types';
-import { mockTenant } from '@/lib/mockData';
 import { dataService } from '@/lib/dataService';
 import { Toaster, toast } from '@/components/ui/toast';
 
@@ -34,6 +34,7 @@ interface SubmissionSuccessData {
 }
 
 export default function CareersPage() {
+  const { tenant } = useTenant();
   const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [loading, setLoading] = useState(true);
   const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -214,9 +215,9 @@ export default function CareersPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="h-7 w-7 rounded bg-primary text-primary-foreground font-bold text-xs grid place-items-center">
-              {mockTenant.name.charAt(0)}
+              {(tenant?.name || 'E').charAt(0)}
             </div>
-            <span className="font-semibold text-xs text-foreground">{mockTenant.name} Careers</span>
+            <span className="font-semibold text-xs text-foreground">{(tenant?.name || 'Institution')} Careers</span>
           </div>
 
           <Link
@@ -232,7 +233,7 @@ export default function CareersPage() {
       <section className="border-b border-border bg-surface py-8 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto space-y-2">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-            Current Vacancies at {mockTenant.name}
+            Current Vacancies at {(tenant?.name || 'Institution')}
           </h1>
           <p className="text-xs text-text-secondary">
             Join our academic faculty and school staff. Select a position below to review requirements and submit your application.
@@ -621,7 +622,7 @@ export default function CareersPage() {
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
-              <div><span className="text-slate-500 dark:text-slate-400">From:</span> <strong>HR & Academic Recruitment ({mockTenant.name} &lt;hr@eduos.school&gt;)</strong></div>
+              <div><span className="text-slate-500 dark:text-slate-400">From:</span> <strong>HR & Academic Recruitment ({(tenant?.name || 'Institution')} &lt;hr@eduos.school&gt;)</strong></div>
               <div><span className="text-slate-500 dark:text-slate-400">To:</span> <strong>{submissionSuccess.candidateName} &lt;{submissionSuccess.candidateEmail}&gt;</strong></div>
               <div><span className="text-slate-500 dark:text-slate-400">Subject:</span> <strong className="text-blue-600 dark:text-blue-400">Application Received: {submissionSuccess.jobTitle} (Ref: {submissionSuccess.referenceNumber})</strong></div>
               <div><span className="text-slate-500 dark:text-slate-400">Date:</span> <span>{submissionSuccess.appliedDate}</span></div>
@@ -630,7 +631,7 @@ export default function CareersPage() {
             <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 text-xs space-y-3 font-sans leading-relaxed text-slate-800 dark:text-slate-200">
               <p>Dear <strong>{submissionSuccess.candidateName}</strong>,</p>
               <p>
-                Thank you for applying for the position of <strong>{submissionSuccess.jobTitle}</strong> ({submissionSuccess.department}) at <strong>{mockTenant.name}</strong>.
+                Thank you for applying for the position of <strong>{submissionSuccess.jobTitle}</strong> ({submissionSuccess.department}) at <strong>{(tenant?.name || 'Institution')}</strong>.
               </p>
               <div className="p-3 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-blue-950 dark:text-blue-200 space-y-1">
                 <div>Application Reference ID: <strong className="font-mono text-sm">{submissionSuccess.referenceNumber}</strong></div>
@@ -641,7 +642,7 @@ export default function CareersPage() {
               </p>
               <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-[11px]">
                 <p className="font-semibold text-slate-800 dark:text-slate-200">Office of Human Resources & Faculty Recruitment</p>
-                <p>{mockTenant.name}</p>
+                <p>{(tenant?.name || 'Institution')}</p>
               </div>
             </div>
 
@@ -659,7 +660,7 @@ export default function CareersPage() {
 
       {/* Footer */}
       <footer className="border-t border-border py-4 px-4 text-center text-[11px] text-text-tertiary bg-surface">
-        <p>© 2026 {mockTenant.name}. All rights reserved.</p>
+        <p>© 2026 {(tenant?.name || 'Institution')}. All rights reserved.</p>
       </footer>
 
       <Toaster />

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useTenant } from '@/lib/useTenant';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { mockTenant } from '@/lib/mockData';
 import { dataService } from '@/lib/dataService';
 import { allStudentsInSchool, teacherBatches as batches } from '@/lib/batchData';
 import {
@@ -71,6 +71,7 @@ const PRINCIPAL_PRESETS = [
 ];
 
 export const PrincipalConsentForms: React.FC = () => {
+  const { tenant } = useTenant();
   const { session } = useAuth();
   const { consentForms } = useAppStore();
 
@@ -154,7 +155,7 @@ export const PrincipalConsentForms: React.FC = () => {
 
     const principalName = session
       ? `${session.firstName || 'Principal'} ${session.lastName || ''}`.trim()
-      : `Dr. Rameshwar Nath (${mockTenant.name} Principal)`;
+      : `Dr. Rameshwar Nath (${(tenant?.name || 'Institution')} Principal)`;
 
     const res = await dataService.createConsentForm({
       title: formTitle.trim(),
@@ -243,7 +244,7 @@ export const PrincipalConsentForms: React.FC = () => {
       {/* Header */}
       <PageHeader
         title="Institutional Digital Consent Hub"
-        subtitle={`All-School Digital Consent Circulars, Parent E-Signatures & Field Trip Registry for ${mockTenant.name}`}
+        subtitle={`All-School Digital Consent Circulars, Parent E-Signatures & Field Trip Registry for ${(tenant?.name || 'Institution')}`}
         actions={
           <button
             onClick={() => setShowCreateModal(true)}
@@ -553,7 +554,7 @@ export const PrincipalConsentForms: React.FC = () => {
                 </span>
                 <div>
                   <h3 className="text-section font-semibold text-foreground">Create Institutional Consent Circular</h3>
-                  <p className="text-micro text-text-tertiary">Broadcast digital authorization forms to parents of {mockTenant.name}</p>
+                  <p className="text-micro text-text-tertiary">Broadcast digital authorization forms to parents of {(tenant?.name || 'Institution')}</p>
                 </div>
               </div>
               <button

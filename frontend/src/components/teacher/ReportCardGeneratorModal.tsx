@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { mockTenant } from '@/lib/mockData';
+import { useTenant } from '@/lib/useTenant';
 import { Student } from '@/lib/types';
 import {
   Award,
@@ -52,6 +52,7 @@ export const ReportCardGeneratorModal: React.FC<ReportCardProps> = ({
   isPrincipalSigned = true,
   onClose,
 }) => {
+  const { tenant } = useTenant();
   const printRef = useRef<HTMLDivElement>(null);
 
   const totalObtained = SAMPLE_SUBJECTS.reduce((sum, s) => sum + s.totalMarks, 0);
@@ -105,7 +106,7 @@ export const ReportCardGeneratorModal: React.FC<ReportCardProps> = ({
                 <div>School Code: <strong className="text-slate-900">60391</strong></div>
               </div>
               <div className="h-16 w-16 rounded-xl bg-gradient-to-tr from-indigo-700 to-cyan-600 text-white font-black text-2xl grid place-items-center shadow-md">
-                {mockTenant.name.charAt(0)}
+                {(tenant?.name || 'E').charAt(0)}
               </div>
               <div className="text-right text-[11px] font-semibold text-slate-600 space-y-0.5">
                 <div>UDISE+ Code: <strong className="text-slate-900">09150102408</strong></div>
@@ -114,7 +115,7 @@ export const ReportCardGeneratorModal: React.FC<ReportCardProps> = ({
             </div>
 
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 uppercase">
-              {mockTenant.name}
+              {(tenant?.name || 'Institution')}
             </h1>
             <p className="text-xs text-slate-600 font-medium mt-0.5">
               Senior Secondary Co-Educational Institution · Affiliated to Central Board of Secondary Education, New Delhi

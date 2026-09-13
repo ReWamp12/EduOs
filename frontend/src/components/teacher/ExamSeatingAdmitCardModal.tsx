@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { mockTenant } from '@/lib/mockData';
+import { useTenant } from '@/lib/useTenant';
 import {
   X,
   Printer,
@@ -54,6 +54,7 @@ export const ExamSeatingAdmitCardModal: React.FC<ExamSeatingProps> = ({
   batchName,
   onClose,
 }) => {
+  const { tenant } = useTenant();
   const [activeTab, setActiveTab] = useState<'seating' | 'admit_card'>('seating');
 
   const handlePrint = () => {
@@ -188,7 +189,7 @@ export const ExamSeatingAdmitCardModal: React.FC<ExamSeatingProps> = ({
                   <div>Affiliation: <strong className="text-slate-900">CBSE / Delhi Board</strong></div>
                 </div>
                 <div className="h-14 w-14 rounded-xl bg-gradient-to-tr from-indigo-700 to-cyan-600 text-white font-black text-xl grid place-items-center shadow-md">
-                  {mockTenant.name.charAt(0)}
+                  {(tenant?.name || 'E').charAt(0)}
                 </div>
                 <div className="text-right text-[11px] font-semibold text-slate-600 space-y-0.5">
                   <div>Admit Card No: <strong className="text-slate-900 font-mono">AC-2026-0941</strong></div>
@@ -197,7 +198,7 @@ export const ExamSeatingAdmitCardModal: React.FC<ExamSeatingProps> = ({
               </div>
 
               <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 uppercase">
-                {mockTenant.name}
+                {(tenant?.name || 'Institution')}
               </h2>
               <div className="inline-block mt-2 bg-slate-900 text-white font-bold text-[11px] uppercase px-4 py-0.5 rounded-full tracking-wider">
                 Official Admit Card &amp; Hall Ticket · Class X Board Examination 2026

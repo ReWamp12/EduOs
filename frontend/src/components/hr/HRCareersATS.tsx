@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTenant } from '@/lib/useTenant';
 import {
   Plus,
   Search,
@@ -26,7 +27,6 @@ import {
 import { Card, Badge, cn } from '@/components/ui';
 import { dataService } from '@/lib/dataService';
 import { JobOpening, Applicant, ApplicantStage } from '@/lib/types';
-import { mockTenant } from '@/lib/mockData';
 import { toast } from '@/components/ui/toast';
 
 const STAGES: { key: ApplicantStage; label: string }[] = [
@@ -52,6 +52,7 @@ interface EmailModalState {
 }
 
 export const HRCareersATS: React.FC = () => {
+  const { tenant } = useTenant();
   const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string>('all');
@@ -180,7 +181,7 @@ export const HRCareersATS: React.FC = () => {
 
   // Open Email Trigger Modal
   const openEmailModal = (type: EmailModalType, applicant: Applicant) => {
-    const schoolName = mockTenant.name;
+    const schoolName = (tenant?.name || 'Institution');
     const roleTitle = applicant.jobTitle || 'Faculty Position';
     const interviewDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
       weekday: 'long',

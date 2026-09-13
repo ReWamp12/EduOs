@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTenant } from '@/lib/useTenant';
 import { Student } from '@/lib/types';
-import { mockTenant } from '@/lib/mockData';
 import { useAppStore } from '@/lib/store';
 import { Badge, ProgressBar, Card, SectionCard, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -38,6 +38,7 @@ interface Props {
 }
 
 export const StudentProfileDetailModal: React.FC<Props> = ({ student, onClose, viewerRole }) => {
+  const { tenant } = useTenant();
   if (!student) return null;
 
   const { submissions, assignments } = useAppStore();
@@ -162,7 +163,7 @@ export const StudentProfileDetailModal: React.FC<Props> = ({ student, onClose, v
                         M
                       </div>
                       <div>
-                        <div className="text-sm font-extrabold tracking-tight">{mockTenant.name}</div>
+                        <div className="text-sm font-extrabold tracking-tight">{(tenant?.name || 'Institution')}</div>
                         <div className="text-[0.68rem]" style={{ color: 'rgba(255,255,255,0.7)' }}>
                           CBSE Affiliation No. 1030492 · 2026–27
                         </div>

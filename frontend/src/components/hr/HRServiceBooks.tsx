@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTenant } from '@/lib/useTenant';
 import {
   Search,
   Printer,
@@ -12,10 +13,10 @@ import {
 import { Card, SectionCard, Badge, cn } from '@/components/ui';
 import { dataService } from '@/lib/dataService';
 import { EmployeeRecord } from '@/lib/types';
-import { mockTenant } from '@/lib/mockData';
 import { toast } from '@/components/ui/toast';
 
 export const HRServiceBooks: React.FC = () => {
+  const { tenant } = useTenant();
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   const [pdfPreviewEmployee, setPdfPreviewEmployee] = useState<EmployeeRecord | null>(null);
@@ -299,7 +300,7 @@ export const HRServiceBooks: React.FC = () => {
 
             {/* School Header */}
             <div className="text-center border-b pb-4">
-              <h2 className="text-lg font-bold text-slate-900 uppercase">{mockTenant.name}</h2>
+              <h2 className="text-lg font-bold text-slate-900 uppercase">{(tenant?.name || 'Institution')}</h2>
               <p className="text-xs text-slate-600">CBSE Affiliation No. 1030492 • New Delhi</p>
               <div className="inline-block border border-slate-900 text-slate-900 font-semibold text-xs px-3 py-0.5 mt-2 uppercase">
                 Staff Service Book Record

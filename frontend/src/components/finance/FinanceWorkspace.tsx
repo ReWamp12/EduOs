@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { mockTenant } from '@/lib/mockData';
+import { useTenant } from '@/lib/useTenant';
 import { useAppStore, payFeeInvoice, FeeInvoiceRecord } from '@/lib/store';
 import { dataService } from '@/lib/dataService';
 import { downloadFeeReceipt } from '@/lib/receipt';
@@ -142,6 +142,7 @@ import { useSession } from '@/lib/auth/AuthProvider';
 import { Tenant } from '@/lib/types';
 
 export const FinanceWorkspace: React.FC = () => {
+  const { tenant } = useTenant();
   const session = useSession();
   const [activeTab, setActiveTab] = useState<FinanceTab>('overview');
   const { feeInvoices } = useAppStore();
@@ -942,7 +943,7 @@ export const FinanceWorkspace: React.FC = () => {
             {/* Printable Receipt */}
             <div className="p-8 bg-white text-slate-900 font-sans print:p-0">
               <div className="border-b-2 border-slate-900 pb-4 text-center">
-                <h2 className="text-lg font-black tracking-tight uppercase text-slate-900">{mockTenant.name}</h2>
+                <h2 className="text-lg font-black tracking-tight uppercase text-slate-900">{(tenant?.name || 'Institution')}</h2>
                 <p className="text-xs text-slate-600">CBSE Affiliation No: 2130842 · UDISE+: 09150102408</p>
                 <div className="inline-block mt-2 bg-slate-900 text-white font-bold text-[10px] uppercase px-3 py-0.5 rounded-full">
                   Official Cashier Fee Receipt · Original

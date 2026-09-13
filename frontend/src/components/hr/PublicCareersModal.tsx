@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTenant } from '@/lib/useTenant';
 import {
   Briefcase,
   MapPin,
@@ -17,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Card, Badge, cn } from '@/components/ui';
 import { JobOpening } from '@/lib/types';
-import { mockTenant } from '@/lib/mockData';
 import { toast } from '@/components/ui/toast';
 
 interface PublicCareersModalProps {
@@ -27,6 +27,7 @@ interface PublicCareersModalProps {
 }
 
 export const PublicCareersModal: React.FC<PublicCareersModalProps> = ({ isOpen, onClose, jobs }) => {
+  const { tenant } = useTenant();
   const [selectedJob, setSelectedJob] = useState<JobOpening | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -87,13 +88,13 @@ export const PublicCareersModal: React.FC<PublicCareersModalProps> = ({ isOpen, 
 
           <div className="flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-xl bg-white/10 backdrop-blur-md text-white font-black text-xl border border-white/20">
-              {mockTenant.name.charAt(0)}
+              {(tenant?.name || 'E').charAt(0)}
             </div>
             <div>
               <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-0.5 text-xs font-semibold text-white/90">
                 <Sparkles size={12} /> Official Institutional Career Portal
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight mt-1">{mockTenant.name} Careers</h2>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight mt-1">{(tenant?.name || 'Institution')} Careers</h2>
             </div>
           </div>
           <p className="text-xs sm:text-sm text-white/80 max-w-2xl mt-2">
@@ -224,7 +225,7 @@ export const PublicCareersModal: React.FC<PublicCareersModalProps> = ({ isOpen, 
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="font-bold text-base text-foreground">Application: {applyModalJob.title}</h3>
-                <p className="text-xs text-text-secondary mt-0.5">{mockTenant.name} • {applyModalJob.department}</p>
+                <p className="text-xs text-text-secondary mt-0.5">{(tenant?.name || 'Institution')} • {applyModalJob.department}</p>
               </div>
               <button onClick={() => setApplyModalJob(null)} className="text-text-tertiary hover:text-foreground">
                 <X size={18} />

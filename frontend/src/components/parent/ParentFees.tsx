@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { mockTenant } from '@/lib/mockData';
+import { useTenant } from '@/lib/useTenant';
 import { useAppStore, payFeeInvoice, FeeInvoiceRecord } from '@/lib/store';
 import { dataService } from '@/lib/dataService';
 import { Student } from '@/lib/types';
@@ -34,6 +34,7 @@ import {
 type PayMethod = 'UPI' | 'Card' | 'Net Banking';
 
 export const ParentFees: React.FC = () => {
+  const { tenant } = useTenant();
   const { feeInvoices } = useAppStore();
   // EDUOS-129: children and the fee ledger both come from Supabase, scoped by
   // RLS to this guardian. The local store is used only when Supabase is not
@@ -141,7 +142,7 @@ export const ParentFees: React.FC = () => {
   const handleDownloadReceipt = async (inv: FeeInvoiceRecord) => {
     try {
       await downloadFeeReceipt(inv, {
-        name: mockTenant.name,
+        name: (tenant?.name || 'Institution'),
         affiliation: 'CBSE Affiliation No. 1030492 · School Code: 20491',
         address: 'Main Senior Wing Campus, Institutional Area, New Delhi - 110058',
       });
@@ -617,7 +618,7 @@ export const ParentFees: React.FC = () => {
               {/* School Header */}
               <div className="text-center border-b border-border pb-5">
                 <div className="text-lg font-bold text-foreground uppercase tracking-wide">
-                  {mockTenant.name}
+                  {(tenant?.name || 'Institution')}
                 </div>
                 <div className="text-micro text-text-secondary mt-0.5">
                   CBSE Affiliation No. 1030492 · School Code: 20491

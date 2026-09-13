@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { mockTenant } from '@/lib/mockData';
+import { useTenant } from '@/lib/useTenant';
 import { formatPct, averageOf } from '@/lib/format';
 import { dataService } from '@/lib/dataService';
 import { Student, Batch } from '@/lib/types';
@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 
 export const PrincipalStudentDirectory: React.FC = () => {
+  const { tenant } = useTenant();
   // EDUOS-108 — seed empty, not with the 30-row `allStudentsInSchool` /
   // `teacherBatches` fixtures. A principal's institutional directory silently
   // pre-filled with fixture students (and their invented attendance) was
@@ -134,7 +135,7 @@ export const PrincipalStudentDirectory: React.FC = () => {
       {/* Header */}
       <PageHeader
         title="Institutional Student & Parent Directory"
-        subtitle={`All-Campus Student Records, Parent Contacts & Digital ID Cards for ${mockTenant.name}`}
+        subtitle={`All-Campus Student Records, Parent Contacts & Digital ID Cards for ${(tenant?.name || 'Institution')}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={handleExportCSV} className="btn-secondary">
