@@ -3484,8 +3484,305 @@ export const dataService = {
   },
 
   /* -------------------------------------------------------------------------- */
+  /*                Academic Setup: Subject CRUD + Faculty Assignment           */
+  /*                (spec §1.3, §1.13, §4 admin workflow)                       */
+  /* -------------------------------------------------------------------------- */
+
+  /**
+   * List the tenant's subjects, freshest first. Cheap enough to call from an
+   * admin dropdown or the setup page; RLS handles the tenant filter server-side
+   * even when `tenantId` isn't supplied.
+   */
+  async listSubjects(tenantId?: string): Promise<{ id: string; name: string; code: string; color?: string; iconName?: string }[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let q = authClient.from('subjects').select('id, name, code, color, icon_name').eq('is_deleted', false).order('name', { ascending: true });
+      if (tenantId) q = q.eq('tenant_id', tenantId);
+      const { data, error } = await q;
+      if (error) {
+        console.warn('[academic] listSubjects error:', error.message);
+        return [];
+      }
+      return (data || []).map((r: any) => ({ id: r.id, name: r.name, code: r.code, color: r.color || undefined, iconName: r.icon_name || undefined }));
+    } catch (e) {
+      console.warn('[academic] listSubjects exception:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Create a new subject for the tenant. Returns the new row's id, or null on
+   * failure (RLS reject / duplicate code / offline). Errors are logged so the
+   * caller can surface a toast without needing to parse a message here.
+   */
+  async createSubject(input: { tenantId: string; name: string; code: string; color?: string; iconName?: string }): Promise<string | null> {
+    if (!isSupabaseConfigured() || !input.tenantId || !input.name.trim() || !input.code.trim()) return null;
+    try {
+      const { data, error } = await authClient
+        .from('subjects')
+        .insert({
+          tenant_id: input.tenantId,
+          name: input.name.trim(),
+          code: input.code.trim(),
+          color: input.color || '#3B82F6',
+          icon_name: input.iconName || 'BookOpen',
+        })
+        .select('id')
+        .single();
+      if (error) {
+        console.warn('[academic] createSubject error:', error.message);
+        return null;
+      }
+      return data?.id ?? null;
+    } catch (e) {
+      console.warn('[academic] createSubject exception:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Patch a subject's editable fields. Only sends fields the caller supplied,
+   * so partial edits (rename only, recolor only) don't clobber the others.
+   */
+  async updateSubject(subjectId: string, updates: { name?: string; code?: string; color?: string; iconName?: string }): Promise<boolean> {
+    if (!isSupabaseConfigured() || !subjectId) return false;
+    const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (updates.name !== undefined) patch.name = updates.name.trim();
+    if (updates.code !== undefined) patch.code = updates.code.trim();
+    if (updates.color !== undefined) patch.color = updates.color;
+    if (updates.iconName !== undefined) patch.icon_name = updates.iconName;
+    try {
+      const { error } = await authClient.from('subjects').update(patch).eq('id', subjectId);
+      if (error) {
+        console.warn('[academic] updateSubject error:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[academic] updateSubject exception:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Soft-delete: sets is_deleted=true so historical timetable/exam rows keep
+   * their foreign key. A hard DELETE would cascade to syllabus, exams,
+   * assignment and attendance — irreversible.
+   */
+  async deleteSubject(subjectId: string): Promise<boolean> {
+    if (!isSupabaseConfigured() || !subjectId) return false;
+    try {
+      const { error } = await authClient
+        .from('subjects')
+        .update({ is_deleted: true, updated_at: new Date().toISOString() })
+        .eq('id', subjectId);
+      if (error) {
+        console.warn('[academic] deleteSubject error:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[academic] deleteSubject exception:', e);
+      return false;
+    }
+  },
+
+  /**
+   * List teachers assigned to a subject. Optionally filtered to a batch —
+   * NULL-batch rows (tenant-wide assignments) are always included so an admin
+   * gets the full picture, not just the batch-specific overrides.
+   */
+  async listSubjectTeachers(subjectId: string, batchId?: string): Promise<{
+    assignmentId: string; teacherId: string; teacherName: string; teacherEmail: string; batchId: string | null; isPrimary: boolean;
+  }[]> {
+    if (!isSupabaseConfigured() || !subjectId) return [];
+    try {
+      let q = authClient
+        .from('subject_teachers')
+        .select('id, teacher_id, batch_id, is_primary, user_profiles!subject_teachers_teacher_id_fkey(first_name, last_name, email)')
+        .eq('subject_id', subjectId)
+        .eq('is_deleted', false);
+      if (batchId) q = q.or(`batch_id.eq.${batchId},batch_id.is.null`);
+      const { data, error } = await q.order('is_primary', { ascending: false });
+      if (error) {
+        console.warn('[academic] listSubjectTeachers error:', error.message);
+        return [];
+      }
+      return (data || []).map((r: any) => {
+        const p = Array.isArray(r.user_profiles) ? r.user_profiles[0] : r.user_profiles;
+        return {
+          assignmentId: r.id,
+          teacherId: r.teacher_id,
+          teacherName: p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : '',
+          teacherEmail: p?.email || '',
+          batchId: r.batch_id || null,
+          isPrimary: !!r.is_primary,
+        };
+      });
+    } catch (e) {
+      console.warn('[academic] listSubjectTeachers exception:', e);
+      return [];
+    }
+  },
+
+  /**
+   * List the tenant's teachers (user_profiles with role='teacher'). Used by the
+   * assignment picker.
+   */
+  async listTeachers(tenantId?: string): Promise<{ id: string; name: string; email: string }[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let q = authClient.from('user_profiles').select('id, first_name, last_name, email').eq('role', 'teacher');
+      if (tenantId) q = q.eq('tenant_id', tenantId);
+      const { data, error } = await q.order('first_name', { ascending: true });
+      if (error) {
+        console.warn('[academic] listTeachers error:', error.message);
+        return [];
+      }
+      return (data || []).map((r: any) => ({
+        id: r.id,
+        name: `${r.first_name || ''} ${r.last_name || ''}`.trim(),
+        email: r.email || '',
+      }));
+    } catch (e) {
+      console.warn('[academic] listTeachers exception:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Assign a teacher to a subject. Idempotent-ish: the (subject, teacher, batch)
+   * unique constraint means a re-assign fails cleanly rather than duplicating.
+   * Marking `isPrimary` while another primary exists for the same (subject,
+   * batch) will fail the partial unique index — the caller should unassign or
+   * demote the current primary first, and we surface that as a distinct error
+   * so the UI can tell the admin.
+   */
+  async assignFaculty(input: { tenantId: string; subjectId: string; teacherId: string; batchId?: string | null; isPrimary?: boolean }): Promise<{ id: string | null; error?: 'duplicate' | 'primary_conflict' | 'unknown' }> {
+    if (!isSupabaseConfigured() || !input.tenantId || !input.subjectId || !input.teacherId) {
+      return { id: null, error: 'unknown' };
+    }
+    try {
+      const { data, error } = await authClient
+        .from('subject_teachers')
+        .insert({
+          tenant_id: input.tenantId,
+          subject_id: input.subjectId,
+          teacher_id: input.teacherId,
+          batch_id: input.batchId || null,
+          is_primary: !!input.isPrimary,
+        })
+        .select('id')
+        .single();
+      if (error) {
+        console.warn('[academic] assignFaculty error:', error.message);
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('unique_primary')) return { id: null, error: 'primary_conflict' };
+        if (msg.includes('unique_subject_teacher')) return { id: null, error: 'duplicate' };
+        return { id: null, error: 'unknown' };
+      }
+      return { id: data?.id ?? null };
+    } catch (e) {
+      console.warn('[academic] assignFaculty exception:', e);
+      return { id: null, error: 'unknown' };
+    }
+  },
+
+  /**
+   * Remove a subject_teachers row (soft-delete). Uses the assignment id, so a
+   * teacher who's assigned to the same subject in two batches only loses the
+   * one row the admin clicked.
+   */
+  async unassignFaculty(assignmentId: string): Promise<boolean> {
+    if (!isSupabaseConfigured() || !assignmentId) return false;
+    try {
+      const { error } = await authClient
+        .from('subject_teachers')
+        .update({ is_deleted: true, updated_at: new Date().toISOString() })
+        .eq('id', assignmentId);
+      if (error) {
+        console.warn('[academic] unassignFaculty error:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[academic] unassignFaculty exception:', e);
+      return false;
+    }
+  },
+
+  /* -------------------------------------------------------------------------- */
   /*                  Syllabus & Learning Services (Phase 1)                    */
   /* -------------------------------------------------------------------------- */
+
+  /**
+   * Resolve the signed-in student's enrollment context: the students row id, the
+   * batch they're in, and the subjects that batch actually has a syllabus for.
+   *
+   * Subjects are tenant-scoped (no batch_id on public.subjects), so "what
+   * subjects does this student see?" is answered by the syllabus itself —
+   * distinct subject_ids that have chapters for the student's batch. That
+   * matches what the student can actually study, and it doesn't need a new
+   * enrollment table.
+   *
+   * Everything is null-safe: an unresolved session, a missing students row, or
+   * a batch with no syllabus all return sensible empties instead of throwing,
+   * so a caller can render "no subjects yet" rather than crash.
+   */
+  async getStudentContext(authUserId?: string, tenantId?: string): Promise<{
+    studentId: string | null;
+    batchId: string | null;
+    subjects: { id: string; name: string; code: string; color?: string }[];
+  }> {
+    const empty = { studentId: null, batchId: null, subjects: [] };
+    if (!isSupabaseConfigured() || !authUserId) return empty;
+    try {
+      // Two hops: auth_user_id -> user_profiles.id -> students.batch_id. The
+      // students table doesn't carry auth_user_id directly.
+      const { data: profile, error: profErr } = await authClient
+        .from('user_profiles')
+        .select('id, tenant_id')
+        .eq('auth_user_id', authUserId)
+        .maybeSingle();
+      if (profErr || !profile) return empty;
+
+      let stQuery = authClient
+        .from('students')
+        .select('id, batch_id, tenant_id')
+        .eq('user_id', profile.id);
+      if (tenantId) stQuery = stQuery.eq('tenant_id', tenantId);
+      const { data: student, error: stErr } = await stQuery.maybeSingle();
+      if (stErr || !student) return empty;
+
+      const { data: chapters, error: chErr } = await authClient
+        .from('syllabus_chapters')
+        .select('subject_id')
+        .eq('batch_id', student.batch_id)
+        .eq('is_deleted', false);
+      if (chErr) {
+        return { studentId: student.id, batchId: student.batch_id, subjects: [] };
+      }
+
+      const subjectIds = Array.from(new Set((chapters || []).map((c: any) => c.subject_id).filter(Boolean)));
+      if (subjectIds.length === 0) {
+        return { studentId: student.id, batchId: student.batch_id, subjects: [] };
+      }
+
+      const { data: subjectRows } = await authClient
+        .from('subjects')
+        .select('id, name, code, color')
+        .in('id', subjectIds)
+        .eq('is_deleted', false);
+
+      const subjects = (subjectRows || []).map((s: any) => ({
+        id: s.id, name: s.name, code: s.code, color: s.color || undefined,
+      }));
+      return { studentId: student.id, batchId: student.batch_id, subjects };
+    } catch (e) {
+      console.warn('[syllabus] getStudentContext exception:', e);
+      return empty;
+    }
+  },
 
   /**
    * Fetches full structured syllabus (Chapters -> Topics -> Materials) for a given Batch & Subject.

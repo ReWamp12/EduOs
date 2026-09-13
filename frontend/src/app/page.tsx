@@ -25,6 +25,7 @@ import { StudentSupport } from '@/components/student/StudentSupport';
 import { StudentSyllabus } from '@/components/student/StudentSyllabus';
 import { StudentPerformanceView } from '@/components/student/StudentPerformanceView';
 import { AdminAcademicOverview } from '@/components/admin/AdminAcademicOverview';
+import AdminAcademicSetup from '@/components/admin/AdminAcademicSetup';
 
 // Parent Components
 import { ParentOverview } from '@/components/parent/ParentOverview';
@@ -231,6 +232,8 @@ export default function Home() {
             return <PrincipalOverview onNavigate={setActiveTab} />;
           case 'academic_overview':
             return <AdminAcademicOverview />;
+          case 'academic_setup':
+            return <AdminAcademicSetup />;
           case 'finance':
             return <FinanceWorkspace />;
           case 'students':
@@ -255,6 +258,8 @@ export default function Home() {
             return <AdminOverview onNavigate={setActiveTab} />;
           case 'academic_overview':
             return <AdminAcademicOverview />;
+          case 'academic_setup':
+            return <AdminAcademicSetup />;
           case 'tenants':
             return <TenantManager />;
           case 'feature_matrix':

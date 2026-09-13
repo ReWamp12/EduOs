@@ -100,11 +100,21 @@ export const CurriculumTracker: React.FC<CurriculumTrackerProps> = ({ onNavigate
   // Material Viewer Modal State
   const [viewingMaterial, setViewingMaterial] = useState<LearningMaterial | null>(null);
 
-  // Active Batch ID (defaults to Greenfield Class 10-A if not set)
-  const activeBatchId = batch?.id || 'a5000000-0000-0000-0000-000000000001';
+  // Active batch comes from the teacher's selection in TeacherBatchGate.
+  // A silent fallback to a demo UUID would let a teacher accidentally edit
+  // Class 10-A's syllabus while thinking they were in their own batch — the
+  // save would succeed and the wrong batch's students would suddenly see
+  // chapters they never asked for. Empty means "no batch picked yet"; the
+  // render path below shows a picker prompt instead of loading anything.
+  const activeBatchId = batch?.id || '';
 
   // Load syllabus from Supabase on batch/subject change
   const loadSyllabus = async () => {
+    if (!activeBatchId) {
+      setChapters([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await dataService.getSyllabus(activeBatchId, selectedSubjectId, session?.tenantId);
@@ -472,6 +482,23 @@ export const CurriculumTracker: React.FC<CurriculumTrackerProps> = ({ onNavigate
         return <ExternalLink size={13} className="text-emerald-500" />;
     }
   };
+
+  // No batch selected: TeacherBatchGate should route here already, but if a
+  // teacher lands directly without a pick, show a prompt instead of silently
+  // editing the demo batch's syllabus.
+  if (!activeBatchId) {
+    return (
+      <div className="flex flex-col gap-6 animate-fade-in">
+        <PageHeader
+          title="Curriculum & Syllabus Management"
+          subtitle="Pick a batch to start managing its syllabus."
+        />
+        <div className="rounded-xl border border-dashed border-border bg-surface p-8 text-center text-sm text-muted-foreground">
+          Please select a batch to load its curriculum.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">

@@ -131,6 +131,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
     ]},
     { label: 'Operations & Finance', items: [
       { id: 'academic_overview', label: 'Academic Overview', icon: <BarChart3 size={ICON} />, badge: 'Live', badgeTone: 'primary' },
+      { id: 'academic_setup', label: 'Academic Setup', icon: <BookOpen size={ICON} /> },
       { id: 'finance', label: 'Finance, Fees & Ledger', icon: <CreditCard size={ICON} /> },
       { id: 'students', label: 'Institutional Student Directory', icon: <Users size={ICON} /> },
       { id: 'consent', label: 'Digital Consent Hub', icon: <FileSignature size={ICON} /> },
@@ -154,6 +155,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'feature_matrix', label: 'Feature Flag Matrix', icon: <Sliders size={ICON} /> },
     ]},
     { label: 'Configuration', items: [
+      { id: 'academic_setup', label: 'Academic Setup', icon: <BookOpen size={ICON} /> },
       { id: 'finance', label: 'Institutional Finance', icon: <CreditCard size={ICON} /> },
       { id: 'branding_studio', label: 'Branding Studio', icon: <Palette size={ICON} /> },
       { id: 'compliance_lib', label: 'Compliance Library', icon: <Scale size={ICON} /> },

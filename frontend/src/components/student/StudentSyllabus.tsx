@@ -31,31 +31,50 @@ interface SubjectOption {
   code: string;
 }
 
-const DEFAULT_STUDENT_SUBJECTS: SubjectOption[] = [
-  { id: 'a6000000-0000-0000-0000-000000000001', name: 'Mathematics', code: 'MATH-10' },
-  { id: 'a6000000-0000-0000-0000-000000000002', name: 'Physics', code: 'PHY-10' },
-  { id: 'a6000000-0000-0000-0000-000000000003', name: 'Chemistry', code: 'CHEM-10' },
-  { id: 'a6000000-0000-0000-0000-000000000004', name: 'Biology', code: 'BIO-10' },
-  { id: 'a6000000-0000-0000-0000-000000000005', name: 'Computer Science', code: 'CS-10' },
-];
-
 interface StudentSyllabusProps {
   onNavigate?: (tab: string) => void;
 }
 
 export const StudentSyllabus: React.FC<StudentSyllabusProps> = ({ onNavigate }) => {
   const { session } = useAuth();
-  const [subjects] = useState<SubjectOption[]>(DEFAULT_STUDENT_SUBJECTS);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(DEFAULT_STUDENT_SUBJECTS[0].id);
+  // Batch + subject list come from the student's own enrollment now, not a
+  // hardcoded demo constant. `getStudentContext` walks
+  // auth_user -> user_profile -> student -> batch, then lists subjects the
+  // batch actually has a syllabus for. A student on a different batch, or a
+  // batch that got a new subject added, both work without a code change.
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [studentBatchId, setStudentBatchId] = useState<string | null>(null);
+  const [contextResolved, setContextResolved] = useState(false);
   const [chapters, setChapters] = useState<SyllabusChapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   const [viewingMaterial, setViewingMaterial] = useState<LearningMaterial | null>(null);
 
-  // Batch ID for Class 10
-  const studentBatchId = 'a5000000-0000-0000-0000-000000000001';
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ctx = await dataService.getStudentContext(session?.authUserId, session?.tenantId);
+      if (cancelled) return;
+      setSubjects(ctx.subjects);
+      setStudentBatchId(ctx.batchId);
+      // Preserve the current selection if the student still has that subject,
+      // otherwise default to the first one available.
+      setSelectedSubjectId((prev) => {
+        if (prev && ctx.subjects.some((s) => s.id === prev)) return prev;
+        return ctx.subjects[0]?.id || '';
+      });
+      setContextResolved(true);
+    })();
+    return () => { cancelled = true; };
+  }, [session?.authUserId, session?.tenantId]);
 
   const loadSyllabus = async () => {
+    if (!studentBatchId || !selectedSubjectId) {
+      setChapters([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await dataService.getSyllabus(studentBatchId, selectedSubjectId, session?.tenantId);
@@ -73,8 +92,8 @@ export const StudentSyllabus: React.FC<StudentSyllabusProps> = ({ onNavigate }) 
   };
 
   useEffect(() => {
-    loadSyllabus();
-  }, [selectedSubjectId, session?.tenantId]);
+    if (contextResolved) loadSyllabus();
+  }, [selectedSubjectId, studentBatchId, contextResolved, session?.tenantId]);
 
   const selectedSubject = useMemo(
     () => subjects.find((s) => s.id === selectedSubjectId) || subjects[0],
@@ -126,6 +145,27 @@ export const StudentSyllabus: React.FC<StudentSyllabusProps> = ({ onNavigate }) 
         return <ExternalLink size={13} className="text-emerald-500" />;
     }
   };
+
+  // Empty enrollment: unauthenticated demo swap, or a student the tenant hasn't
+  // added yet. Show a friendly state instead of crashing on selectedSubject.name.
+  if (contextResolved && subjects.length === 0) {
+    return (
+      <div className="flex flex-col gap-6 animate-fade-in">
+        <PageHeader
+          title="My Syllabus & Learning Portal"
+          subtitle="Once your teacher publishes the syllabus for your class, it will show up here."
+        />
+        <div className="rounded-xl border border-border bg-surface p-8 text-center text-sm text-muted-foreground">
+          <BookOpen size={32} className="mx-auto mb-3 text-primary/60" />
+          <p className="font-semibold text-foreground">No subjects yet</p>
+          <p className="mt-1">
+            We couldn&apos;t find any subjects enrolled for your batch. Please check
+            back once your class has been set up.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
