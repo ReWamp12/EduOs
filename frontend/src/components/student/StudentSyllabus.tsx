@@ -146,22 +146,35 @@ export const StudentSyllabus: React.FC<StudentSyllabusProps> = ({ onNavigate }) 
     }
   };
 
-  // Empty enrollment: unauthenticated demo swap, or a student the tenant hasn't
-  // added yet. Show a friendly state instead of crashing on selectedSubject.name.
-  if (contextResolved && subjects.length === 0) {
+  // Empty or still-loading enrollment. Two states share this shell:
+  //   * contextResolved && subjects.length === 0 -> "No subjects yet"
+  //   * !contextResolved                         -> "Loading your syllabus…"
+  // Both short-circuit the main render BEFORE any code reads
+  // `selectedSubject.name` — the previous guard checked contextResolved AND
+  // length === 0, which fell through on the very first render (subjects is
+  // still [] and contextResolved is still false) and crashed on undefined.
+  if (subjects.length === 0) {
     return (
       <div className="flex flex-col gap-6 animate-fade-in">
         <PageHeader
           title="My Syllabus & Learning Portal"
-          subtitle="Once your teacher publishes the syllabus for your class, it will show up here."
+          subtitle={contextResolved
+            ? 'Once your teacher publishes the syllabus for your class, it will show up here.'
+            : 'Loading your subjects…'}
         />
         <div className="rounded-xl border border-border bg-surface p-8 text-center text-sm text-muted-foreground">
-          <BookOpen size={32} className="mx-auto mb-3 text-primary/60" />
-          <p className="font-semibold text-foreground">No subjects yet</p>
-          <p className="mt-1">
-            We couldn&apos;t find any subjects enrolled for your batch. Please check
-            back once your class has been set up.
-          </p>
+          {contextResolved ? (
+            <>
+              <BookOpen size={32} className="mx-auto mb-3 text-primary/60" />
+              <p className="font-semibold text-foreground">No subjects yet</p>
+              <p className="mt-1">
+                We couldn&apos;t find any subjects enrolled for your batch. Please
+                check back once your class has been set up.
+              </p>
+            </>
+          ) : (
+            <Loader2 size={22} className="mx-auto animate-spin text-primary/60" />
+          )}
         </div>
       </div>
     );
@@ -231,7 +244,7 @@ export const StudentSyllabus: React.FC<StudentSyllabusProps> = ({ onNavigate }) 
         <div className="flex items-center justify-between text-xs">
           <span className="font-semibold text-foreground flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-            <span>{selectedSubject.name} — Academic Completion</span>
+            <span>{selectedSubject?.name || 'Subject'} — Academic Completion</span>
           </span>
           <span className="font-mono text-primary font-bold">{syllabusProgressPct}% Finished</span>
         </div>
@@ -249,7 +262,7 @@ export const StudentSyllabus: React.FC<StudentSyllabusProps> = ({ onNavigate }) 
           <AlertCircle size={36} className="mx-auto text-text-tertiary" />
           <h3 className="font-bold text-foreground">No Topics Found</h3>
           <p className="text-sm text-text-secondary max-w-md mx-auto">
-            Your teacher has not yet posted chapters for {selectedSubject.name}. Check back soon.
+            Your teacher has not yet posted chapters for {selectedSubject?.name || 'this subject'}. Check back soon.
           </p>
         </div>
       ) : (
