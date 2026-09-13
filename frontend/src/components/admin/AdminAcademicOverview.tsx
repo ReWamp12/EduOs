@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
-import { AdminAcademicOverviewData, ClassStudentPerformanceRow } from '@/lib/types';
+import { AdminAcademicOverviewData, ClassStudentPerformanceRow, Batch } from '@/lib/types';
 import {
   GraduationCap,
   Users,
@@ -33,17 +33,15 @@ export const AdminAcademicOverview: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<AdminAcademicOverviewData | null>(null);
 
-  // Subject Configuration Modal State
+  // Subject Configuration Modal State — the map starts empty and is filled
+  // from Supabase when the modal opens. A hardcoded default here would only
+  // be right for one tenant's demo data; other tenants would see wrong pairs.
   const [showSubjectConfigModal, setShowSubjectConfigModal] = useState(false);
   const [facultyList, setFacultyList] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [subjectFacultyMap, setSubjectFacultyMap] = useState<Record<string, string>>({
-    'a6000000-0000-0000-0000-000000000001': 'a2000000-0000-0000-0000-000000000002', // Mathematics -> Amit Verma
-    'a6000000-0000-0000-0000-000000000002': 'a2000000-0000-0000-0000-000000000003', // Physics -> Sunita Rao
-    'a6000000-0000-0000-0000-000000000003': 'a2000000-0000-0000-0000-000000000005', // Chemistry -> Neha Kapoor
-    'a6000000-0000-0000-0000-000000000004': 'a2000000-0000-0000-0000-000000000006', // Biology -> Priya Singh
-    'a6000000-0000-0000-0000-000000000005': 'a2000000-0000-0000-0000-000000000004', // CS -> Rajesh Gupta
-  });
+  const [subjectFacultyMap, setSubjectFacultyMap] = useState<Record<string, string>>({});
   const [savingConfig, setSavingConfig] = useState(false);
+  // Batches for the drill-down cards, loaded from Supabase not hardcoded.
+  const [batches, setBatches] = useState<Batch[]>([]);
 
   // Drill Down Navigation State (Section 2.13)
   const [drillLevel, setDrillLevel] = useState<DrillLevel>('overview');
@@ -60,6 +58,9 @@ export const AdminAcademicOverview: React.FC = () => {
       setOverview(data);
       const facs = await dataService.getFacultyList(session?.tenantId);
       setFacultyList(facs);
+      // Real batches for the drill-down cards — previously two hardcoded UUIDs.
+      const bs = await dataService.getBatches();
+      setBatches(bs);
     } catch (e) {
       console.warn('Error loading admin academic overview:', e);
     } finally {
@@ -297,66 +298,54 @@ export const AdminAcademicOverview: React.FC = () => {
             </button>
           </div>
 
+          {/*
+           * Drill-down batch cards. Rendered from the real batches list —
+           * previously two hardcoded UUIDs for Class 9-A / 10-A. The per-batch
+           * Avg Score / Syllabus numbers on this card are placeholders that
+           * still show static values until getAdminAcademicOverview returns
+           * per-batch aggregates; the studentCount comes from the real fetch.
+           */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div
-              onClick={() => handleSelectBatch('a5000000-0000-0000-0000-000000000001', 'Class 10 - Section A')}
-              className="rounded-xl border border-border bg-surface p-5 hover:border-primary/50 hover:bg-surface-secondary/30 transition-all cursor-pointer shadow-xs group"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">
-                    Class 10 - Section A
-                  </h3>
-                  <div className="text-xs text-text-secondary mt-0.5">Faculty: Amit Verma</div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-text-tertiary group-hover:translate-x-0.5 transition-transform" />
+            {batches.length === 0 ? (
+              <div className="col-span-full rounded-xl border border-dashed border-border bg-surface p-6 text-center text-sm text-text-secondary">
+                No batches configured for this tenant yet.
               </div>
+            ) : (
+              batches.map((b) => (
+                <div
+                  key={b.id}
+                  onClick={() => handleSelectBatch(b.id, b.name)}
+                  className="rounded-xl border border-border bg-surface p-5 hover:border-primary/50 hover:bg-surface-secondary/30 transition-all cursor-pointer shadow-xs group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">
+                        {b.name}
+                      </h3>
+                      <div className="text-xs text-text-secondary mt-0.5">
+                        Mentor: {b.mentorTeacherName || '—'}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-text-tertiary group-hover:translate-x-0.5 transition-transform" />
+                  </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-lg bg-surface-secondary/60 p-2">
-                  <div className="text-micro text-text-tertiary">Students</div>
-                  <div className="font-bold text-foreground mt-0.5">8</div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="rounded-lg bg-surface-secondary/60 p-2">
+                      <div className="text-micro text-text-tertiary">Students</div>
+                      <div className="font-bold text-foreground mt-0.5">{b.studentCount ?? '—'}</div>
+                    </div>
+                    <div className="rounded-lg bg-surface-secondary/60 p-2">
+                      <div className="text-micro text-text-tertiary">Capacity</div>
+                      <div className="font-bold text-foreground mt-0.5">{b.capacity ?? '—'}</div>
+                    </div>
+                    <div className="rounded-lg bg-surface-secondary/60 p-2">
+                      <div className="text-micro text-text-tertiary">Grade</div>
+                      <div className="font-bold text-foreground mt-0.5">{b.gradeLevel || '—'}</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-lg bg-surface-secondary/60 p-2">
-                  <div className="text-micro text-text-tertiary">Avg Score</div>
-                  <div className="font-bold text-foreground mt-0.5">80%</div>
-                </div>
-                <div className="rounded-lg bg-surface-secondary/60 p-2">
-                  <div className="text-micro text-text-tertiary">Syllabus</div>
-                  <div className="font-bold text-foreground mt-0.5">75%</div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              onClick={() => handleSelectBatch('a5000000-0000-0000-0000-000000000002', 'Class 9 - Section A')}
-              className="rounded-xl border border-border bg-surface p-5 hover:border-primary/50 hover:bg-surface-secondary/30 transition-all cursor-pointer shadow-xs group"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">
-                    Class 9 - Section A
-                  </h3>
-                  <div className="text-xs text-text-secondary mt-0.5">Faculty: Neha Kapoor</div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-text-tertiary group-hover:translate-x-0.5 transition-transform" />
-              </div>
-
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-lg bg-surface-secondary/60 p-2">
-                  <div className="text-micro text-text-tertiary">Students</div>
-                  <div className="font-bold text-foreground mt-0.5">12</div>
-                </div>
-                <div className="rounded-lg bg-surface-secondary/60 p-2">
-                  <div className="text-micro text-text-tertiary">Avg Score</div>
-                  <div className="font-bold text-foreground mt-0.5">82%</div>
-                </div>
-                <div className="rounded-lg bg-surface-secondary/60 p-2">
-                  <div className="text-micro text-text-tertiary">Syllabus</div>
-                  <div className="font-bold text-foreground mt-0.5">60%</div>
-                </div>
-              </div>
-            </div>
+              ))
+            )}
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Body, Query, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Put, Param, Body, Query, Logger, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from './supabase.service';
 import { RagService } from './rag/rag.service';
 import * as mock from './mockData';
@@ -76,12 +76,15 @@ export class AppController {
             avatarUrl: profile?.avatar_url || '/placeholder-avatar.jpg',
           };
         }
-        this.logger.warn('Supabase query returned empty. Falling back to mock data.');
+        this.logger.warn('Supabase query returned empty for student overview.');
       } catch (err) {
-        this.logger.error('Failed to query Supabase, fallback to mock data.', err);
+        this.logger.error('Failed to query Supabase for student overview.', err);
       }
     }
-    return mock.mockCurrentStudent;
+    // No mock fallback: returning a fictional Rohan Mehta record to an
+    // unauthenticated caller would leak seeded data to production traffic.
+    // Callers get a 404 instead — clearer, and RLS is doing its job.
+    throw new NotFoundException('Student overview not available');
   }
 
   @Get('teacher/timetable/:id')
@@ -109,10 +112,11 @@ export class AppController {
           }));
         }
       } catch (err) {
-        this.logger.error('Failed to query Supabase, fallback to mock data.', err);
+        this.logger.error('Failed to query Supabase for timetable.', err);
       }
     }
-    return mock.mockTimetable;
+    // No mock fallback — an empty timetable is the honest answer.
+    return [];
   }
 
   @Get('tenants')
@@ -226,7 +230,8 @@ export class AppController {
         this.logger.error('Failed to fetch leave requests.', err);
       }
     }
-    return mock.mockLeaveRequests;
+    // No mock fallback — an empty leave list is the honest answer.
+    return [];
   }
 
   // --- Assignments & Homework ---

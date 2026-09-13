@@ -49,10 +49,20 @@ export const StudentPerformanceView: React.FC<StudentPerformanceViewProps> = ({ 
   const loadData = async () => {
     setLoading(true);
     try {
-      // Find active student id
-      // Find active student id
+      // Resolve the signed-in student's id from their session. No hardcoded
+      // fallback — showing Rohan Mehta's academic record to an unauthenticated
+      // viewer (or any other student) would be a real data-leak, not a
+      // "default demo view."
       const st = await dataService.getStudentOverview(session?.userId);
-      const sId = st?.id || 'a7000000-0000-0000-0000-000000000003'; // default to Rohan Mehta
+      const sId = st?.id;
+      if (!sId) {
+        setSummary(null);
+        setSubjects([]);
+        setHistory([]);
+        setTrend(null);
+        setRemarks([]);
+        return;
+      }
 
       const [perfSummary, subjPerf, examHist, facRemarks] = await Promise.all([
         dataService.getStudentPerformance(sId, session?.tenantId),

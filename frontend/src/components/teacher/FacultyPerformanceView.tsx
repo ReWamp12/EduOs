@@ -34,12 +34,19 @@ interface FacultyPerformanceViewProps {
 export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ onNavigate }) => {
   const { session } = useAuth();
   const { batchId } = useTeacherBatch();
-  const activeBatchId = batchId || 'a5000000-0000-0000-0000-000000000001';
+  // Empty batch is the empty-state trigger, not a silent fallback to the demo
+  // batch — a teacher who arrived without picking a batch shouldn't be shown
+  // Class 10-A's roster and be able to save an assessment against it.
+  const activeBatchId = batchId || '';
 
   const [loading, setLoading] = useState(true);
   const [roster, setRoster] = useState<ClassStudentPerformanceRow[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'attention' | 'good'>('all');
+
+  // Subjects for the assessment/remark dropdown come from Supabase, not a
+  // hardcoded UUID list. First one wins as default; nothing hardcoded.
+  const [subjectOptions, setSubjectOptions] = useState<{ id: string; name: string; code: string }[]>([]);
 
   // Detail Modal State
   const [selectedStudent, setSelectedStudent] = useState<ClassStudentPerformanceRow | null>(null);
@@ -55,7 +62,10 @@ export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ 
   // Record Assessment Modal State
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [testTitle, setTestTitle] = useState('');
-  const [testSubjectId, setTestSubjectId] = useState('a6000000-0000-0000-0000-000000000001'); // Mathematics
+  // Populated from Supabase once subjectOptions loads; empty means "no subject
+  // set for this tenant" — the assessment modal disables its submit button
+  // rather than saving an exam against a missing subject_id (would violate FK).
+  const [testSubjectId, setTestSubjectId] = useState('');
   const [testTotalMarks, setTestTotalMarks] = useState(100);
   const [testDate, setTestDate] = useState(new Date().toISOString().split('T')[0]);
   const [studentMarks, setStudentMarks] = useState<Record<string, number>>({});
@@ -63,6 +73,11 @@ export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ 
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   const loadRoster = async () => {
+    if (!activeBatchId) {
+      setRoster([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await dataService.getClassPerformanceRoster(activeBatchId, undefined, session?.tenantId);
@@ -85,6 +100,19 @@ export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ 
     loadRoster();
   }, [activeBatchId, session?.tenantId]);
 
+  // Load the tenant's subject catalogue once so the assessment/remark dropdowns
+  // reflect real subjects — not the pre-launch Class 10 hardcoded 5.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const subs = await dataService.listSubjects(session?.tenantId);
+      if (cancelled) return;
+      setSubjectOptions(subs.map((s) => ({ id: s.id, name: s.name, code: s.code })));
+      setTestSubjectId((prev) => prev || subs[0]?.id || '');
+    })();
+    return () => { cancelled = true; };
+  }, [session?.tenantId]);
+
   // Open detail drawer
   const openStudentDetail = async (s: ClassStudentPerformanceRow) => {
     setSelectedStudent(s);
@@ -105,7 +133,7 @@ export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ 
     try {
       const res = await dataService.saveFacultyRemark(
         remarkStudent.studentId,
-        session?.userId || 'a2000000-0000-0000-0000-000000000002',
+        session?.userId || '',
         testSubjectId,
         activeBatchId,
         remarkText,
@@ -143,7 +171,7 @@ export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ 
         'unit_test',
         testTotalMarks,
         testDate,
-        session?.userId || 'a2000000-0000-0000-0000-000000000002',
+        session?.userId || '',
         scoresPayload,
         session?.tenantId
       );
@@ -176,6 +204,18 @@ export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ 
     roster.length > 0 ? Math.round(roster.reduce((acc, curr) => acc + curr.overallScore, 0) / roster.length) : 0;
   const avgAttendance =
     roster.length > 0 ? Math.round(roster.reduce((acc, curr) => acc + curr.attendancePct, 0) / roster.length) : 0;
+
+  // Empty batch: TeacherBatchGate normally routes here, but a stray direct-nav
+  // hit gets a picker prompt instead of a silent Class 10-A view.
+  if (!activeBatchId) {
+    return (
+      <div className="flex flex-col gap-6 pb-12">
+        <div className="rounded-xl border border-dashed border-border bg-surface p-8 text-center text-sm text-muted-foreground">
+          Please pick a batch to view its performance.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 pb-12">
@@ -669,9 +709,14 @@ export const FacultyPerformanceView: React.FC<FacultyPerformanceViewProps> = ({ 
                     onChange={(e) => setTestSubjectId(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    <option value="a6000000-0000-0000-0000-000000000001">Mathematics (MATH-10)</option>
-                    <option value="a6000000-0000-0000-0000-000000000002">Physics (PHY-10)</option>
-                    <option value="a6000000-0000-0000-0000-000000000003">Chemistry (CHEM-10)</option>
+                    {subjectOptions.length === 0 && (
+                      <option value="">No subjects configured</option>
+                    )}
+                    {subjectOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>

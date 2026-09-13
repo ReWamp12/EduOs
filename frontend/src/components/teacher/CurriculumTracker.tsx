@@ -41,14 +41,6 @@ interface SubjectOption {
   code: string;
 }
 
-const DEFAULT_SUBJECTS: SubjectOption[] = [
-  { id: 'a6000000-0000-0000-0000-000000000001', name: 'Mathematics', code: 'MATH-10' },
-  { id: 'a6000000-0000-0000-0000-000000000002', name: 'Physics', code: 'PHY-10' },
-  { id: 'a6000000-0000-0000-0000-000000000003', name: 'Chemistry', code: 'CHEM-10' },
-  { id: 'a6000000-0000-0000-0000-000000000004', name: 'Biology', code: 'BIO-10' },
-  { id: 'a6000000-0000-0000-0000-000000000005', name: 'Computer Science', code: 'CS-10' },
-];
-
 interface CurriculumTrackerProps {
   onNavigate?: (tab: string) => void;
 }
@@ -57,8 +49,11 @@ export const CurriculumTracker: React.FC<CurriculumTrackerProps> = ({ onNavigate
   const { session } = useAuth();
   const { batch, teacher } = useTeacherBatch();
 
-  const [subjects, setSubjects] = useState<SubjectOption[]>(DEFAULT_SUBJECTS);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(DEFAULT_SUBJECTS[0].id);
+  // Subjects come from Supabase — the tenant's real subject catalogue managed
+  // in Admin > Academic Setup, not a hardcoded Class-10 list. Empty until the
+  // fetch resolves; a tenant with no subjects yet gets a disabled dropdown.
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [chapters, setChapters] = useState<SyllabusChapter[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
@@ -136,6 +131,23 @@ export const CurriculumTracker: React.FC<CurriculumTrackerProps> = ({ onNavigate
   useEffect(() => {
     loadSyllabus();
   }, [activeBatchId, selectedSubjectId, session?.tenantId]);
+
+  // Load real subject catalogue and pick a sensible default (preserve the
+  // current pick if it's still valid, otherwise first available).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const subs = await dataService.listSubjects(session?.tenantId);
+      if (cancelled) return;
+      const mapped = subs.map((s) => ({ id: s.id, name: s.name, code: s.code }));
+      setSubjects(mapped);
+      setSelectedSubjectId((prev) => {
+        if (prev && mapped.some((s) => s.id === prev)) return prev;
+        return mapped[0]?.id || '';
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [session?.tenantId]);
 
   const selectedSubject = useMemo(
     () => subjects.find((s) => s.id === selectedSubjectId) || subjects[0],
