@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Assignment, AssignmentAttachment, DigitalConsentForm, ConsentResponse, Student, LeaveRequest } from './types';
-import { allStudentsInSchool, studentsByBatch, SEEDED_STUDENTS_LIST, seededClass10Batch } from './batchData';
+import { allStudentsInSchool, studentsByBatch, teacherBatches } from './batchData';
 import { authClient } from './auth/client';
 import { isSupabaseConfigured } from './supabase';
 
@@ -172,7 +172,10 @@ const STORAGE_KEY = 'eduos-store-v7';
 
 function seed(): AppState {
   const now = Date.now();
-  const students = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+  // No demo fallback — an unloaded student list means the demo consent forms
+// / attendance / exam alerts start with no target audience, and the store
+// backfills responses when the Supabase sync completes and re-seeds.
+const students = allStudentsInSchool;
 
   const defaultConsentForms: DigitalConsentForm[] = [
     {
@@ -181,7 +184,7 @@ function seed(): AppState {
       description: 'Educational field trip to the National Science Centre & Robotics Expo. Transport and guided tour provided by the school.',
       category: 'Excursion & Field Visit',
       targetType: 'all_school',
-      targetBatchIds: [seededClass10Batch.id],
+      targetBatchIds: [(teacherBatches[0]?.id || '')],
       targetBatchNames: ['Class 10 - A'],
       authorRole: 'principal',
       authorName: 'Dr. Meenakshi Sundaram',
@@ -206,7 +209,7 @@ function seed(): AppState {
       description: 'Authorization for student participation in the CBSE Inter-School Zonal Athletics Meet.',
       category: 'Sports & Tournaments',
       targetType: 'batch',
-      targetBatchIds: [seededClass10Batch.id],
+      targetBatchIds: [(teacherBatches[0]?.id || '')],
       targetBatchNames: ['Class 10 - A'],
       authorRole: 'teacher',
       authorName: 'Meera Iyer',
@@ -300,8 +303,8 @@ function seed(): AppState {
   const todayStr = new Date().toISOString().split('T')[0];
   const defaultAttendance: AttendanceSessionRecord[] = [
     {
-      id: `att-${seededClass10Batch.id}-${todayStr}-p1`,
-      batchId: seededClass10Batch.id,
+      id: `att-${(teacherBatches[0]?.id || '')}-${todayStr}-p1`,
+      batchId: (teacherBatches[0]?.id || ''),
       batchName: 'Class 10 - A',
       date: todayStr,
       periodId: 'p1',
@@ -860,7 +863,10 @@ export function addExam(input: {
 
   // Notify parents of students in this batch (parent dashboard alert feed).
   const now = Date.now();
-  const students = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+  // No demo fallback — an unloaded student list means the demo consent forms
+// / attendance / exam alerts start with no target audience, and the store
+// backfills responses when the Supabase sync completes and re-seeds.
+const students = allStudentsInSchool;
   const examAlerts: ParentAlert[] = students
     .filter((s) => !exam.batchName || s.batchName === exam.batchName || s.batchName.includes(exam.batchName))
     .map((s, i) => ({
@@ -949,7 +955,7 @@ export function createConsentForm(input: {
   const formId = input.id || `consent-${Date.now()}`;
   const now = Date.now();
 
-  const allStudents = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+  const allStudents = allStudentsInSchool;
 
   // Find target students
   let targetStudents: Student[] = [];

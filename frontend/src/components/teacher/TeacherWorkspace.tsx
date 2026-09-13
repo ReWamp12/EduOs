@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { TeacherBatchProvider } from '@/lib/teacherContext';
-import { teacherBatches, studentsForBatch, defaultTeacherBatch } from '@/lib/batchData';
+import { teacherBatches, studentsForBatch } from '@/lib/batchData';
 import { TeacherBatchGate } from './TeacherBatchGate';
 import { TeacherOverview } from './TeacherOverview';
 import { TeacherAttendance } from './TeacherAttendance';
@@ -36,7 +36,10 @@ const BatchSwitcher: React.FC<{ batchId: string; setBatchId: (id: string | null)
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const batches = teacherBatches || [];
-  const batch = batches.find((b) => b.id === batchId) ?? batches[0] ?? defaultTeacherBatch;
+  // Undefined batch is honest: TeacherBatchGate should have prevented this
+  // component from rendering without a selection. Falling back to a demo
+  // batch would make the switcher lie about the teacher's actual assignment.
+  const batch = batches.find((b) => b.id === batchId) ?? batches[0];
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {

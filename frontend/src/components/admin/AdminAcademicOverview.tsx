@@ -28,19 +28,19 @@ import { toast } from '@/components/ui/toast';
 
 type DrillLevel = 'overview' | 'subject' | 'batch' | 'student';
 
-export const AdminAcademicOverview: React.FC = () => {
+interface AdminAcademicOverviewProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export const AdminAcademicOverview: React.FC<AdminAcademicOverviewProps> = ({ onNavigate }) => {
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<AdminAcademicOverviewData | null>(null);
 
-  // Subject Configuration Modal State — the map starts empty and is filled
-  // from Supabase when the modal opens. A hardcoded default here would only
-  // be right for one tenant's demo data; other tenants would see wrong pairs.
-  const [showSubjectConfigModal, setShowSubjectConfigModal] = useState(false);
-  const [facultyList, setFacultyList] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [subjectFacultyMap, setSubjectFacultyMap] = useState<Record<string, string>>({});
-  const [savingConfig, setSavingConfig] = useState(false);
   // Batches for the drill-down cards, loaded from Supabase not hardcoded.
+  // (A previous "Subject Configuration Modal" lived here; it never called any
+  // dataService method — Save was a setTimeout+toast — and duplicated the
+  // real AdminAcademicSetup panel. The trigger button now routes there.)
   const [batches, setBatches] = useState<Batch[]>([]);
 
   // Drill Down Navigation State (Section 2.13)
@@ -56,8 +56,6 @@ export const AdminAcademicOverview: React.FC = () => {
     try {
       const data = await dataService.getAdminAcademicOverview(session?.tenantId);
       setOverview(data);
-      const facs = await dataService.getFacultyList(session?.tenantId);
-      setFacultyList(facs);
       // Real batches for the drill-down cards — previously two hardcoded UUIDs.
       const bs = await dataService.getBatches();
       setBatches(bs);
@@ -176,7 +174,7 @@ export const AdminAcademicOverview: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setShowSubjectConfigModal(true)}
+              onClick={() => onNavigate?.('academic_setup')}
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all self-start md:self-auto shrink-0"
             >
               <Settings className="h-4 w-4" />
@@ -497,113 +495,6 @@ export const AdminAcademicOverview: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Subject Configuration & Faculty Assignment (§1.3 & §4) */}
-      {showSubjectConfigModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-fade-in">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                  <UserCheck size={18} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground text-base">Academic Subject & Faculty Assignment</h3>
-                  <p className="text-xs text-text-secondary">
-                    Configure institutional subjects, syllabi codes, and assign active faculty members (§1.3)
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSubjectConfigModal(false)}
-                className="rounded-md p-1 hover:bg-muted text-text-tertiary hover:text-foreground"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-              {overview?.subjectAverages.map((sub) => {
-                const assignedTeacherId = subjectFacultyMap[sub.subjectId];
-                return (
-                  <div
-                    key={sub.subjectId}
-                    className="p-4 rounded-xl border border-border bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">{sub.subjectName}</span>
-                        <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted text-text-secondary">
-                          {sub.subjectCode}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-text-tertiary mt-1">
-                        <span>Class 10 Syllabus: <strong>{sub.averageSyllabusProgress}% Covered</strong></span>
-                        <span>·</span>
-                        <span>Performance: <strong>{sub.averagePerformance}%</strong></span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <label className="text-xs font-semibold text-text-secondary">Faculty:</label>
-                      <select
-                        value={assignedTeacherId || ''}
-                        onChange={(e) =>
-                          setSubjectFacultyMap((prev) => ({
-                            ...prev,
-                            [sub.subjectId]: e.target.value,
-                          }))
-                        }
-                        className="input text-xs py-1.5 px-2.5 min-w-[170px]"
-                      >
-                        {facultyList.length > 0 ? (
-                          facultyList.map((f) => (
-                            <option key={f.id} value={f.id}>
-                              {f.name}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="">Prof. Amit Verma</option>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-border">
-              <span className="text-xs text-text-tertiary">
-                Changes apply instantly across all Class 10 academic timetables and syllabus trackers.
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowSubjectConfigModal(false)}
-                  className="btn-secondary text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={savingConfig}
-                  onClick={async () => {
-                    setSavingConfig(true);
-                    setTimeout(() => {
-                      setSavingConfig(false);
-                      setShowSubjectConfigModal(false);
-                      toast('Subject faculty assignments saved successfully!', 'success');
-                    }, 500);
-                  }}
-                  className="btn-primary text-xs flex items-center gap-1.5"
-                >
-                  {savingConfig && <Loader2 size={13} className="animate-spin" />}
-                  Save Assignments
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

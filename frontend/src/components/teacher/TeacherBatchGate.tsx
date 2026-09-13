@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { teacherBatches, studentsForBatch, defaultTeacherBatch } from '@/lib/batchData';
+import { teacherBatches, studentsForBatch } from '@/lib/batchData';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { GraduationCap, Users, ArrowRight, LayoutGrid, CalendarOff } from 'lucide-react';
 
@@ -27,14 +27,10 @@ export const TeacherBatchGate: React.FC<{ onSelect: (batchId: string) => void }>
           <CalendarOff size={36} className="text-text-tertiary mb-3 opacity-50" />
           <h3 className="text-section font-semibold text-foreground">No Batches Assigned</h3>
           <p className="mt-1 text-body text-text-secondary max-w-md">
-            No academic batches or student rosters have been assigned to your faculty profile yet.
+            No academic batches or student rosters have been assigned to your
+            faculty profile yet. Ask your principal or academic admin to
+            assign you to a class.
           </p>
-          <button
-            onClick={() => onSelect(defaultTeacherBatch.id)}
-            className="btn-secondary mt-5"
-          >
-            Enter General Workspace
-          </button>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -231,7 +231,7 @@ export default function Home() {
           case 'overview':
             return <PrincipalOverview onNavigate={setActiveTab} />;
           case 'academic_overview':
-            return <AdminAcademicOverview />;
+            return <AdminAcademicOverview onNavigate={setActiveTab} />;
           case 'academic_setup':
             return <AdminAcademicSetup />;
           case 'finance':
@@ -257,7 +257,7 @@ export default function Home() {
           case 'overview':
             return <AdminOverview onNavigate={setActiveTab} />;
           case 'academic_overview':
-            return <AdminAcademicOverview />;
+            return <AdminAcademicOverview onNavigate={setActiveTab} />;
           case 'academic_setup':
             return <AdminAcademicSetup />;
           case 'tenants':

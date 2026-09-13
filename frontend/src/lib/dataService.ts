@@ -3,7 +3,7 @@ import { authClient } from './auth/client';
 import { isSupabaseConfigured } from './supabase';
 import { TutorResponse } from './tutorTypes';
 import type { FeeInvoiceRecord, NoticeMessage } from './store';
-import { allStudentsInSchool, SEEDED_STUDENTS_LIST } from './batchData';
+import { allStudentsInSchool } from './batchData';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 
@@ -612,7 +612,9 @@ export const dataService = {
    * Gracefully falls back to linked student roster to ensure parent dashboard functionality.
    */
   async getParentChildren(): Promise<Student[] | null> {
-    const fallbackStudents = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+    // No seed fallback — an empty cache means "not loaded" or "genuinely no
+    // students", never "fall back to Aarav Sharma & friends from lib/mockData".
+    const fallbackStudents = allStudentsInSchool;
 
     if (isSupabaseConfigured()) {
       try {
@@ -757,7 +759,9 @@ export const dataService = {
    * card and QR code.
    */
   async getStudentOverview(studentId?: string): Promise<Student | null> {
-    const fallbackStudents = allStudentsInSchool.length > 0 ? allStudentsInSchool : SEEDED_STUDENTS_LIST;
+    // No seed fallback — an empty cache means "not loaded" or "genuinely no
+    // students", never "fall back to Aarav Sharma & friends from lib/mockData".
+    const fallbackStudents = allStudentsInSchool;
 
     if (isSupabaseConfigured()) {
       try {
