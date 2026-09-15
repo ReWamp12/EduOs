@@ -25,6 +25,48 @@
 --     'published' so old assignments stay visible.
 --   * closed_at — when submissions were locked; audit trail
 
+-- ── Prereq: catch up prod-drifted columns ─────────────────────────────────
+-- The schema-file view of these tables was ahead of prod. Every column we
+-- add here has a sensible default so the ALTERs succeed on tables that
+-- already have rows.
+--
+-- Column names match PROD (not the drifted schema file):
+--   assignment_submissions has `submission_url` (not file_url),
+--   `marks_obtained` (not marks_awarded), `student_notes` (not
+--   submission_text). The Phase 2 additions below use those real names.
+
+ALTER TABLE public.assignments
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE public.assignment_submissions
+    ADD COLUMN IF NOT EXISTS tenant_id  UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Backfill tenant_id on submissions from the parent assignment. Safe because
+-- assignment_submissions.assignment_id has NOT NULL + FK, so every existing
+-- row has a matching assignments row with a tenant_id.
+UPDATE public.assignment_submissions s
+   SET tenant_id = a.tenant_id
+  FROM public.assignments a
+ WHERE s.assignment_id = a.id
+   AND s.tenant_id IS NULL;
+
+-- Only after the backfill can we require NOT NULL. Guarded so a re-run
+-- doesn't re-run a constraint tighten that already happened.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='assignment_submissions'
+           AND column_name='tenant_id' AND is_nullable='YES'
+    ) THEN
+        ALTER TABLE public.assignment_submissions
+            ALTER COLUMN tenant_id SET NOT NULL;
+    END IF;
+END $$;
+
+-- ── Phase 2 columns on assignments ────────────────────────────────────────
 ALTER TABLE public.assignments
     ADD COLUMN IF NOT EXISTS chapter_id UUID REFERENCES public.syllabus_chapters(id) ON DELETE SET NULL,
     ADD COLUMN IF NOT EXISTS topic_id UUID REFERENCES public.syllabus_topics(id) ON DELETE SET NULL,
@@ -93,14 +135,16 @@ CREATE TABLE IF NOT EXISTS public.submission_attachments (
 CREATE INDEX IF NOT EXISTS idx_submission_attachments_submission
     ON public.submission_attachments(submission_id);
 
--- Backfill single file_url the same way.
-INSERT INTO public.submission_attachments (tenant_id, submission_id, file_url)
-SELECT s.tenant_id, s.id, s.file_url
+-- Backfill single submission_url (prod's column name) + file_name if it
+-- exists on the submission row. The multi-file table uses `file_url` as its
+-- column, so we alias here — the target column name is what matters.
+INSERT INTO public.submission_attachments (tenant_id, submission_id, file_url, file_name)
+SELECT s.tenant_id, s.id, s.submission_url, s.file_name
   FROM public.assignment_submissions s
- WHERE s.file_url IS NOT NULL AND s.file_url <> ''
+ WHERE s.submission_url IS NOT NULL AND s.submission_url <> ''
    AND NOT EXISTS (
        SELECT 1 FROM public.submission_attachments x
-        WHERE x.submission_id = s.id AND x.file_url = s.file_url
+        WHERE x.submission_id = s.id AND x.file_url = s.submission_url
    );
 
 -- Extend assignment_submissions with per-attempt tracking (§4.7, §16).
@@ -111,18 +155,26 @@ ALTER TABLE public.assignment_submissions
     ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS reviewer_id UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL;
 
--- The old UNIQUE(assignment_id, student_id) blocks resubmissions. Drop it and
--- replace with UNIQUE(assignment_id, student_id, attempt_number) so we can
--- have multiple attempts per student, but never two rows with the same
--- attempt number. Guard the drop so a re-run is safe.
+-- The old UNIQUE(assignment_id, student_id) blocks resubmissions. Drop
+-- whatever unique constraint exists on that pair (name may vary between
+-- environments), then add the new one that includes attempt_number.
 DO $$
+DECLARE
+    old_uniq TEXT;
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM pg_constraint
-         WHERE conname = 'assignment_submissions_assignment_id_student_id_key'
-    ) THEN
-        ALTER TABLE public.assignment_submissions
-            DROP CONSTRAINT assignment_submissions_assignment_id_student_id_key;
+    SELECT c.conname INTO old_uniq
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+     WHERE t.relname = 'assignment_submissions'
+       AND c.contype = 'u'
+       AND (
+           SELECT array_agg(attname ORDER BY attname)
+             FROM pg_attribute
+            WHERE attrelid = c.conrelid AND attnum = ANY(c.conkey)
+       ) = ARRAY['assignment_id','student_id']::name[]
+     LIMIT 1;
+    IF old_uniq IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE public.assignment_submissions DROP CONSTRAINT %I', old_uniq);
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
