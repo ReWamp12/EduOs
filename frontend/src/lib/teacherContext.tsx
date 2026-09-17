@@ -43,11 +43,17 @@ export const TeacherBatchProvider: React.FC<{
   const { session } = useAuth();
   // Empty by default. Filled by syncBatchDataFromSupabase below.
   const [batches, setBatches] = useState<Batch[]>(teacherBatches);
+  const [loaded, setLoaded] = useState<boolean>(() => (teacherBatches || []).length > 0);
 
   useEffect(() => {
     let active = true;
     syncBatchDataFromSupabase().then((res) => {
-      if (active) setBatches(res.batches);
+      if (active) {
+        setBatches(res.batches || []);
+        setLoaded(true);
+      }
+    }).catch(() => {
+      if (active) setLoaded(true);
     });
     return () => {
       active = false;
@@ -82,12 +88,25 @@ export const TeacherBatchProvider: React.FC<{
 
   // No batch resolved yet — either the sync is still running or no batches
   // exist for this teacher. Render a small loading marker instead of
-  // shipping a fake batch down to every teacher screen. This is what
-  // guarantees the context's `batch` is non-null everywhere it's read.
+  // shipping a fake batch down to every teacher screen.
   if (!batch) {
+    if (!loaded) {
+      return (
+        <div className="flex items-center justify-center py-16 text-sm text-text-secondary gap-2">
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          Loading your workspace…
+        </div>
+      );
+    }
     return (
-      <div className="flex items-center justify-center py-16 text-sm text-text-secondary">
-        Loading your workspace…
+      <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+        <p className="text-sm text-text-secondary">No batch selected or available.</p>
+        <button
+          onClick={() => setBatchId('')}
+          className="btn-secondary py-1.5 px-3 text-xs"
+        >
+          Select Class
+        </button>
       </div>
     );
   }

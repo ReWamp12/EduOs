@@ -79,8 +79,24 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  // Teacher workspace is scoped to a selected batch; kept for the whole session.
-  const [teacherBatchId, setTeacherBatchId] = useState<string | null>(null);
+  // Teacher workspace is scoped to a selected batch; kept for the whole session and persisted locally.
+  const [teacherBatchId, setTeacherBatchId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('eduos_teacher_batch_id');
+    }
+    return null;
+  });
+
+  const handleTeacherBatchSelect = (id: string | null) => {
+    setTeacherBatchId(id);
+    if (typeof window !== 'undefined') {
+      if (id) {
+        localStorage.setItem('eduos_teacher_batch_id', id);
+      } else {
+        localStorage.removeItem('eduos_teacher_batch_id');
+      }
+    }
+  };
 
   // EDUOS-108 — the viewed dashboard is the session's own role, full stop.
   //
@@ -328,7 +344,7 @@ export default function Home() {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 batchId={teacherBatchId}
-                setBatchId={setTeacherBatchId}
+                setBatchId={handleTeacherBatchSelect}
               />
             ) : (
               renderContent()

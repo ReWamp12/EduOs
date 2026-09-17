@@ -90,7 +90,7 @@ export async function syncBatchDataFromSupabase(): Promise<{ batches: Batch[]; s
     const { data: batchesData } = await authClient
       .from('batches')
       .select(`
-        id, name, code, target_exam, academic_year, room_number, capacity,
+        id, name, code, target_exam, academic_year, room_number, capacity, mentor_teacher_id,
         user_profiles:mentor_teacher_id (first_name, last_name)
       `);
 
@@ -127,6 +127,7 @@ export async function syncBatchDataFromSupabase(): Promise<{ batches: Batch[]; s
         targetExam: b.target_exam || '',
         gradeLevel: '',
         roomNumber: b.room_number || '',
+        mentorTeacherId: b.mentor_teacher_id || '',
         mentorTeacherName: b.user_profiles
           ? `${b.user_profiles.first_name || ''} ${b.user_profiles.last_name || ''}`.trim()
           : '',

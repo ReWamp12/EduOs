@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { TeacherBatchProvider } from '@/lib/teacherContext';
+import { TeacherBatchProvider, useTeacherBatch } from '@/lib/teacherContext';
 import { teacherBatches, studentsForBatch } from '@/lib/batchData';
 import { TeacherBatchGate } from './TeacherBatchGate';
 import { TeacherOverview } from './TeacherOverview';
@@ -35,11 +35,7 @@ const BatchSwitcher: React.FC<{ batchId: string; setBatchId: (id: string | null)
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const batches = teacherBatches || [];
-  // Undefined batch is honest: TeacherBatchGate should have prevented this
-  // component from rendering without a selection. Falling back to a demo
-  // batch would make the switcher lie about the teacher's actual assignment.
-  const batch = batches.find((b) => b.id === batchId) ?? batches[0];
+  const { batches, batch } = useTeacherBatch();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -104,6 +100,18 @@ const BatchSwitcher: React.FC<{ batchId: string; setBatchId: (id: string | null)
                     </button>
                   );
                 })}
+                <div className="mt-1 border-t border-border pt-1">
+                  <button
+                    onClick={() => {
+                      setBatchId(null);
+                      setOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-micro font-medium text-text-secondary hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <LayoutGrid size={13} />
+                    Browse All Classes
+                  </button>
+                </div>
               </div>
             )}
           </div>

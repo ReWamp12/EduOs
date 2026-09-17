@@ -40,6 +40,7 @@ export interface Batch {
   gradeLevel: string;
   roomNumber: string;
   mentorTeacherName: string;
+  mentorTeacherId?: string;
   studentCount: number;
   capacity: number;
 }
