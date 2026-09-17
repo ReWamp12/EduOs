@@ -17,8 +17,14 @@ import {
   Sparkles,
   Landmark,
   Receipt,
+  Bell,
+  CheckCheck,
+  FileText,
+  Radio,
+  Award,
 } from 'lucide-react';
 import { Badge, cn } from '@/components/ui';
+import { dataService } from '@/lib/dataService';
 
 interface NavbarProps {
   activeRole: UserRole;
@@ -47,7 +53,41 @@ export const Navbar: React.FC<NavbarProps> = ({
   const meta = getNavMeta(activeRole, activeTab);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { session, isDemo } = useAuth();
+
+  const loadNotifications = async () => {
+    if (session?.userId) {
+      const list = await dataService.getNotifications(session.userId);
+      if (list) setNotifications(list);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 25000);
+    return () => clearInterval(interval);
+  }, [session?.userId]);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const handleMarkAllRead = async () => {
+    if (session?.userId) {
+      await dataService.markAllNotificationsRead(session.userId);
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    }
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    if (!notif.isRead) {
+      await dataService.markNotificationRead(notif.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+      );
+    }
+  };
 
   // EDUOS-108 — second copy of the Sidebar's stakeholder switcher, and it had
   // the same defect: rendered for every session, offering Super Admin to
@@ -62,6 +102,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     const onClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', onClick);
@@ -94,11 +137,116 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Right: Live Cloud Badge + stakeholder switcher */}
+      {/* Right: Live Cloud Badge + Notification Bell + stakeholder switcher */}
       <div className="flex items-center gap-2.5 shrink-0">
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>Cloud Active</span>
+        </div>
+
+        {/* Notification Bell */}
+        <div className="relative shrink-0" ref={notifRef}>
+          <button
+            onClick={() => setNotifOpen((v) => !v)}
+            className="relative grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-text-secondary hover:bg-muted hover:text-foreground transition-colors shadow-2xs"
+            aria-label="Notifications"
+          >
+            <Bell size={17} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white shadow-xs animate-scale-in">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div className="absolute right-0 top-full z-50 mt-2 w-80 sm:w-96 rounded-2xl border border-border bg-surface shadow-2xl animate-scale-in overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border bg-surface-muted px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-meta font-bold text-foreground">Notifications</span>
+                  {unreadCount > 0 && (
+                    <Badge tone="primary" className="text-micro">{unreadCount} new</Badge>
+                  )}
+                </div>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="inline-flex items-center gap-1 text-micro font-semibold text-primary hover:underline"
+                  >
+                    <CheckCheck size={13} /> Mark all read
+                  </button>
+                )}
+              </div>
+
+              {/* Notification List */}
+              <div className="max-h-[380px] overflow-y-auto divide-y divide-border/60">
+                {notifications.length === 0 ? (
+                  <div className="py-10 text-center text-meta text-text-tertiary">
+                    <Bell size={24} className="mx-auto mb-2 opacity-40" />
+                    No notifications yet
+                  </div>
+                ) : (
+                  notifications.map((n) => {
+                    const isUnread = !n.isRead;
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={cn(
+                          'flex items-start gap-3 p-3.5 cursor-pointer transition-colors text-left',
+                          isUnread ? 'bg-primary-soft/15 hover:bg-primary-soft/25' : 'hover:bg-muted/40'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'grid h-8 w-8 shrink-0 place-items-center rounded-lg mt-0.5 text-micro',
+                            n.eventType?.includes('exam')
+                              ? 'bg-destructive/15 text-destructive'
+                              : n.eventType?.includes('assignment')
+                              ? 'bg-primary-soft text-primary'
+                              : 'bg-surface-muted text-text-secondary'
+                          )}
+                        >
+                          {n.eventType?.includes('live') ? (
+                            <Radio size={14} className="animate-pulse" />
+                          ) : n.eventType?.includes('graded') ? (
+                            <Award size={14} />
+                          ) : (
+                            <FileText size={14} />
+                          )}
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <h5 className={cn('text-meta font-semibold truncate', isUnread ? 'text-foreground font-bold' : 'text-text-secondary')}>
+                              {n.title}
+                            </h5>
+                            {isUnread && (
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                            )}
+                          </div>
+                          {n.body && (
+                            <p className="mt-0.5 text-micro text-text-secondary line-clamp-2 leading-relaxed">
+                              {n.body}
+                            </p>
+                          )}
+                          <span className="mt-1 block text-[10px] text-text-tertiary">
+                            {new Date(n.createdAt).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {canSwitch && setActiveRole && (

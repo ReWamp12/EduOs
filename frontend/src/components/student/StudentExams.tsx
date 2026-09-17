@@ -17,17 +17,51 @@ import {
   Target,
   CalendarDays,
   CalendarClock,
+  Play,
+  Radio,
+  BookOpen,
+  Award,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
+import { OnlineAssessmentTakerModal } from './OnlineAssessmentTakerModal';
+import { StudentExamDetailModal } from './StudentExamDetailModal';
 
 export const StudentExams: React.FC = () => {
   const { session } = useAuth();
   const [student, setStudent] = useState<Student | null>(null);
-  const { exams } = useAppStore();
+  const { exams: storeExams } = useAppStore();
+  const [liveExams, setLiveExams] = useState<any[]>([]);
+  const [liveAttempts, setLiveAttempts] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Modals
+  const [activeTestExam, setActiveTestExam] = useState<any | null>(null);
+  const [selectedAttemptForDetail, setSelectedAttemptForDetail] = useState<string | null>(null);
+
+  const loadData = async (stId: string, bId?: string) => {
+    try {
+      const [exList, attList, resList] = await Promise.all([
+        bId ? dataService.getExams(bId, false) : Promise.resolve([]),
+        stId ? dataService.getStudentAttempts(stId) : Promise.resolve([]),
+        dataService.getExamResults(stId),
+      ]);
+      if (exList) setLiveExams(exList);
+      if (attList) setLiveAttempts(attList);
+      if (resList) {
+        setResults(resList);
+        if (resList.length > 0 && !expandedId) setExpandedId(resList[0].id);
+      }
+    } catch (err) {
+      console.warn('Failed to load student exam data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -36,43 +70,66 @@ export const StudentExams: React.FC = () => {
         if (!active) return;
         if (st) {
           setStudent(st);
-          dataService.getExamResults(st.id).then((res) => {
-            if (active) {
-              setResults(res || []);
-              if (res && res.length > 0) setExpandedId(res[0].id);
-              setLoading(false);
-            }
-          });
+          loadData(st.id, st.batchId);
         } else {
-          dataService.getExamResults().then((res) => {
-            if (active) {
-              setResults(res || []);
-              if (res && res.length > 0) setExpandedId(res[0].id);
-              setLoading(false);
-            }
-          });
+          loadData(session.userId);
         }
       });
     } else {
-      dataService.getExamResults().then((res) => {
-        if (active) {
-          setResults(res || []);
-          if (res && res.length > 0) setExpandedId(res[0].id);
-          setLoading(false);
-        }
-      });
+      loadData('std-demo');
     }
     return () => {
       active = false;
     };
   }, [session?.userId]);
 
-  const upcoming = exams.filter(
-    (e) => e.status === 'scheduled' && (!e.batchName || (student ? e.batchName === student.batchName : true)),
-  );
+  // Combined exams list
+  const combinedExams = useMemo(() => {
+    const map = new Map<string, any>();
+    liveExams.forEach((e) => {
+      map.set(e.id, {
+        id: e.id,
+        title: e.title,
+        subject: e.subject?.name || e.subject_name || 'Science',
+        batchName: e.batch?.name,
+        examType: e.exam_type || 'Assessment',
+        examDate: e.exam_date,
+        startTime: e.start_time,
+        durationMinutes: e.duration_minutes || 60,
+        maxMarks: e.total_marks || 100,
+        passingMarks: e.passing_marks || 40,
+        mode: e.mode || 'offline',
+        status: e.status || (e.is_published ? 'scheduled' : 'draft'),
+        instructions: e.instructions,
+        chapterTitle: e.chapter?.title,
+        topicTitle: e.topic?.title,
+      });
+    });
 
+    storeExams.forEach((se) => {
+      if (!map.has(se.id) && (!se.batchName || (student ? se.batchName === student.batchName : true))) {
+        map.set(se.id, {
+          ...se,
+          maxMarks: se.maxMarks || 100,
+          passingMarks: Math.round((se.maxMarks || 100) * 0.4),
+          mode: 'offline',
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [liveExams, storeExams, student]);
+
+  // Upcoming and Live assessments
+  const upcomingAndLive = useMemo(() => {
+    return combinedExams.filter(
+      (e) => e.status === 'scheduled' || e.status === 'live'
+    );
+  }, [combinedExams]);
+
+  // Completed results
   const completedResults = useMemo(() => {
-    const storeCompleted = (exams || [])
+    const storeCompleted = (storeExams || [])
       .filter((e) => e.status === 'completed')
       .map((e) => ({
         id: e.id,
@@ -88,39 +145,63 @@ export const StudentExams: React.FC = () => {
         strongTopics: ['Algebra', 'Core Theorems', 'Formulas'],
       }));
 
-    if (results.length > 0) {
-      const map = new Map<string, any>();
-      results.forEach((r) => map.set(r.id || r.examId || r.examTitle, r));
-      storeCompleted.forEach((sc) => {
-        if (!map.has(sc.id) && !map.has(sc.examTitle)) {
-          map.set(sc.id, sc);
-        }
-      });
-      return Array.from(map.values());
-    }
+    // Add completed attempts from online tests
+    const attemptCompleted = liveAttempts
+      .filter((att) => att.status === 'submitted' || att.status === 'evaluated' || att.isPublished)
+      .map((att) => ({
+        id: att.id,
+        attemptId: att.id,
+        examId: att.examId,
+        examTitle: att.examTitle || 'Computerized Assessment',
+        subject: att.subject || 'Science',
+        marksObtained: att.obtainedMarks ?? 0,
+        totalMarks: att.maxMarks || 100,
+        percentile: 94.0,
+        rankInBatch: 1,
+        examDate: att.submittedAt
+          ? new Date(att.submittedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+          : 'Recent',
+        mistakeSummary: 'Computerized assessment evaluated with verified question breakdown.',
+        weakTopics: ['Review missed multiple-choice distractors'],
+        strongTopics: ['Core Syllabus Concepts'],
+        isPublished: att.isPublished,
+      }));
 
-    return storeCompleted;
-  }, [results, exams]);
+    const map = new Map<string, any>();
+    results.forEach((r) => map.set(r.id || r.examId || r.examTitle, r));
+    attemptCompleted.forEach((ac) => map.set(ac.id, ac));
+    storeCompleted.forEach((sc) => {
+      if (!map.has(sc.id) && !map.has(sc.examTitle)) {
+        map.set(sc.id, sc);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [results, storeExams, liveAttempts]);
 
   const handleDownloadScorecard = async (exam: any) => {
     setDownloadingId(exam.id);
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 600));
     setDownloadingId(null);
     toast('Scorecard downloaded', 'success', `${exam.examTitle} scorecard exported as PDF.`);
   };
 
   const handleDownloadTranscript = async () => {
     setDownloadingAll(true);
-    await new Promise((r) => setTimeout(r, 900));
+    await new Promise((r) => setTimeout(r, 800));
     setDownloadingAll(false);
     toast('Transcript downloaded', 'success', 'Cumulative performance transcript exported as PDF.');
+  };
+
+  const handleStartTest = (exam: any) => {
+    setActiveTestExam(exam);
   };
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Exams & AI Diagnostic Scorecards"
-        subtitle="All-India mock test performance, percentiles & mistake classifications"
+        title="Assessments & AI Diagnostic Scorecards"
+        subtitle="Online computerized tests, mock exams, percentiles & mistake classifications"
         actions={
           <button className="btn-primary" onClick={handleDownloadTranscript} disabled={downloadingAll}>
             <Download size={16} /> {downloadingAll ? 'Preparing…' : 'Cumulative Transcript'}
@@ -128,29 +209,95 @@ export const StudentExams: React.FC = () => {
         }
       />
 
-      {upcoming.length > 0 && (
-        <SectionCard title="Upcoming exams" icon={<CalendarClock size={18} />} bodyClassName="flex flex-col gap-2.5">
-          {upcoming.map((e) => (
-            <div
-              key={e.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-warning/20 bg-warning-soft px-4 py-3"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-meta font-semibold text-foreground">{e.title}</div>
-                <div className="mt-0.5 truncate text-micro text-text-tertiary">
-                  {e.subject} · {e.examType} · max {e.maxMarks} marks
+      {/* Live & Scheduled Assessments Banner */}
+      {upcomingAndLive.length > 0 && (
+        <SectionCard
+          title="Scheduled & Live Assessments"
+          icon={<CalendarClock size={18} />}
+          bodyClassName="flex flex-col gap-3"
+        >
+          {upcomingAndLive.map((e) => {
+            const isLive = e.status === 'live';
+            const isOnline = e.mode === 'online';
+            const existingAttempt = liveAttempts.find((att) => att.examId === e.id);
+            const hasFinished = existingAttempt && (existingAttempt.status === 'submitted' || existingAttempt.status === 'graded');
+
+            return (
+              <div
+                key={e.id}
+                className={cn(
+                  'flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border p-4 transition-all',
+                  isLive
+                    ? 'border-destructive/40 bg-destructive/5 shadow-xs'
+                    : 'border-warning/30 bg-warning-soft/30'
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <Badge tone={isLive ? 'danger' : 'warning'} className="text-micro font-bold">
+                      {isLive ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Radio size={12} className="animate-pulse" /> LIVE NOW
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={12} /> SCHEDULED
+                        </span>
+                      )}
+                    </Badge>
+                    <Badge tone="neutral" className="text-micro">
+                      {isOnline ? 'Online CBT' : 'Paper / Pen Offline'}
+                    </Badge>
+                    {e.chapterTitle && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-2 py-0.5 text-micro font-medium text-primary">
+                        <BookOpen size={11} /> {e.chapterTitle}
+                      </span>
+                    )}
+                  </div>
+
+                  <h4 className="text-section font-bold text-foreground truncate">{e.title}</h4>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-micro text-text-tertiary">
+                    <span>Subject: <strong className="text-foreground">{e.subject}</strong></span>
+                    <span>·</span>
+                    <span>Date: <strong>{e.examDate}</strong> {e.startTime ? `at ${e.startTime}` : ''}</span>
+                    <span>·</span>
+                    <span>Duration: <strong>{e.durationMinutes || 60} mins</strong></span>
+                    <span>·</span>
+                    <span>Max Marks: <strong>{e.maxMarks}</strong> (Pass: {e.passingMarks || 40})</span>
+                  </div>
+                </div>
+
+                <div className="shrink-0 flex items-center justify-end gap-2.5">
+                  {isOnline && isLive && !hasFinished && (
+                    <button
+                      onClick={() => handleStartTest(e)}
+                      className="btn-primary py-2 px-4 gap-2 bg-destructive hover:bg-destructive/90 text-white font-bold shadow-md animate-pulse"
+                    >
+                      <Play size={16} fill="currentColor" />
+                      {existingAttempt ? 'Resume Assessment' : 'Start Assessment'}
+                    </button>
+                  )}
+
+                  {isOnline && !isLive && (
+                    <span className="text-micro text-text-tertiary italic">
+                      Test starts on {e.examDate}
+                    </span>
+                  )}
+
+                  {hasFinished && (
+                    <Badge tone="success" className="py-1 px-3 gap-1">
+                      <CheckCircle2 size={13} /> Submitted
+                    </Badge>
+                  )}
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <Badge tone="warning">Scheduled</Badge>
-                <div className="mt-1 text-micro text-text-tertiary">{e.examDate}</div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </SectionCard>
       )}
 
-      {completedResults.length === 0 && upcoming.length === 0 && (
+      {/* Empty State if nothing */}
+      {completedResults.length === 0 && upcomingAndLive.length === 0 && (
         <Card className="p-8 text-center">
           <EmptyState
             icon={<CalendarClock size={28} className="text-text-tertiary" />}
@@ -160,12 +307,16 @@ export const StudentExams: React.FC = () => {
         </Card>
       )}
 
+      {/* ========================================================================= */}
+      {/* COMPLETED EXAMS & SCORECARDS */}
+      {/* ========================================================================= */}
       <div className="flex flex-col gap-4">
         {completedResults.map((exam) => {
           const max = exam.totalMarks || exam.maxScore || 50;
           const obtained = exam.marksObtained ?? exam.score ?? 0;
           const pct = Math.round((obtained / max) * 100);
           const isOpen = expandedId === exam.id;
+
           return (
             <SectionCard
               key={exam.id}
@@ -191,7 +342,7 @@ export const StudentExams: React.FC = () => {
                   <span>·</span>
                   <span>{exam.subject}</span>
                   <span>·</span>
-                  <span>CBT Examination Mode</span>
+                  <span>Evaluated & Verified</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[1.75rem] font-semibold leading-none tracking-tight text-foreground">
@@ -223,12 +374,12 @@ export const StudentExams: React.FC = () => {
                 aria-expanded={isOpen}
               >
                 <ChevronDown size={15} className={cn('transition-transform', isOpen && 'rotate-180')} />
-                {isOpen ? 'Hide details' : 'View weak topics & scorecard'}
+                {isOpen ? 'Hide details' : 'View scorecard & diagnostic metrics'}
               </button>
 
               {isOpen && (
-                <div className="flex flex-col gap-4 border-t border-border pt-4">
-                  {exam.weakTopics.length > 0 && (
+                <div className="flex flex-col gap-4 border-t border-border pt-4 animate-fade-in">
+                  {exam.weakTopics && exam.weakTopics.length > 0 && (
                     <div>
                       <div className="eyebrow mb-2 flex items-center gap-1.5">
                         <Target size={13} /> Detected revision areas
@@ -248,7 +399,7 @@ export const StudentExams: React.FC = () => {
 
                   <Card className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
                     {[
-                      { label: 'Marks', value: `${exam.marksObtained}/${exam.totalMarks}` },
+                      { label: 'Marks Awarded', value: `${exam.marksObtained}/${exam.totalMarks}` },
                       { label: 'Percentage', value: `${pct}%` },
                       { label: 'Percentile', value: `${exam.percentile}` },
                       { label: 'Batch Rank', value: `#${exam.rankInBatch}` },
@@ -260,19 +411,55 @@ export const StudentExams: React.FC = () => {
                     ))}
                   </Card>
 
-                  <button
-                    className="btn-secondary self-start"
-                    onClick={() => handleDownloadScorecard(exam)}
-                    disabled={downloadingId === exam.id}
-                  >
-                    <Download size={16} /> {downloadingId === exam.id ? 'Preparing…' : 'Download scorecard'}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    {(exam.attemptId || (exam.id && liveAttempts.some((a) => a.id === exam.id))) && (
+                      <button
+                        className="btn-primary self-start py-1.5 px-3.5 text-meta gap-1.5 shadow-2xs font-semibold"
+                        onClick={() => setSelectedAttemptForDetail(exam.attemptId || exam.id)}
+                      >
+                        <BookOpen size={14} /> View Solutions & Question Breakdown
+                      </button>
+                    )}
+
+                    <button
+                      className="btn-secondary self-start py-1.5 px-3 text-meta gap-1.5"
+                      onClick={() => handleDownloadScorecard(exam)}
+                      disabled={downloadingId === exam.id}
+                    >
+                      <Download size={14} /> {downloadingId === exam.id ? 'Preparing…' : 'Download scorecard'}
+                    </button>
+                  </div>
                 </div>
               )}
             </SectionCard>
           );
         })}
       </div>
+
+      {/* Online Assessment Computerized Taker Modal */}
+      {activeTestExam && student && (
+        <OnlineAssessmentTakerModal
+          exam={activeTestExam}
+          student={{
+            id: student.id,
+            name: student.name,
+            rollNumber: student.rollNumber,
+          }}
+          onClose={() => setActiveTestExam(null)}
+          onCompleted={() => {
+            setActiveTestExam(null);
+            if (student?.id) loadData(student.id, student.batchId);
+          }}
+        />
+      )}
+
+      {/* Student Detailed Solutions & Question Breakdown Modal */}
+      {selectedAttemptForDetail && (
+        <StudentExamDetailModal
+          attemptId={selectedAttemptForDetail}
+          onClose={() => setSelectedAttemptForDetail(null)}
+        />
+      )}
     </div>
   );
 };

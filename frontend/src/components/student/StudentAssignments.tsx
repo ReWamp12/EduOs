@@ -35,6 +35,10 @@ const statusBadge: Record<Assignment['status'], { tone: 'warning' | 'info' | 'su
   pending: { tone: 'warning', label: 'Action Required', icon: <Clock size={12} /> },
   submitted: { tone: 'info', label: 'Under Review', icon: <ClipboardCheck size={12} /> },
   graded: { tone: 'success', label: 'Graded', icon: <CheckCircle2 size={12} /> },
+  reviewed: { tone: 'success', label: 'Reviewed', icon: <CheckCircle2 size={12} /> },
+  returned: { tone: 'warning', label: 'Returned', icon: <AlertCircle size={12} /> },
+  late: { tone: 'warning', label: 'Submitted Late', icon: <Clock size={12} /> },
+  under_review: { tone: 'info', label: 'Under Review', icon: <ClipboardCheck size={12} /> },
 };
 
 export const StudentAssignments: React.FC = () => {
@@ -42,11 +46,24 @@ export const StudentAssignments: React.FC = () => {
   const [student, setStudent] = useState<Student | null>(null);
   const { assignments: storeAssignments, submissions } = useAppStore();
 
+  const [liveAssignments, setLiveAssignments] = useState<any[]>([]);
+  const [loadingLive, setLoadingLive] = useState(false);
+
   useEffect(() => {
     let active = true;
     if (session?.userId) {
       dataService.getStudentOverview(session.userId).then((st) => {
-        if (active && st) setStudent(st);
+        if (active && st) {
+          setStudent(st);
+          if (st.batchId) {
+            setLoadingLive(true);
+            dataService.getAssignments(st.batchId, false).then((live) => {
+              if (active && live && live.length > 0) setLiveAssignments(live);
+            }).finally(() => {
+              if (active) setLoadingLive(false);
+            });
+          }
+        }
       });
     }
     return () => {
@@ -54,41 +71,64 @@ export const StudentAssignments: React.FC = () => {
     };
   }, [session?.userId]);
 
-  // Active student batch assignments
+  // Active student batch assignments (merged live and store)
   const studentBatchAssignments = useMemo(() => {
-    if (!student) return storeAssignments;
-    return storeAssignments.filter(
-      (a) =>
-        !a.batchName ||
-        !student.batchName ||
-        a.batchName === student.batchName ||
-        a.batchId === student.batchId ||
-        student.batchName.includes(a.batchName) ||
-        a.batchName.includes(student.batchName),
-    );
-  }, [storeAssignments, student]);
+    const combined: any[] = [...liveAssignments];
+    storeAssignments.forEach((sa) => {
+      if (!combined.some((c) => c.id === sa.id)) {
+        if (
+          !student ||
+          !sa.batchName ||
+          !student.batchName ||
+          sa.batchName === student.batchName ||
+          sa.batchId === student.batchId ||
+          student.batchName.includes(sa.batchName) ||
+          sa.batchName.includes(student.batchName)
+        ) {
+          combined.push(sa);
+        }
+      }
+    });
+    return combined;
+  }, [liveAssignments, storeAssignments, student]);
 
   // Combined assignment status with student's submissions
-  const assignments: (AssignmentRecord & { studentSubmission?: Submission })[] = useMemo(() => {
+  const assignments: (AssignmentRecord & { studentSubmission?: Submission; chapterTitle?: string; topicTitle?: string; allowResubmission?: boolean; submissionType?: 'file' | 'text' | 'both' })[] = useMemo(() => {
     return studentBatchAssignments.map((a) => {
       const sub = submissions.find(
         (s) => s.assignmentId === a.id && (!student || s.studentName === student.name || s.studentId === student.id),
       );
-      if (!sub) {
+      const liveSub = (a.submissions || []).find(
+        (s: any) => (!student || s.student_id === student.id || s.student?.user_id === session?.userId),
+      );
+      if (!sub && !liveSub) {
         return {
           ...a,
           status: 'pending' as const,
         };
       }
+      const effectiveSub = sub || {
+        id: liveSub?.id,
+        assignmentId: a.id,
+        studentId: student?.id || '',
+        studentName: student?.name || '',
+        status: (liveSub?.status || 'submitted') as any,
+        obtainedMarks: liveSub?.obtained_marks,
+        feedback: liveSub?.feedback,
+        submittedAt: liveSub?.submitted_at || new Date().toISOString(),
+        maxMarks: a.maxMarks || 25,
+        fileName: liveSub?.attachments?.[0]?.file_name || 'submission.pdf',
+        fileUrl: liveSub?.submission_url,
+      };
       return {
         ...a,
-        status: sub.status,
-        obtainedMarks: sub.obtainedMarks ?? a.obtainedMarks,
-        feedback: sub.feedback ?? a.feedback,
-        studentSubmission: sub,
+        status: effectiveSub.status,
+        obtainedMarks: effectiveSub.obtainedMarks ?? a.obtainedMarks,
+        feedback: effectiveSub.feedback ?? a.feedback,
+        studentSubmission: effectiveSub,
       };
     });
-  }, [studentBatchAssignments, submissions, student]);
+  }, [studentBatchAssignments, submissions, student, session?.userId]);
 
   // Filter & Search states
   const [activeTabFilter, setActiveTabFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>('all');
@@ -424,6 +464,11 @@ export const StudentAssignments: React.FC = () => {
                           {a.category.toUpperCase()}
                         </span>
                       )}
+                      {(a as any).chapterTitle && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-2 py-0.5 text-micro font-medium text-primary">
+                          <BookOpen size={11} /> {(a as any).chapterTitle}
+                        </span>
+                      )}
                     </div>
 
                     {/* Title */}
@@ -539,6 +584,14 @@ export const StudentAssignments: React.FC = () => {
                         <span className="text-micro font-bold text-success">
                           {a.obtainedMarks}/{a.maxMarks} Marks
                         </span>
+                        {(a as any).allowResubmission && (
+                          <button
+                            onClick={() => handleOpenSubmitModal(a)}
+                            className="btn-secondary py-1 px-2.5 text-micro mt-1 text-primary hover:border-primary"
+                          >
+                            Resubmit Solution
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

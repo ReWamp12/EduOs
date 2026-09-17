@@ -14,6 +14,9 @@ backend/.env
 # Temporary and local test scratchpads
 scratchpad/
 seed-credentials.md
+*.md
+*.xlsx
+*.xls
 
 # RAG local artifacts
 backend/.model-cache/

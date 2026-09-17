@@ -41,9 +41,11 @@ export interface Submission {
   studentRoll?: string;
   studentAvatar?: string;
   maxMarks: number;
-  status: 'submitted' | 'graded';
+  status: 'submitted' | 'graded' | 'late' | 'reviewed' | 'returned' | 'under_review';
   obtainedMarks?: number;
   feedback?: string;
+  isLate?: boolean;
+  attemptNumber?: number;
   fileName?: string;
   fileSize?: string;
   /**

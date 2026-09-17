@@ -147,6 +147,12 @@ export const AssignmentStudentRosterWidget: React.FC<Props> = ({
       teacherName,
     });
 
+    if (sub?.id) {
+      dataService.markSubmissionReviewed(sub.id, teacherName, marksNum, feedbackText).catch((err) => {
+        console.warn('Failed to sync review to database:', err);
+      });
+    }
+
     toast('Marks checked & verified', 'success', `Recorded ${marksNum}/${assignment.maxMarks} for ${student.name}. Parent notified.`);
     setActiveEditStudentId(null);
   };
@@ -318,6 +324,11 @@ export const AssignmentStudentRosterWidget: React.FC<Props> = ({
                           <Badge tone="success" className="gap-1">
                             <CheckCircle2 size={12} /> Submitted
                           </Badge>
+                          {(sub.isLate || sub.status === 'late') && (
+                            <Badge tone="warning" className="gap-1">
+                              <Clock size={12} /> Submitted Late
+                            </Badge>
+                          )}
                           <span className="text-micro text-text-tertiary">
                             {new Date(sub.submittedAt).toLocaleDateString('en-IN', {
                               day: '2-digit',

@@ -43,10 +43,17 @@ export const TeacherAssignments: React.FC = () => {
   const { assignments, submissions } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Active batch assignments
+  // Live state from Supabase
+  const [liveAssignments, setLiveAssignments] = useState<any[]>([]);
+  const [loadingLive, setLoadingLive] = useState(false);
+
+  // Active batch assignments: prefer live assignments from Supabase
   const batchAssignments = useMemo(() => {
+    if (liveAssignments.length > 0) {
+      return liveAssignments;
+    }
     return assignments.filter((a) => !a.batchName || a.batchName === batch.name);
-  }, [assignments, batch.name]);
+  }, [liveAssignments, assignments, batch.name]);
 
   // UI state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -68,9 +75,45 @@ export const TeacherAssignments: React.FC = () => {
   const [formMaxMarks, setFormMaxMarks] = useState('25');
   const [formDescription, setFormDescription] = useState('');
   const [formInstructions, setFormInstructions] = useState('');
+  const [formStatus, setFormStatus] = useState<'draft' | 'published'>('published');
+  const [formSubmissionType, setFormSubmissionType] = useState<'file' | 'text' | 'both'>('both');
+  const [formAllowResubmission, setFormAllowResubmission] = useState(false);
+  const [formChapterId, setFormChapterId] = useState<string>('');
+  const [formTopicId, setFormTopicId] = useState<string>('');
+  const [syllabusChapters, setSyllabusChapters] = useState<any[]>([]);
   const [formAttachments, setFormAttachments] = useState<AssignmentAttachment[]>([
     { name: 'Problem_Set_Exercise_Worksheet.pdf', url: 'https://storage.eduos.app/sheets/worksheet.pdf', size: '1.4 MB', type: 'pdf' },
   ]);
+
+  // Load live assignments from Supabase
+  const loadLiveAssignments = async () => {
+    if (batch?.id) {
+      setLoadingLive(true);
+      try {
+        const live = await dataService.getAssignments(batch.id, true);
+        if (live) setLiveAssignments(live);
+      } catch (err) {
+        console.warn('Error loading live assignments:', err);
+      } finally {
+        setLoadingLive(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadLiveAssignments();
+  }, [batch?.id]);
+
+  // Load chapters for current batch and subject
+  useEffect(() => {
+    if (batch?.id) {
+      dataService.getSyllabusChapters(batch.id).then((chList: any[]) => {
+        if (chList) {
+          setSyllabusChapters(chList);
+        }
+      }).catch(() => {});
+    }
+  }, [batch?.id, formSubject]);
 
   // Sync default subject when subjects change
   useEffect(() => {
@@ -167,12 +210,22 @@ export const TeacherAssignments: React.FC = () => {
       teacherId: teacher.id,
       title: formTitle.trim(),
       description: formDescription.trim() || 'Please solve all questions in your class notebook and upload clear step-by-step solutions.',
+      instructions: formInstructions.trim() || '1. Show complete calculations.\n2. Verify final answers.\n3. Upload scanned PDF.',
       dueDate: formDueDate,
       maxMarks: Number(formMaxMarks) || 25,
+      status: formStatus,
+      submissionType: formSubmissionType,
+      allowResubmission: formAllowResubmission,
+      chapterId: formChapterId || null,
+      topicId: formTopicId || null,
+      attachments: formAttachments.map((a) => ({
+        name: a.name,
+        url: a.url,
+      })),
     });
 
     const created = addAssignment({
-      id: res?.id,
+      id: res?.id || `asg-${Date.now()}`,
       title: formTitle.trim(),
       subject: formSubject || subjects[0] || 'Mathematics',
       category: formCategory,
@@ -186,15 +239,60 @@ export const TeacherAssignments: React.FC = () => {
       teacherId: teacher.id,
       attachments: formAttachments,
       tags: [formSubject || subjects[0] || 'Coursework', formCategory.toUpperCase(), 'CBSE 2026'],
+      chapterId: formChapterId || undefined,
+      topicId: formTopicId || undefined,
+      submissionType: formSubmissionType,
+      allowResubmission: formAllowResubmission,
+      lifecycleStatus: formStatus,
     });
 
-    toast('Assignment Shared', 'success', `"${created.title}" shared with ${batch.name.split(' — ')[0]}. Saved to database.`);
+    toast(
+      formStatus === 'draft' ? 'Draft Saved' : 'Assignment Shared',
+      'success',
+      formStatus === 'draft'
+        ? `"${formTitle.trim()}" saved as draft.`
+        : `"${created.title}" shared with ${batch.name.split(' — ')[0]}. Saved to database.`
+    );
     setShowCreateModal(false);
+    loadLiveAssignments();
 
     // Reset fields
     setFormTitle('');
     setFormDescription('');
     setFormInstructions('');
+    setFormChapterId('');
+    setFormTopicId('');
+    setFormStatus('published');
+  };
+
+  const handlePublishAssignment = async (id: string, title: string) => {
+    const ok = await dataService.publishAssignment(id);
+    if (ok) {
+      toast('Assignment Published', 'success', `"${title}" is now visible to students.`);
+      loadLiveAssignments();
+    } else {
+      toast('Publish Failed', 'error', 'Could not publish assignment.');
+    }
+  };
+
+  const handleCloseAssignment = async (id: string, title: string) => {
+    const ok = await dataService.closeAssignment(id);
+    if (ok) {
+      toast('Submissions Closed', 'info', `"${title}" is now locked for new submissions.`);
+      loadLiveAssignments();
+    } else {
+      toast('Action Failed', 'error', 'Could not close assignment.');
+    }
+  };
+
+  const handleReopenAssignment = async (id: string, title: string) => {
+    const ok = await dataService.reopenAssignment(id);
+    if (ok) {
+      toast('Assignment Reopened', 'success', `"${title}" can now accept student submissions.`);
+      loadLiveAssignments();
+    } else {
+      toast('Action Failed', 'error', 'Could not reopen assignment.');
+    }
   };
 
   const handleDeleteAssignment = (id: string, title: string) => {
@@ -204,6 +302,7 @@ export const TeacherAssignments: React.FC = () => {
       if (expandedAssignmentId === id) {
         setExpandedAssignmentId(null);
       }
+      loadLiveAssignments();
     }
   };
 
@@ -331,6 +430,19 @@ export const TeacherAssignments: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={catConfig.tone}>{catConfig.label}</Badge>
                       <Badge tone="neutral">{assignment.subject}</Badge>
+                      {assignment.status === 'draft' || (assignment as any).lifecycleStatus === 'draft' ? (
+                        <Badge tone="neutral">Draft</Badge>
+                      ) : assignment.status === 'closed' || (assignment as any).lifecycleStatus === 'closed' ? (
+                        <Badge tone="warning">Closed</Badge>
+                      ) : (
+                        <Badge tone="success">Published</Badge>
+                      )}
+                      {(assignment as any).chapterTitle && (
+                        <Badge tone="info">Ch: {(assignment as any).chapterTitle}</Badge>
+                      )}
+                      {(assignment as any).topicTitle && (
+                        <Badge tone="info">{(assignment as any).topicTitle}</Badge>
+                      )}
                       <span className="inline-flex items-center gap-1 text-micro text-text-tertiary">
                         <Clock size={12} /> Due: <strong className="text-foreground">{assignment.dueDate}</strong>
                       </span>
@@ -348,7 +460,7 @@ export const TeacherAssignments: React.FC = () => {
                     {assignment.attachments && assignment.attachments.length > 0 && (
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className="text-micro font-medium text-text-tertiary">Attachments:</span>
-                        {assignment.attachments.map((att, idx) => (
+                        {assignment.attachments.map((att: any, idx: number) => (
                           <span
                             key={idx}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface-muted px-2.5 py-1 text-micro font-medium text-text-secondary"
@@ -401,6 +513,31 @@ export const TeacherAssignments: React.FC = () => {
                     >
                       <Bell size={13} /> Remind Missing
                     </button>
+
+                    {(assignment.status === 'draft' || (assignment as any).lifecycleStatus === 'draft') && (
+                      <button
+                        onClick={() => handlePublishAssignment(assignment.id, assignment.title)}
+                        className="btn-primary py-1.5 px-3 text-meta gap-1.5"
+                      >
+                        <Send size={13} /> Publish Now
+                      </button>
+                    )}
+                    {(assignment.status === 'published' || assignment.status === 'open' || (assignment as any).lifecycleStatus === 'published') && (
+                      <button
+                        onClick={() => handleCloseAssignment(assignment.id, assignment.title)}
+                        className="btn-secondary py-1.5 px-3 text-meta text-warning hover:border-warning/60 gap-1.5"
+                      >
+                        <Clock size={13} /> Close Submissions
+                      </button>
+                    )}
+                    {(assignment.status === 'closed' || (assignment as any).lifecycleStatus === 'closed') && (
+                      <button
+                        onClick={() => handleReopenAssignment(assignment.id, assignment.title)}
+                        className="btn-secondary py-1.5 px-3 text-meta text-primary hover:border-primary/60 gap-1.5"
+                      >
+                        <Check size={13} /> Reopen
+                      </button>
+                    )}
                   </div>
 
                   <button
@@ -498,6 +635,44 @@ export const TeacherAssignments: React.FC = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="asg-chapter">Chapter Mapping (Optional)</label>
+                  <select
+                    id="asg-chapter"
+                    value={formChapterId}
+                    onChange={(e) => {
+                      setFormChapterId(e.target.value);
+                      setFormTopicId('');
+                    }}
+                    className="input"
+                  >
+                    <option value="">-- Unmapped / General --</option>
+                    {syllabusChapters.map((ch) => (
+                      <option key={ch.id} value={ch.id}>Chapter {ch.chapterNumber}: {ch.title}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="asg-topic">Topic Mapping (Optional)</label>
+                  <select
+                    id="asg-topic"
+                    value={formTopicId}
+                    onChange={(e) => setFormTopicId(e.target.value)}
+                    className="input"
+                    disabled={!formChapterId}
+                  >
+                    <option value="">-- Whole Chapter / None --</option>
+                    {syllabusChapters
+                      .find((c) => c.id === formChapterId)
+                      ?.topics?.map((tp: any) => (
+                        <option key={tp.id} value={tp.id}>{tp.title}</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <label className="label" htmlFor="asg-category">Category</label>
@@ -536,6 +711,90 @@ export const TeacherAssignments: React.FC = () => {
                     onChange={(e) => setFormDueDate(e.target.value)}
                     className="input"
                   />
+                </div>
+              </div>
+
+              {/* Submission Type & Allow Resubmission */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded-xl border border-border/80 bg-surface-muted/50 p-3.5">
+                <div>
+                  <label className="label mb-1.5">Submission Requirements</label>
+                  <div className="flex flex-wrap items-center gap-3 text-meta">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="subType"
+                        value="both"
+                        checked={formSubmissionType === 'both'}
+                        onChange={() => setFormSubmissionType('both')}
+                      />
+                      <span>File + Text</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="subType"
+                        value="file"
+                        checked={formSubmissionType === 'file'}
+                        onChange={() => setFormSubmissionType('file')}
+                      />
+                      <span>File Only</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="subType"
+                        value="text"
+                        checked={formSubmissionType === 'text'}
+                        onChange={() => setFormSubmissionType('text')}
+                      />
+                      <span>Text Only</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-start sm:gap-6 pt-1">
+                  <div>
+                    <label className="label mb-0">Allow Resubmission?</label>
+                    <p className="text-micro text-text-tertiary">Students can resubmit after review</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formAllowResubmission}
+                    onChange={(e) => setFormAllowResubmission(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Publication Status Toggle */}
+              <div className="flex items-center justify-between rounded-xl border border-border bg-surface-muted/60 p-3">
+                <div>
+                  <span className="text-meta font-medium text-foreground">Publication Status</span>
+                  <p className="text-micro text-text-tertiary">
+                    {formStatus === 'published' ? 'Visible to enrolled students upon saving.' : 'Saved in draft mode. Visible only to faculty.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormStatus('draft')}
+                    className={cn(
+                      'px-3 py-1 rounded-md text-meta font-medium transition-colors cursor-pointer',
+                      formStatus === 'draft' ? 'bg-muted text-foreground border border-border font-bold' : 'text-text-secondary hover:text-foreground'
+                    )}
+                  >
+                    Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormStatus('published')}
+                    className={cn(
+                      'px-3 py-1 rounded-md text-meta font-medium transition-colors cursor-pointer',
+                      formStatus === 'published' ? 'bg-primary text-primary-foreground font-bold' : 'text-text-secondary hover:text-foreground'
+                    )}
+                  >
+                    Publish
+                  </button>
                 </div>
               </div>
 
@@ -657,7 +916,7 @@ export const TeacherAssignments: React.FC = () => {
                 form="create-assignment-form"
                 className="btn-primary"
               >
-                <Send size={16} /> Publish & Share to Class
+                <Send size={16} /> {formStatus === 'draft' ? 'Save as Draft' : 'Publish & Share to Class'}
               </button>
             </div>
           </div>

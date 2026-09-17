@@ -181,11 +181,126 @@ export interface Assignment {
   attachments?: AssignmentAttachment[];
   tags?: string[];
   createdAt?: number;
-  status: 'pending' | 'submitted' | 'graded';
+  status: 'pending' | 'submitted' | 'graded' | 'late' | 'reviewed' | 'returned' | 'under_review';
   obtainedMarks?: number;
   feedback?: string;
+  chapterId?: string;
+  topicId?: string;
+  chapterTitle?: string;
+  topicTitle?: string;
+  issueDate?: string;
+  submissionType?: 'file' | 'text' | 'both';
+  allowResubmission?: boolean;
+  lifecycleStatus?: 'draft' | 'published' | 'open' | 'closed' | 'archived';
+  closedAt?: string;
+  isLate?: boolean;
 }
 
+export type ExamMode = 'online' | 'offline';
+export type ExamLifecycleStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'live'
+  | 'grading'
+  | 'completed'
+  | 'result_pending'
+  | 'result_published'
+  | 'archived';
+export type QuestionType =
+  | 'mcq'
+  | 'single_choice'
+  | 'multiple_choice'
+  | 'numerical'
+  | 'subjective'
+  | 'true_false'
+  | 'short_answer'
+  | 'descriptive';
+
+export interface ExamQuestionOption {
+  id?: string;
+  key?: string;
+  optionKey?: string;
+  text?: string;
+  optionText?: string;
+  is_correct?: boolean;
+  isCorrect?: boolean;
+}
+
+export interface ExamQuestion {
+  id: string;
+  tenantId: string;
+  examId: string;
+  sequenceOrder: number;
+  questionText: string;
+  questionType: QuestionType;
+  options?: ExamQuestionOption[] | null;
+  correctAnswer?: string | null;
+  marks: number;
+  negativeMarks?: number;
+  explanation?: string | null;
+  chapterId?: string | null;
+  topicId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ExamAttemptStatus = 'in_progress' | 'submitted' | 'evaluated' | 'published';
+
+export interface ExamAttempt {
+  id: string;
+  tenantId: string;
+  examId: string;
+  studentId: string;
+  attemptNumber: number;
+  startedAt: string;
+  submittedAt?: string | null;
+  autoSubmitted: boolean;
+  status: ExamAttemptStatus;
+  obtainedMarks?: number | null;
+  maxMarks?: number | null;
+  percentage?: number | null;
+  evaluatedAt?: string | null;
+  evaluatedBy?: string | null;
+  facultyRemark?: string | null;
+  isPublished: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  examTitle?: string;
+  subjectName?: string;
+  studentName?: string;
+  rollNumber?: string;
+}
+
+export interface ExamAttemptResponse {
+  id: string;
+  tenantId: string;
+  attemptId: string;
+  questionId: string;
+  responseText?: string | null;
+  isCorrect?: boolean | null;
+  marksAwarded?: number | null;
+  facultyFeedback?: string | null;
+  gradedBy?: string | null;
+  gradedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  question?: ExamQuestion;
+}
+
+export interface AcademicNotification {
+  id: string;
+  tenantId: string;
+  userId: string;
+  eventType: string;
+  title: string;
+  body?: string | null;
+  assignmentId?: string | null;
+  examId?: string | null;
+  submissionId?: string | null;
+  attemptId?: string | null;
+  readAt?: string | null;
+  createdAt: string;
+}
 
 export interface ExamResult {
   id: string;

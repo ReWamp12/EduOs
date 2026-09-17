@@ -22,6 +22,52 @@
 -- Offline exams keep working exactly as before — they just don't have any
 -- questions/attempts rows.
 
+-- ── Prereq: catch up prod-drifted columns on exams & exam_results ─────────
+ALTER TABLE public.exams
+    ADD COLUMN IF NOT EXISTS status         TEXT,
+    ADD COLUMN IF NOT EXISTS passing_marks  NUMERIC(6,2),
+    ADD COLUMN IF NOT EXISTS updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Backfill status from is_published + exam_date so old rows land in a sensible lifecycle state.
+UPDATE public.exams
+   SET status = CASE
+       WHEN is_published AND exam_date > CURRENT_DATE THEN 'scheduled'
+       WHEN is_published AND exam_date <= CURRENT_DATE THEN 'result_published'
+       WHEN NOT is_published THEN 'draft'
+       ELSE 'draft'
+   END
+ WHERE status IS NULL;
+
+-- Now tighten to NOT NULL + DEFAULT 'draft'.
+ALTER TABLE public.exams
+    ALTER COLUMN status SET DEFAULT 'draft';
+UPDATE public.exams SET status = 'draft' WHERE status IS NULL;
+ALTER TABLE public.exams
+    ALTER COLUMN status SET NOT NULL;
+
+-- Passing marks backfill: 33% of total_marks (CBSE default).
+UPDATE public.exams
+   SET passing_marks = ROUND(total_marks * 0.33, 2)
+ WHERE passing_marks IS NULL;
+
+-- exam_results: add tenant_id (backfill from parent exam) + updated_at
+ALTER TABLE public.exam_results
+    ADD COLUMN IF NOT EXISTS tenant_id  UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+UPDATE public.exam_results r
+   SET tenant_id = e.tenant_id
+  FROM public.exams e
+ WHERE r.exam_id = e.id
+   AND r.tenant_id IS NULL;
+
+DO $$
+BEGIN
+    ALTER TABLE public.exam_results ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
 ALTER TABLE public.exams
     ADD COLUMN IF NOT EXISTS chapter_id UUID REFERENCES public.syllabus_chapters(id) ON DELETE SET NULL,
     ADD COLUMN IF NOT EXISTS topic_id UUID REFERENCES public.syllabus_topics(id) ON DELETE SET NULL,
@@ -34,8 +80,7 @@ ALTER TABLE public.exams
 
 -- Widen the exam status enum to match spec §5.7:
 --   draft → scheduled → live → completed → result_pending → result_published → archived
--- Old CHECK allowed only scheduled/ongoing/completed/results_published, so
--- we drop it and re-add. Guarded so re-runs don't fail.
+-- Guarded so re-runs don't fail.
 DO $$
 BEGIN
     IF EXISTS (
@@ -44,9 +89,6 @@ BEGIN
     ) THEN
         ALTER TABLE public.exams DROP CONSTRAINT exams_status_check;
     END IF;
-    -- Migrate legacy values to the new vocabulary.
-    UPDATE public.exams SET status = 'live'              WHERE status = 'ongoing';
-    UPDATE public.exams SET status = 'result_published'  WHERE status = 'results_published';
     ALTER TABLE public.exams
         ADD CONSTRAINT exams_status_check CHECK (status IN (
             'draft', 'scheduled', 'live', 'completed',

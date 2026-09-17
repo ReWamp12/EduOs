@@ -1,4 +1,36 @@
-import { Student, TimetableSlot, Tenant, LeaveRequest, Batch, LMSLesson, LMSCourse, LMSNote, SyllabusChapter, SyllabusTopic, LearningMaterial, TopicStatus, SyllabusProgressSummary, StudentPerformanceSummary, SubjectPerformanceBreakdown, AssessmentScoreHistoryItem, AssessmentTrendDirection, AssessmentTrendSummary, FacultyRemarkItem, ClassStudentPerformanceRow, AdminAcademicOverviewData } from './types';
+import {
+  Student,
+  TimetableSlot,
+  Tenant,
+  LeaveRequest,
+  Batch,
+  LMSLesson,
+  LMSCourse,
+  LMSNote,
+  SyllabusChapter,
+  SyllabusTopic,
+  LearningMaterial,
+  TopicStatus,
+  SyllabusProgressSummary,
+  StudentPerformanceSummary,
+  SubjectPerformanceBreakdown,
+  AssessmentScoreHistoryItem,
+  AssessmentTrendDirection,
+  AssessmentTrendSummary,
+  FacultyRemarkItem,
+  ClassStudentPerformanceRow,
+  AdminAcademicOverviewData,
+  Assignment,
+  AssignmentAttachment,
+  ExamQuestion,
+  ExamAttempt,
+  ExamAttemptResponse,
+  AcademicNotification,
+  ExamMode,
+  ExamLifecycleStatus,
+  QuestionType,
+  ExamAttemptStatus,
+} from './types';
 import { authClient } from './auth/client';
 import { isSupabaseConfigured } from './supabase';
 import { TutorResponse } from './tutorTypes';
@@ -1552,140 +1584,7 @@ export const dataService = {
     return dbRecords;
   },
 
-  // --- Assignments ---
-  async getAssignments(batchId?: string): Promise<any[]> {
-    if (isSupabaseConfigured()) {
-      try {
-        const { data } = await authClient
-          .from('assignments')
-          .select(`
-            id, tenant_id, batch_id, subject_id, teacher_id, title, description, due_date, max_marks, created_at,
-            subjects:subject_id (name),
-            batches:batch_id (name),
-            user_profiles:teacher_id (first_name, last_name)
-          `)
-          .order('created_at', { ascending: false });
 
-        if (data && data.length > 0) {
-          return data.map((a: any) => {
-            const t = a.user_profiles;
-            return {
-              id: a.id,
-              title: a.title,
-              subject: a.subjects?.name || 'English Literature',
-              batchName: a.batches?.name || 'Class 10 - A',
-              dueDate: new Date(a.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-              maxMarks: a.max_marks || 50,
-              description: a.description || '',
-              category: 'homework',
-              status: 'pending',
-              teacherName: t ? `${t.first_name} ${t.last_name}`.trim() : 'Meera Iyer',
-              createdAt: new Date(a.created_at).getTime(),
-            };
-          });
-        }
-      } catch (e) {
-        console.warn('Supabase assignments query failed, falling back:', e);
-      }
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/assignments/batch/${batchId || '10A'}`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('Failed to fetch assignments from NestJS backend.', e);
-    }
-    return Promise.resolve([]);
-  },
-
-  /**
-   * Publishes an assignment to a batch. Returns null when the write is
-   * refused — previously it minted `asg-${Date.now()}` locally and handed it
-   * back as though the row existed, so the teacher saw their assignment
-   * appear while no student could ever load it.
-   *
-   * RLS (EDUOS-108) restricts the insert to leadership and to teachers who
-   * actually hold the batch.
-   */
-  async createAssignment(assignment: {
-    tenantId?: string;
-    batchId: string;
-    subjectId?: string | null;
-    teacherId?: string | null;
-    title: string;
-    description?: string;
-    dueDate: string;
-    maxMarks?: number;
-    attachmentUrl?: string | null;
-  }): Promise<{ id: string } | null> {
-    if (!isSupabaseConfigured()) return null;
-    try {
-      const { data, error } = await authClient
-        .from('assignments')
-        .insert({
-          batch_id: assignment.batchId,
-          subject_id: assignment.subjectId ?? null,
-          teacher_id: assignment.teacherId ?? null,
-          title: assignment.title,
-          description: assignment.description ?? '',
-          due_date: assignment.dueDate,
-          max_marks: assignment.maxMarks ?? 50,
-          attachment_url: assignment.attachmentUrl ?? null,
-          ...(assignment.tenantId ? { tenant_id: assignment.tenantId } : {}),
-        })
-        .select('id')
-        .single();
-      if (error || !data) {
-        console.warn('[assignments] create rejected:', error?.message);
-        return null;
-      }
-      return data;
-    } catch (e) {
-      console.warn('[assignments] create failed:', e);
-      return null;
-    }
-  },
-
-  /**
-   * Records a student's submission. Returns null on refusal rather than a
-   * fabricated `sub-${Date.now()}`.
-   *
-   * `submission_url` carries the object path inside the private submissions
-   * bucket (EDUOS-127), not a public link — viewers mint a signed URL from it.
-   */
-  async submitAssignment(submission: {
-    assignmentId: string;
-    studentId: string;
-    submissionUrl?: string | null;
-  }): Promise<{ id: string } | null> {
-    if (!isSupabaseConfigured()) return null;
-    try {
-      const { data, error } = await authClient
-        .from('assignment_submissions')
-        .upsert(
-          {
-            assignment_id: submission.assignmentId,
-            student_id: submission.studentId,
-            submission_url: submission.submissionUrl ?? null,
-            submitted_at: new Date().toISOString(),
-            status: 'submitted',
-          },
-          { onConflict: 'assignment_id,student_id' },
-        )
-        .select('id')
-        .single();
-      if (error || !data) {
-        console.warn('[submissions] submit rejected:', error?.message);
-        return null;
-      }
-      return data;
-    } catch (e) {
-      console.warn('[submissions] submit failed:', e);
-      return null;
-    }
-  },
 
   /**
    * Writes marks + feedback onto a submission. Returns false when the write
@@ -1766,7 +1665,73 @@ export const dataService = {
 
 
 
-  /** Schedules an exam. Returns the row id, or fallback id. */
+  /** Lists exams for a batch with Phase 2 fields. */
+  async getExams(batchId?: string, isTeacher = false): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = authClient
+        .from('exams')
+        .select(`
+          id, tenant_id, batch_id, subject_id, title, exam_type, total_marks,
+          passing_marks, duration_minutes, exam_date, start_time, is_published,
+          status, mode, instructions, max_attempts, chapter_id, topic_id,
+          created_by, created_at, updated_at,
+          subjects:subject_id (id, name),
+          batches:batch_id (id, name),
+          chapters:chapter_id (id, title),
+          topics:topic_id (id, title),
+          exam_questions (id)
+        `)
+        .eq('is_deleted', false)
+        .order('exam_date', { ascending: false });
+
+      if (batchId) {
+        query = query.eq('batch_id', batchId);
+      }
+      if (!isTeacher) {
+        query = query.neq('status', 'draft');
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('[exams] getExams error:', error);
+        return [];
+      }
+
+      return (data || []).map((e: any) => ({
+        id: e.id,
+        tenantId: e.tenant_id,
+        batchId: e.batch_id,
+        batchName: e.batches?.name || '',
+        subjectId: e.subject_id,
+        subject: e.subjects?.name || 'General',
+        title: e.title,
+        examType: e.exam_type,
+        totalMarks: Number(e.total_marks) || 100,
+        passingMarks: Number(e.passing_marks) || Math.round((Number(e.total_marks) || 100) * 0.33),
+        durationMinutes: e.duration_minutes || 60,
+        examDate: e.exam_date,
+        startTime: e.start_time || '10:00:00',
+        isPublished: Boolean(e.is_published),
+        status: (e.status || 'scheduled') as ExamLifecycleStatus,
+        mode: (e.mode || 'offline') as ExamMode,
+        instructions: e.instructions || '',
+        maxAttempts: e.max_attempts || 1,
+        chapterId: e.chapter_id,
+        topicId: e.topic_id,
+        chapterTitle: e.chapters?.title || null,
+        topicTitle: e.topics?.title || null,
+        questionCount: e.exam_questions?.length || 0,
+        createdBy: e.created_by,
+        createdAt: e.created_at,
+      }));
+    } catch (err) {
+      console.warn('[exams] getExams exception:', err);
+      return [];
+    }
+  },
+
+  /** Schedules or drafts an exam with full Phase 2 properties. */
   async createExam(input: {
     batchId: string;
     title: string;
@@ -1776,32 +1741,1443 @@ export const dataService = {
     subjectId?: string | null;
     createdBy?: string | null;
     durationMinutes?: number;
+    startTime?: string | null;
+    mode?: ExamMode;
+    instructions?: string | null;
+    maxAttempts?: number;
+    passingMarks?: number;
+    chapterId?: string | null;
+    topicId?: string | null;
+    status?: ExamLifecycleStatus;
   }): Promise<{ id: string } | null> {
     if (isSupabaseConfigured()) {
       try {
+        const payload: any = {
+          batch_id: input.batchId,
+          title: input.title,
+          exam_type: input.examType,
+          total_marks: input.totalMarks,
+          passing_marks: input.passingMarks ?? Math.round(input.totalMarks * 0.33),
+          exam_date: input.examDate,
+          duration_minutes: input.durationMinutes ?? 60,
+          start_time: input.startTime ?? '10:00:00',
+          mode: input.mode ?? 'offline',
+          instructions: input.instructions ?? null,
+          max_attempts: input.maxAttempts ?? 1,
+          subject_id: input.subjectId ?? null,
+          created_by: input.createdBy ?? null,
+          chapter_id: input.chapterId ?? null,
+          topic_id: input.topicId ?? null,
+          status: input.status ?? (input.mode === 'online' ? 'draft' : 'scheduled'),
+          is_published: input.status === 'scheduled' || input.status === 'live',
+        };
+
         const { data, error } = await authClient
           .from('exams')
-          .insert({
-            batch_id: input.batchId,
-            title: input.title,
-            exam_type: input.examType,
-            total_marks: input.totalMarks,
-            exam_date: input.examDate,
-            duration_minutes: input.durationMinutes ?? null,
-            subject_id: input.subjectId ?? null,
-            created_by: input.createdBy ?? null,
-          })
-          .select('id')
+          .insert(payload)
+          .select('id, tenant_id')
           .single();
+
         if (!error && data) {
+          if (payload.status === 'scheduled') {
+            // Notify students in batch
+            const { data: students } = await authClient
+              .from('students')
+              .select('user_id')
+              .eq('batch_id', input.batchId)
+              .eq('is_deleted', false);
+            if (students) {
+              for (const s of students) {
+                if (s.user_id) {
+                  await this.createNotification({
+                    userId: s.user_id,
+                    eventType: 'exam_scheduled',
+                    title: `Upcoming Exam: ${input.title}`,
+                    body: `${input.examType} scheduled on ${new Date(input.examDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} (${input.mode === 'online' ? 'Online' : 'Offline'}). Total Marks: ${input.totalMarks}.`,
+                    examId: data.id,
+                  });
+                }
+              }
+            }
+          }
           return data;
         }
+        if (error) console.warn('[exams] create error:', error);
       } catch (e) {
         console.warn('[exams] create failed:', e);
       }
     }
 
     return { id: `exam-${Date.now()}` };
+  },
+
+  async updateExamStatus(examId: string, status: ExamLifecycleStatus): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const isPublished = status === 'scheduled' || status === 'live' || status === 'result_published';
+      const { data, error } = await authClient
+        .from('exams')
+        .update({
+          status,
+          is_published: isPublished,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', examId)
+        .select('id, title, batch_id, mode')
+        .single();
+
+      if (error || !data) {
+        console.warn('[exams] updateExamStatus error:', error);
+        return false;
+      }
+
+      if (status === 'live' || status === 'scheduled') {
+        const { data: students } = await authClient
+          .from('students')
+          .select('user_id')
+          .eq('batch_id', data.batch_id)
+          .eq('is_deleted', false);
+        if (students) {
+          for (const s of students) {
+            if (s.user_id) {
+              await this.createNotification({
+                userId: s.user_id,
+                eventType: status === 'live' ? 'exam_live' : 'exam_scheduled',
+                title: status === 'live' ? `Assessment is NOW LIVE: ${data.title}` : `Assessment Scheduled: ${data.title}`,
+                body: status === 'live' ? 'You can now start your online attempt.' : 'Check your schedule and prepare accordingly.',
+                examId,
+              });
+            }
+          }
+        }
+      }
+
+      return true;
+    } catch (e) {
+      console.warn('[exams] updateExamStatus exception:', e);
+      return false;
+    }
+  },
+
+  // --- Online Exam Questions ---
+  async listExamQuestions(examId: string): Promise<ExamQuestion[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('exam_questions')
+        .select('*')
+        .eq('exam_id', examId)
+        .eq('is_deleted', false)
+        .order('sequence_order', { ascending: true });
+
+      if (error || !data) {
+        console.warn('[questions] listExamQuestions error:', error);
+        return [];
+      }
+
+      return data.map((q: any) => ({
+        id: q.id,
+        tenantId: q.tenant_id,
+        examId: q.exam_id,
+        sequenceOrder: q.sequence_order,
+        questionText: q.question_text,
+        questionType: q.question_type as QuestionType,
+        options: q.options || [],
+        correctAnswer: q.correct_answer,
+        marks: Number(q.marks) || 1,
+        negativeMarks: Number(q.negative_marks) || 0,
+        explanation: q.explanation,
+        chapterId: q.chapter_id,
+        topicId: q.topic_id,
+        createdAt: q.created_at,
+        updatedAt: q.updated_at,
+      }));
+    } catch (e) {
+      console.warn('[questions] listExamQuestions exception:', e);
+      return [];
+    }
+  },
+
+  async createExamQuestion(
+    examId: string,
+    input: {
+      questionText: string;
+      questionType: QuestionType;
+      options?: Array<{ id: string; text: string; is_correct?: boolean }>;
+      correctAnswer?: string;
+      marks: number;
+      negativeMarks?: number;
+      explanation?: string;
+      chapterId?: string | null;
+      topicId?: string | null;
+      sequenceOrder?: number;
+    },
+  ): Promise<ExamQuestion | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data: exam } = await authClient
+        .from('exams')
+        .select('tenant_id')
+        .eq('id', examId)
+        .single();
+
+      if (!exam) return null;
+
+      // Determine next sequence_order
+      let seq = input.sequenceOrder;
+      if (!seq) {
+        const { count } = await authClient
+          .from('exam_questions')
+          .select('*', { count: 'exact', head: true })
+          .eq('exam_id', examId)
+          .eq('is_deleted', false);
+        seq = (count || 0) + 1;
+      }
+
+      const { data, error } = await authClient
+        .from('exam_questions')
+        .insert({
+          tenant_id: exam.tenant_id,
+          exam_id: examId,
+          sequence_order: seq,
+          question_text: input.questionText,
+          question_type: input.questionType,
+          options: input.options ? JSON.parse(JSON.stringify(input.options)) : null,
+          correct_answer: input.correctAnswer ?? null,
+          marks: input.marks,
+          negative_marks: input.negativeMarks ?? 0,
+          explanation: input.explanation ?? null,
+          chapter_id: input.chapterId ?? null,
+          topic_id: input.topicId ?? null,
+        })
+        .select('*')
+        .single();
+
+      if (error || !data) {
+        console.warn('[questions] createExamQuestion error:', error);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        tenantId: data.tenant_id,
+        examId: data.exam_id,
+        sequenceOrder: data.sequence_order,
+        questionText: data.question_text,
+        questionType: data.question_type as QuestionType,
+        options: data.options || [],
+        correctAnswer: data.correct_answer,
+        marks: Number(data.marks),
+        negativeMarks: Number(data.negative_marks),
+        explanation: data.explanation,
+        chapterId: data.chapter_id,
+        topicId: data.topic_id,
+      };
+    } catch (e) {
+      console.warn('[questions] createExamQuestion exception:', e);
+      return null;
+    }
+  },
+
+  async updateExamQuestion(id: string, patch: Partial<ExamQuestion>): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (patch.questionText !== undefined) updates.question_text = patch.questionText;
+      if (patch.questionType !== undefined) updates.question_type = patch.questionType;
+      if (patch.options !== undefined) updates.options = patch.options;
+      if (patch.correctAnswer !== undefined) updates.correct_answer = patch.correctAnswer;
+      if (patch.marks !== undefined) updates.marks = patch.marks;
+      if (patch.negativeMarks !== undefined) updates.negative_marks = patch.negativeMarks;
+      if (patch.explanation !== undefined) updates.explanation = patch.explanation;
+      if (patch.sequenceOrder !== undefined) updates.sequence_order = patch.sequenceOrder;
+
+      const { error } = await authClient
+        .from('exam_questions')
+        .update(updates)
+        .eq('id', id);
+
+      return !error;
+    } catch (e) {
+      console.warn('[questions] updateExamQuestion exception:', e);
+      return false;
+    }
+  },
+
+  async deleteExamQuestion(id: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient
+        .from('exam_questions')
+        .update({ is_deleted: true, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      return !error;
+    } catch (e) {
+      console.warn('[questions] deleteExamQuestion exception:', e);
+      return false;
+    }
+  },
+
+  // --- Online Exam Attempts & Responses ---
+  async startExamAttempt(examId: string, studentId: string): Promise<{ attemptId: string; attemptNumber: number } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data: exam, error: exErr } = await authClient
+        .from('exams')
+        .select('tenant_id, max_attempts, total_marks, status')
+        .eq('id', examId)
+        .single();
+
+      if (exErr || !exam) return null;
+
+      // Count existing attempts
+      const { data: attempts } = await authClient
+        .from('exam_attempts')
+        .select('attempt_number, status')
+        .eq('exam_id', examId)
+        .eq('student_id', studentId)
+        .order('attempt_number', { ascending: false });
+
+      // If already in progress, resume it
+      const inProgress = attempts?.find((a) => a.status === 'in_progress');
+      if (inProgress) {
+        const { data: cur } = await authClient
+          .from('exam_attempts')
+          .select('id')
+          .eq('exam_id', examId)
+          .eq('student_id', studentId)
+          .eq('status', 'in_progress')
+          .single();
+        if (cur) return { attemptId: cur.id, attemptNumber: inProgress.attempt_number };
+      }
+
+      const nextAttemptNumber = (attempts && attempts[0] ? attempts[0].attempt_number : 0) + 1;
+      if (nextAttemptNumber > (exam.max_attempts || 1)) {
+        throw new Error(`Maximum attempts (${exam.max_attempts}) reached for this assessment.`);
+      }
+
+      const { data: newAttempt, error: aErr } = await authClient
+        .from('exam_attempts')
+        .insert({
+          tenant_id: exam.tenant_id,
+          exam_id: examId,
+          student_id: studentId,
+          attempt_number: nextAttemptNumber,
+          started_at: new Date().toISOString(),
+          status: 'in_progress',
+          max_marks: exam.total_marks,
+        })
+        .select('id')
+        .single();
+
+      if (aErr || !newAttempt) {
+        console.warn('[attempts] startExamAttempt error:', aErr);
+        return null;
+      }
+
+      return { attemptId: newAttempt.id, attemptNumber: nextAttemptNumber };
+    } catch (e) {
+      console.warn('[attempts] startExamAttempt exception:', e);
+      return null;
+    }
+  },
+
+  async saveExamResponse(attemptId: string, questionId: string, responseText: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { data: attempt } = await authClient
+        .from('exam_attempts')
+        .select('tenant_id')
+        .eq('id', attemptId)
+        .single();
+
+      if (!attempt) return false;
+
+      const { error } = await authClient
+        .from('exam_attempt_responses')
+        .upsert(
+          {
+            tenant_id: attempt.tenant_id,
+            attempt_id: attemptId,
+            question_id: questionId,
+            response_text: responseText,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'attempt_id,question_id' },
+        );
+
+      return !error;
+    } catch (e) {
+      console.warn('[attempts] saveExamResponse exception:', e);
+      return false;
+    }
+  },
+
+  async submitExamAttempt(
+    attemptId: string,
+    options?: { autoSubmitted?: boolean },
+  ): Promise<{ status: ExamAttemptStatus; obtainedMarks: number; totalMarks: number; percentage: number } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data: attempt, error: aErr } = await authClient
+        .from('exam_attempts')
+        .select(`
+          id, tenant_id, exam_id, student_id,
+          exams (id, title, total_marks, created_by)
+        `)
+        .eq('id', attemptId)
+        .single();
+
+      if (aErr || !attempt) return null;
+
+      // Fetch all questions and responses
+      const [questionsRes, responsesRes] = await Promise.all([
+        authClient
+          .from('exam_questions')
+          .select('id, question_type, correct_answer, marks, negative_marks')
+          .eq('exam_id', attempt.exam_id)
+          .eq('is_deleted', false),
+        authClient
+          .from('exam_attempt_responses')
+          .select('id, question_id, response_text')
+          .eq('attempt_id', attemptId),
+      ]);
+
+      const questions = questionsRes.data || [];
+      const responses = responsesRes.data || [];
+      const responseMap = new Map(responses.map((r) => [r.question_id, r]));
+
+      let totalAwarded = 0;
+      let totalPossible = 0;
+      let hasManualQuestions = false;
+
+      for (const q of questions) {
+        const marks = Number(q.marks) || 1;
+        const neg = Number(q.negative_marks) || 0;
+        totalPossible += marks;
+
+        const resp = responseMap.get(q.id);
+        const ans = resp?.response_text?.trim();
+
+        if (q.question_type === 'mcq' || q.question_type === 'true_false') {
+          const isCorrect = Boolean(ans && ans.toLowerCase() === (q.correct_answer || '').trim().toLowerCase());
+          const awarded = isCorrect ? marks : ans ? -neg : 0;
+          totalAwarded += Math.max(0, awarded);
+
+          if (resp) {
+            await authClient
+              .from('exam_attempt_responses')
+              .update({
+                is_correct: isCorrect,
+                marks_awarded: Math.max(0, awarded),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', resp.id);
+          }
+        } else {
+          // Short answer or descriptive: needs manual grading
+          hasManualQuestions = true;
+        }
+      }
+
+      const totalMarks = Number((attempt.exams as any)?.total_marks) || totalPossible || 100;
+      const pct = Math.round((totalAwarded / totalMarks) * 100);
+      const finalStatus: ExamAttemptStatus = hasManualQuestions ? 'submitted' : 'evaluated';
+
+      await authClient
+        .from('exam_attempts')
+        .update({
+          status: finalStatus,
+          submitted_at: new Date().toISOString(),
+          auto_submitted: Boolean(options?.autoSubmitted),
+          obtained_marks: totalAwarded,
+          max_marks: totalMarks,
+          percentage: pct,
+          evaluated_at: hasManualQuestions ? null : new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', attemptId);
+
+      // Notify teacher
+      const examTitle = (attempt.exams as any)?.title || 'Assessment';
+      const teacherId = (attempt.exams as any)?.created_by;
+      if (teacherId) {
+        await this.createNotification({
+          userId: teacherId,
+          eventType: 'attempt_submitted',
+          title: `Exam Attempt Submitted: ${examTitle}`,
+          body: `A student completed ${examTitle}.${options?.autoSubmitted ? ' (Auto-submitted by timer)' : ''}`,
+          examId: attempt.exam_id,
+          attemptId,
+        });
+      }
+
+      return {
+        status: finalStatus,
+        obtainedMarks: totalAwarded,
+        totalMarks,
+        percentage: pct,
+      };
+    } catch (e) {
+      console.warn('[attempts] submitExamAttempt exception:', e);
+      return null;
+    }
+  },
+
+  async gradeAttemptResponse(
+    responseId: string,
+    marks: number,
+    feedback: string,
+    graderId: string,
+  ): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const now = new Date().toISOString();
+      const { data: resp, error: rErr } = await authClient
+        .from('exam_attempt_responses')
+        .update({
+          marks_awarded: marks,
+          faculty_feedback: feedback || null,
+          graded_by: graderId,
+          graded_at: now,
+          updated_at: now,
+        })
+        .eq('id', responseId)
+        .select('attempt_id')
+        .single();
+
+      if (rErr || !resp) return false;
+
+      // Re-sum marks on parent attempt
+      const { data: allResponses } = await authClient
+        .from('exam_attempt_responses')
+        .select('marks_awarded')
+        .eq('attempt_id', resp.attempt_id);
+
+      const { data: attempt } = await authClient
+        .from('exam_attempts')
+        .select('max_marks')
+        .eq('id', resp.attempt_id)
+        .single();
+
+      const totalMarks = Number(attempt?.max_marks) || 100;
+      const sumAwarded = (allResponses || []).reduce((acc, curr) => acc + (Number(curr.marks_awarded) || 0), 0);
+      const pct = Math.round((sumAwarded / totalMarks) * 100);
+
+      await authClient
+        .from('exam_attempts')
+        .update({
+          obtained_marks: sumAwarded,
+          percentage: pct,
+          status: 'evaluated',
+          evaluated_at: now,
+          evaluated_by: graderId,
+          updated_at: now,
+        })
+        .eq('id', resp.attempt_id);
+
+      return true;
+    } catch (e) {
+      console.warn('[attempts] gradeAttemptResponse exception:', e);
+      return false;
+    }
+  },
+
+  async publishExamAttempt(attemptId: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { data: attempt, error } = await authClient
+        .from('exam_attempts')
+        .update({
+          is_published: true,
+          status: 'published',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', attemptId)
+        .select('id, student_id, exam_id, obtained_marks, max_marks, exams(title)')
+        .single();
+
+      if (error || !attempt) return false;
+
+      // Notify student
+      const { data: student } = await authClient
+        .from('students')
+        .select('user_id')
+        .eq('id', attempt.student_id)
+        .single();
+
+      if (student?.user_id) {
+        const title = (attempt.exams as any)?.title || 'Assessment';
+        await this.createNotification({
+          userId: student.user_id,
+          eventType: 'result_published',
+          title: `Assessment Result Published: ${title}`,
+          body: `You scored ${attempt.obtained_marks} / ${attempt.max_marks}. View detailed breakdown in Tests & Exams.`,
+          examId: attempt.exam_id,
+          attemptId,
+        });
+      }
+
+      return true;
+    } catch (e) {
+      console.warn('[attempts] publishExamAttempt exception:', e);
+      return false;
+    }
+  },
+
+  async publishAllExamResultsForExam(examId: string): Promise<number> {
+    if (!isSupabaseConfigured()) return 0;
+    try {
+      // 1. Update exam status
+      await this.updateExamStatus(examId, 'result_published');
+
+      // 2. Publish all attempts
+      const { data: attempts } = await authClient
+        .from('exam_attempts')
+        .update({
+          is_published: true,
+          status: 'published',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('exam_id', examId)
+        .select('id');
+
+      const count = attempts?.length || 0;
+
+      // 3. Notify all students in batch
+      const { data: ex } = await authClient
+        .from('exams')
+        .select('batch_id, title')
+        .eq('id', examId)
+        .single();
+
+      if (ex) {
+        const { data: students } = await authClient
+          .from('students')
+          .select('user_id')
+          .eq('batch_id', ex.batch_id)
+          .eq('is_deleted', false);
+        if (students) {
+          for (const s of students) {
+            if (s.user_id) {
+              await this.createNotification({
+                userId: s.user_id,
+                eventType: 'result_published',
+                title: `Results Released: ${ex.title}`,
+                body: 'Official results and performance analytics are now published.',
+                examId,
+              });
+            }
+          }
+        }
+      }
+
+      return count;
+    } catch (e) {
+      console.warn('[attempts] publishAllExamResultsForExam exception:', e);
+      return 0;
+    }
+  },
+
+  async getExamAttemptsForTeacher(examId: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('exam_attempts')
+        .select(`
+          id, tenant_id, exam_id, student_id, attempt_number, started_at,
+          submitted_at, auto_submitted, status, obtained_marks, max_marks,
+          percentage, evaluated_at, evaluated_by, faculty_remark, is_published,
+          student:student_id (
+            id, roll_number, admission_number,
+            user_profiles (first_name, last_name, avatar_url)
+          )
+        `)
+        .eq('exam_id', examId)
+        .order('submitted_at', { ascending: false });
+
+      if (error || !data) {
+        console.warn('[attempts] getExamAttemptsForTeacher error:', error);
+        return [];
+      }
+
+      return data.map((a: any) => {
+        const p = (a.student?.user_profiles as any) || {};
+        return {
+          id: a.id,
+          studentId: a.student_id,
+          studentName: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Student',
+          rollNumber: a.student?.roll_number || '01',
+          attemptNumber: a.attempt_number,
+          startedAt: a.started_at,
+          submittedAt: a.submitted_at,
+          autoSubmitted: a.auto_submitted,
+          status: a.status,
+          obtainedMarks: a.obtained_marks !== null ? Number(a.obtained_marks) : null,
+          maxMarks: a.max_marks !== null ? Number(a.max_marks) : null,
+          percentage: a.percentage !== null ? Number(a.percentage) : null,
+          isPublished: a.is_published,
+          evaluatedAt: a.evaluated_at,
+        };
+      });
+    } catch (e) {
+      console.warn('[attempts] getExamAttemptsForTeacher exception:', e);
+      return [];
+    }
+  },
+
+  async getStudentExamAttempts(studentId: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('exam_attempts')
+        .select(`
+          id, exam_id, attempt_number, started_at, submitted_at, auto_submitted,
+          status, obtained_marks, max_marks, percentage, is_published,
+          faculty_remark,
+          exams:exam_id (
+            id, title, exam_type, total_marks, passing_marks, exam_date, duration_minutes,
+            subjects:subject_id (name)
+          )
+        `)
+        .eq('student_id', studentId)
+        .order('submitted_at', { ascending: false });
+
+      if (error || !data) {
+        console.warn('[attempts] getStudentExamAttempts error:', error);
+        return [];
+      }
+
+      return data.map((a: any) => {
+        const ex = a.exams || {};
+        return {
+          id: a.id,
+          examId: a.exam_id,
+          examTitle: ex.title || 'Assessment',
+          examType: ex.exam_type || 'Test',
+          subject: ex.subjects?.name || 'General',
+          attemptNumber: a.attempt_number,
+          startedAt: a.started_at,
+          submittedAt: a.submitted_at,
+          status: a.status,
+          obtainedMarks: a.obtained_marks !== null ? Number(a.obtained_marks) : null,
+          maxMarks: a.max_marks !== null ? Number(a.max_marks) : Number(ex.total_marks) || 100,
+          passingMarks: Number(ex.passing_marks) || 33,
+          percentage: a.percentage !== null ? Number(a.percentage) : null,
+          isPublished: a.is_published,
+          facultyRemark: a.faculty_remark,
+        };
+      });
+    } catch (e) {
+      console.warn('[attempts] getStudentExamAttempts exception:', e);
+      return [];
+    }
+  },
+
+  /** Alias for listExamQuestions */
+  async getExamQuestions(examId: string): Promise<ExamQuestion[]> {
+    return this.listExamQuestions(examId);
+  },
+
+  /** Alias for getStudentExamAttempts */
+  async getStudentAttempts(studentId: string): Promise<any[]> {
+    return this.getStudentExamAttempts(studentId);
+  },
+
+  /** Alias for saving attempt responses */
+  async saveAttemptResponse(input: {
+    attemptId: string;
+    questionId: string;
+    selectedOptionId?: string;
+    responseAnswer?: string;
+    isMarkedForReview?: boolean;
+  }): Promise<boolean> {
+    return this.saveExamResponse(
+      input.attemptId,
+      input.questionId,
+      input.selectedOptionId || input.responseAnswer || ''
+    );
+  },
+
+  async getExamAttemptDetail(attemptId: string): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data: attempt, error: aErr } = await authClient
+        .from('exam_attempts')
+        .select(`
+          id, exam_id, student_id, attempt_number, started_at, submitted_at,
+          auto_submitted, status, obtained_marks, max_marks, percentage,
+          is_published, faculty_remark,
+          exams:exam_id (
+            id, title, exam_type, total_marks, duration_minutes, instructions,
+            subjects:subject_id (name)
+          ),
+          student:student_id (
+            id, roll_number,
+            user_profiles (first_name, last_name)
+          )
+        `)
+        .eq('id', attemptId)
+        .single();
+
+      if (aErr || !attempt) return null;
+
+      const [questionsRes, responsesRes] = await Promise.all([
+        authClient
+          .from('exam_questions')
+          .select('*')
+          .eq('exam_id', attempt.exam_id)
+          .eq('is_deleted', false)
+          .order('sequence_order', { ascending: true }),
+        authClient
+          .from('exam_attempt_responses')
+          .select('*')
+          .eq('attempt_id', attemptId),
+      ]);
+
+      const questions = questionsRes.data || [];
+      const responses = responsesRes.data || [];
+      const respMap = new Map(responses.map((r) => [r.question_id, r]));
+
+      const questionDetails = questions.map((q: any) => {
+        const r = respMap.get(q.id);
+        return {
+          id: q.id,
+          sequenceOrder: q.sequence_order,
+          questionText: q.question_text,
+          questionType: q.question_type,
+          options: q.options || [],
+          correctAnswer: q.correct_answer,
+          marks: Number(q.marks),
+          negativeMarks: Number(q.negative_marks),
+          explanation: q.explanation,
+          responseId: r?.id,
+          responseText: r?.response_text || '',
+          isCorrect: r?.is_correct,
+          marksAwarded: r?.marks_awarded !== null ? Number(r?.marks_awarded) : null,
+          facultyFeedback: r?.faculty_feedback || '',
+        };
+      });
+
+      const attAny = attempt as any;
+      const studentObj = Array.isArray(attAny.student) ? attAny.student[0] : attAny.student;
+      const examObj = Array.isArray(attAny.exams) ? attAny.exams[0] : attAny.exams;
+      const profile = (Array.isArray(studentObj?.user_profiles) ? studentObj?.user_profiles[0] : studentObj?.user_profiles) || {};
+
+      return {
+        id: attempt.id,
+        examId: attempt.exam_id,
+        examTitle: examObj?.title || 'Assessment',
+        subject: examObj?.subjects?.name || 'General',
+        durationMinutes: examObj?.duration_minutes || 60,
+        instructions: examObj?.instructions || '',
+        studentId: attempt.student_id,
+        studentName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Student',
+        rollNumber: studentObj?.roll_number || '01',
+        attemptNumber: attempt.attempt_number,
+        startedAt: attempt.started_at,
+        submittedAt: attempt.submitted_at,
+        autoSubmitted: attempt.auto_submitted,
+        status: attempt.status,
+        obtainedMarks: attempt.obtained_marks !== null ? Number(attempt.obtained_marks) : null,
+        maxMarks: attempt.max_marks !== null ? Number(attempt.max_marks) : 100,
+        percentage: attempt.percentage !== null ? Number(attempt.percentage) : null,
+        isPublished: attempt.is_published,
+        facultyRemark: attempt.faculty_remark,
+        questions: questionDetails,
+      };
+    } catch (e) {
+      console.warn('[attempts] getExamAttemptDetail exception:', e);
+      return null;
+    }
+  },
+
+  // --- Phase 2: Academic Notifications ---
+  async createNotification(input: {
+    userId: string;
+    eventType: string;
+    title: string;
+    body?: string | null;
+    assignmentId?: string | null;
+    examId?: string | null;
+    submissionId?: string | null;
+    attemptId?: string | null;
+  }): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { data: prof } = await authClient
+        .from('user_profiles')
+        .select('tenant_id')
+        .eq('id', input.userId)
+        .maybeSingle();
+
+      if (!prof?.tenant_id) return false;
+
+      const { error } = await authClient
+        .from('academic_notifications')
+        .insert({
+          tenant_id: prof.tenant_id,
+          user_id: input.userId,
+          event_type: input.eventType,
+          title: input.title,
+          body: input.body ?? null,
+          assignment_id: input.assignmentId ?? null,
+          exam_id: input.examId ?? null,
+          submission_id: input.submissionId ?? null,
+          attempt_id: input.attemptId ?? null,
+        });
+
+      return !error;
+    } catch (e) {
+      console.warn('[notifications] create error:', e);
+      return false;
+    }
+  },
+
+  async listUnreadNotifications(userId: string): Promise<AcademicNotification[]> {
+    if (!isSupabaseConfigured() || !userId) return [];
+    try {
+      const { data, error } = await authClient
+        .from('academic_notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .is('read_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error || !data) return [];
+
+      return data.map((n: any) => ({
+        id: n.id,
+        tenantId: n.tenant_id,
+        userId: n.user_id,
+        eventType: n.event_type,
+        title: n.title,
+        body: n.body,
+        assignmentId: n.assignment_id,
+        examId: n.exam_id,
+        submissionId: n.submission_id,
+        attemptId: n.attempt_id,
+        readAt: n.read_at,
+        createdAt: n.created_at,
+      }));
+    } catch (e) {
+      console.warn('[notifications] list error:', e);
+      return [];
+    }
+  },
+
+  async getNotifications(userId: string): Promise<any[]> {
+    if (!isSupabaseConfigured() || !userId) return [];
+    try {
+      const { data, error } = await authClient
+        .from('academic_notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      if (error || !data) return [];
+      return data.map((n: any) => ({
+        id: n.id,
+        tenantId: n.tenant_id,
+        userId: n.user_id,
+        eventType: n.event_type,
+        title: n.title,
+        body: n.body,
+        assignmentId: n.assignment_id,
+        examId: n.exam_id,
+        submissionId: n.submission_id,
+        attemptId: n.attempt_id,
+        isRead: Boolean(n.read_at),
+        createdAt: n.created_at,
+      }));
+    } catch (e) {
+      console.warn('[notifications] getNotifications error:', e);
+      return [];
+    }
+  },
+
+  async markNotificationRead(id: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient
+        .from('academic_notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', id);
+      return !error;
+    } catch (e) {
+      console.warn('[notifications] markRead error:', e);
+      return false;
+    }
+  },
+
+  async markAllNotificationsRead(userId: string): Promise<boolean> {
+    if (!isSupabaseConfigured() || !userId) return false;
+    try {
+      const { error } = await authClient
+        .from('academic_notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .is('read_at', null);
+      return !error;
+    } catch (e) {
+      console.warn('[notifications] markAllRead error:', e);
+      return false;
+    }
+  },
+
+  // --- Phase 2: Assignments & Homework (Task 3) ---
+  async getAssignments(batchId?: string, isTeacher = false): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = authClient
+        .from('assignments')
+        .select(`
+          id, tenant_id, batch_id, subject_id, teacher_id, title, description,
+          instructions, due_date, issue_date, max_marks, attachment_url,
+          submission_type, allow_resubmission, status, closed_at, created_at, updated_at,
+          chapter_id, topic_id,
+          subjects:subject_id (id, name),
+          batches:batch_id (id, name),
+          chapters:chapter_id (id, title),
+          topics:topic_id (id, title),
+          teacher:teacher_id (id, first_name, last_name),
+          assignment_attachments (id, file_name, file_url, mime_type, file_size_bytes)
+        `)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false });
+
+      if (batchId) {
+        query = query.eq('batch_id', batchId);
+      }
+      if (!isTeacher) {
+        query = query.neq('status', 'draft');
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('[assignments] getAssignments error:', error);
+        return [];
+      }
+      return (data || []).map((a: any) => ({
+        id: a.id,
+        tenantId: a.tenant_id,
+        batchId: a.batch_id,
+        batchName: a.batches?.name || '',
+        subjectId: a.subject_id,
+        subject: a.subjects?.name || 'General',
+        title: a.title,
+        description: a.description || '',
+        instructions: a.instructions || '',
+        dueDate: a.due_date,
+        issueDate: a.issue_date,
+        maxMarks: Number(a.max_marks) || 100,
+        submissionType: a.submission_type || 'both',
+        allowResubmission: Boolean(a.allow_resubmission),
+        status: a.status || 'published',
+        closedAt: a.closed_at,
+        chapterId: a.chapter_id,
+        topicId: a.topic_id,
+        chapterTitle: a.chapters?.title || null,
+        topicTitle: a.topics?.title || null,
+        teacherId: a.teacher_id,
+        teacherName: a.teacher ? `${a.teacher.first_name || ''} ${a.teacher.last_name || ''}`.trim() : 'Faculty',
+        createdAt: new Date(a.created_at).getTime(),
+        attachments: (a.assignment_attachments || []).map((att: any) => ({
+          name: att.file_name || 'Attachment',
+          url: att.file_url,
+          size: att.file_size_bytes ? `${Math.round(att.file_size_bytes / 1024)} KB` : '1 MB',
+          type: (att.mime_type?.includes('image') ? 'image' : att.mime_type?.includes('pdf') ? 'pdf' : 'doc') as any,
+        })),
+      }));
+    } catch (e) {
+      console.warn('[assignments] getAssignments exception:', e);
+      return [];
+    }
+  },
+
+  async createAssignment(input: {
+    batchId: string;
+    subjectId?: string;
+    teacherId?: string;
+    title: string;
+    description?: string;
+    instructions?: string;
+    dueDate: string;
+    issueDate?: string;
+    maxMarks?: number;
+    chapterId?: string | null;
+    topicId?: string | null;
+    submissionType?: 'file' | 'text' | 'both';
+    allowResubmission?: boolean;
+    status?: 'draft' | 'published';
+    attachments?: Array<{ name: string; url: string; sizeBytes?: number; mimeType?: string }>;
+  }): Promise<{ id: string } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const payload: any = {
+        batch_id: input.batchId,
+        title: input.title,
+        description: input.description ?? null,
+        instructions: input.instructions ?? null,
+        due_date: input.dueDate,
+        issue_date: input.issueDate || new Date().toISOString(),
+        max_marks: input.maxMarks ?? 100,
+        subject_id: input.subjectId ?? null,
+        teacher_id: input.teacherId ?? null,
+        chapter_id: input.chapterId ?? null,
+        topic_id: input.topicId ?? null,
+        submission_type: input.submissionType ?? 'both',
+        allow_resubmission: Boolean(input.allowResubmission),
+        status: input.status ?? 'published',
+      };
+
+      const { data, error } = await authClient
+        .from('assignments')
+        .insert(payload)
+        .select('id, tenant_id')
+        .single();
+
+      if (error || !data) {
+        console.warn('[assignments] create error:', error);
+        return null;
+      }
+
+      const assignmentId = data.id;
+
+      if (input.attachments && input.attachments.length > 0) {
+        const attRows = input.attachments.map((att) => ({
+          assignment_id: assignmentId,
+          tenant_id: data.tenant_id,
+          file_name: att.name,
+          file_url: att.url,
+          file_size_bytes: att.sizeBytes ?? 1024 * 1024,
+          mime_type: att.mimeType ?? 'application/pdf',
+          uploaded_by: input.teacherId ?? null,
+        }));
+        await authClient.from('assignment_attachments').insert(attRows);
+      }
+
+      if (input.status === 'published') {
+        const { data: students } = await authClient
+          .from('students')
+          .select('user_id')
+          .eq('batch_id', input.batchId)
+          .eq('is_deleted', false);
+
+        if (students && students.length > 0) {
+          for (const s of students) {
+            if (s.user_id) {
+              await this.createNotification({
+                userId: s.user_id,
+                eventType: 'assignment_published',
+                title: `New Assignment: ${input.title}`,
+                body: `Due by ${new Date(input.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}. Max marks: ${input.maxMarks ?? 100}.`,
+                assignmentId,
+              });
+            }
+          }
+        }
+      }
+
+      return { id: assignmentId };
+    } catch (e) {
+      console.warn('[assignments] create exception:', e);
+      return null;
+    }
+  },
+
+  async publishAssignment(assignmentId: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { data: a, error: fetchErr } = await authClient
+        .from('assignments')
+        .select('id, title, batch_id, issue_date, max_marks, due_date')
+        .eq('id', assignmentId)
+        .single();
+
+      if (fetchErr || !a) return false;
+
+      const updates: any = { status: 'published', updated_at: new Date().toISOString() };
+      if (!a.issue_date) updates.issue_date = new Date().toISOString();
+
+      const { error } = await authClient
+        .from('assignments')
+        .update(updates)
+        .eq('id', assignmentId);
+
+      if (error) {
+        console.warn('[assignments] publish error:', error);
+        return false;
+      }
+
+      const { data: students } = await authClient
+        .from('students')
+        .select('user_id')
+        .eq('batch_id', a.batch_id)
+        .eq('is_deleted', false);
+
+      if (students) {
+        for (const s of students) {
+          if (s.user_id) {
+            await this.createNotification({
+              userId: s.user_id,
+              eventType: 'assignment_published',
+              title: `Assignment Published: ${a.title}`,
+              body: `Due by ${new Date(a.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}.`,
+              assignmentId,
+            });
+          }
+        }
+      }
+
+      return true;
+    } catch (e) {
+      console.warn('[assignments] publish exception:', e);
+      return false;
+    }
+  },
+
+  async closeAssignment(assignmentId: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient
+        .from('assignments')
+        .update({
+          status: 'closed',
+          closed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', assignmentId);
+      return !error;
+    } catch (e) {
+      console.warn('[assignments] close exception:', e);
+      return false;
+    }
+  },
+
+  async reopenAssignment(assignmentId: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient
+        .from('assignments')
+        .update({
+          status: 'open',
+          closed_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', assignmentId);
+      return !error;
+    } catch (e) {
+      console.warn('[assignments] reopen exception:', e);
+      return false;
+    }
+  },
+
+  async listAssignmentSubmissions(assignmentId: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await authClient
+        .from('assignment_submissions')
+        .select(`
+          id, assignment_id, student_id, submission_url, student_notes, submitted_at,
+          status, marks_obtained, feedback, attempt_number, reviewed_at, reviewer_id,
+          student:student_id (
+            id, roll_number,
+            user_profiles (first_name, last_name, avatar_url)
+          ),
+          submission_attachments (id, file_name, file_url, file_size_bytes, mime_type)
+        `)
+        .eq('assignment_id', assignmentId)
+        .eq('is_deleted', false)
+        .order('submitted_at', { ascending: false });
+
+      if (error) {
+        console.warn('[assignments] listSubmissions error:', error);
+        return [];
+      }
+
+      return (data || []).map((s: any) => {
+        const profile = (s.student?.user_profiles as any) || {};
+        return {
+          id: s.id,
+          assignmentId: s.assignment_id,
+          studentId: s.student_id,
+          studentName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Student',
+          studentRoll: s.student?.roll_number || '01',
+          studentAvatar: profile.avatar_url || '',
+          fileUrl: s.submission_url,
+          studentNotes: s.student_notes,
+          submittedAt: new Date(s.submitted_at).getTime(),
+          status: s.status,
+          isLate: s.status === 'late',
+          obtainedMarks: s.marks_obtained !== null ? Number(s.marks_obtained) : undefined,
+          feedback: s.feedback,
+          attemptNumber: s.attempt_number || 1,
+          reviewedAt: s.reviewed_at,
+          attachments: (s.submission_attachments || []).map((att: any) => ({
+            name: att.file_name || 'Submission',
+            url: att.file_url,
+            size: att.file_size_bytes ? `${Math.round(att.file_size_bytes / 1024)} KB` : '1.2 MB',
+          })),
+        };
+      });
+    } catch (e) {
+      console.warn('[assignments] listSubmissions exception:', e);
+      return [];
+    }
+  },
+
+  async submitAssignment(input: {
+    assignmentId: string;
+    studentId: string;
+    submissionText?: string;
+    fileUrl?: string;
+    submissionUrl?: string | null;
+    fileName?: string;
+    fileSize?: string;
+  }): Promise<{ id: string; isLate: boolean } | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data: assignment, error: aErr } = await authClient
+        .from('assignments')
+        .select('id, tenant_id, due_date, status, title, teacher_id')
+        .eq('id', input.assignmentId)
+        .single();
+
+      if (aErr || !assignment) return null;
+      if (assignment.status === 'closed') {
+        throw new Error('This assignment is closed for submissions.');
+      }
+
+      const now = new Date();
+      const dueDate = new Date(assignment.due_date);
+      const isLate = now > dueDate;
+      const initialStatus = isLate ? 'late' : 'submitted';
+
+      const { data: existing } = await authClient
+        .from('assignment_submissions')
+        .select('attempt_number')
+        .eq('assignment_id', input.assignmentId)
+        .eq('student_id', input.studentId)
+        .order('attempt_number', { ascending: false })
+        .limit(1);
+
+      const attemptNumber = (existing && existing[0]?.attempt_number ? existing[0].attempt_number : 0) + 1;
+
+      const { data: sub, error: sErr } = await authClient
+        .from('assignment_submissions')
+        .insert({
+          tenant_id: assignment.tenant_id,
+          assignment_id: input.assignmentId,
+          student_id: input.studentId,
+          submission_url: input.fileUrl ?? input.submissionUrl ?? null,
+          student_notes: input.submissionText ?? null,
+          submitted_at: now.toISOString(),
+          status: initialStatus,
+          attempt_number: attemptNumber,
+        })
+        .select('id')
+        .single();
+
+      if (sErr || !sub) {
+        console.warn('[assignments] submitAssignment error:', sErr);
+        return null;
+      }
+
+      if (input.fileUrl) {
+        await authClient.from('submission_attachments').insert({
+          tenant_id: assignment.tenant_id,
+          submission_id: sub.id,
+          file_url: input.fileUrl,
+          file_name: input.fileName || 'Submission_File.pdf',
+        });
+      }
+
+      if (assignment.teacher_id) {
+        const { data: teacherProfile } = await authClient
+          .from('user_profiles')
+          .select('id')
+          .eq('id', assignment.teacher_id)
+          .maybeSingle();
+
+        if (teacherProfile?.id) {
+          await this.createNotification({
+            userId: teacherProfile.id,
+            eventType: isLate ? 'submission_late' : 'submission_received',
+            title: isLate ? `Late Submission: ${assignment.title}` : `Submission Received: ${assignment.title}`,
+            body: `A student submitted work for ${assignment.title}${isLate ? ' (Submitted Late)' : ''}.`,
+            assignmentId: input.assignmentId,
+            submissionId: sub.id,
+          });
+        }
+      }
+
+      return { id: sub.id, isLate };
+    } catch (e) {
+      console.warn('[assignments] submitAssignment exception:', e);
+      return null;
+    }
+  },
+
+  async markSubmissionReviewed(
+    submissionId: string,
+    reviewerId: string,
+    marks: number,
+    feedback?: string,
+  ): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const now = new Date().toISOString();
+      const { data: sub, error: fetchErr } = await authClient
+        .from('assignment_submissions')
+        .select('id, student_id, assignment_id, assignments (id, title)')
+        .eq('id', submissionId)
+        .single();
+
+      if (fetchErr || !sub) return false;
+
+      const { error } = await authClient
+        .from('assignment_submissions')
+        .update({
+          status: 'reviewed',
+          marks_obtained: marks,
+          feedback: feedback || null,
+          reviewed_at: now,
+          reviewer_id: reviewerId,
+          updated_at: now,
+        })
+        .eq('id', submissionId);
+
+      if (error) {
+        console.warn('[assignments] markReviewed error:', error);
+        return false;
+      }
+
+      const { data: student } = await authClient
+        .from('students')
+        .select('user_id')
+        .eq('id', sub.student_id)
+        .single();
+
+      if (student?.user_id) {
+        const title = (sub.assignments as any)?.title || 'Assignment';
+        await this.createNotification({
+          userId: student.user_id,
+          eventType: 'assignment_reviewed',
+          title: `Assignment Graded: ${title}`,
+          body: `Marks: ${marks}. Feedback: ${feedback || 'Good work!'}`,
+          assignmentId: sub.assignment_id,
+          submissionId,
+        });
+      }
+
+      return true;
+    } catch (e) {
+      console.warn('[assignments] markReviewed exception:', e);
+      return false;
+    }
   },
 
   /**
@@ -3904,6 +5280,55 @@ export const dataService = {
       });
     } catch (e) {
       console.warn('[syllabus] getSyllabus exception:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Fetches chapters and topics for a batch, optionally filtered by subject.
+   */
+  async getSyllabusChapters(batchId: string, subjectId?: string): Promise<SyllabusChapter[]> {
+    if (!isSupabaseConfigured() || !batchId) return [];
+    try {
+      let q = authClient
+        .from('syllabus_chapters')
+        .select('*, topics:syllabus_topics(*)')
+        .eq('batch_id', batchId)
+        .eq('is_deleted', false)
+        .order('sequence_order', { ascending: true });
+      if (subjectId) q = q.eq('subject_id', subjectId);
+      const { data, error } = await q;
+      if (error || !data) return [];
+      return data.map((c: any) => ({
+        id: c.id,
+        tenantId: c.tenant_id,
+        batchId: c.batch_id,
+        subjectId: c.subject_id,
+        chapterNumber: c.chapter_number,
+        title: c.title,
+        description: c.description || '',
+        unitName: c.unit_name || '',
+        sequenceOrder: c.sequence_order || 1,
+        status: c.status || 'not_started',
+        topics: (c.topics || []).filter((t: any) => !t.is_deleted).map((t: any) => ({
+          id: t.id,
+          tenantId: t.tenant_id,
+          chapterId: t.chapter_id,
+          subjectId: t.subject_id,
+          batchId: t.batch_id,
+          title: t.title,
+          description: t.description || '',
+          sequenceOrder: t.sequence_order || 1,
+          status: t.status || 'not_started',
+          completionDate: t.completion_date,
+          facultyNotes: t.faculty_notes || '',
+          estimatedPeriods: t.estimated_periods || 4,
+          targetDate: t.target_date,
+        })),
+        progressPct: 0,
+      }));
+    } catch (e) {
+      console.warn('[syllabus] getSyllabusChapters error:', e);
       return [];
     }
   },
