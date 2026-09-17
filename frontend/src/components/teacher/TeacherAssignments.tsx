@@ -84,6 +84,16 @@ export const TeacherAssignments: React.FC = () => {
   const [formAttachments, setFormAttachments] = useState<AssignmentAttachment[]>([
     { name: 'Problem_Set_Exercise_Worksheet.pdf', url: 'https://storage.eduos.app/sheets/worksheet.pdf', size: '1.4 MB', type: 'pdf' },
   ]);
+  const [availableSubjects, setAvailableSubjects] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    dataService.getSubjects().then((subs) => {
+      if (subs && subs.length > 0) {
+        setAvailableSubjects(subs);
+        if (!formSubject) setFormSubject(subs[0].name);
+      }
+    });
+  }, []);
 
   // Load live assignments from Supabase
   const loadLiveAssignments = async () => {
@@ -205,9 +215,12 @@ export const TeacherAssignments: React.FC = () => {
       return;
     }
 
+    const selectedSub = availableSubjects.find((s) => s.name.toLowerCase() === formSubject.toLowerCase()) || availableSubjects[0];
+
     const res = await dataService.createAssignment({
       batchId: batch.id,
       teacherId: teacher.id,
+      subjectId: selectedSub?.id,
       title: formTitle.trim(),
       description: formDescription.trim() || 'Please solve all questions in your class notebook and upload clear step-by-step solutions.',
       instructions: formInstructions.trim() || '1. Show complete calculations.\n2. Verify final answers.\n3. Upload scanned PDF.',
@@ -266,7 +279,36 @@ export const TeacherAssignments: React.FC = () => {
   };
 
   const handlePublishAssignment = async (id: string, title: string) => {
-    const ok = await dataService.publishAssignment(id);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let ok = false;
+
+    if (uuidRegex.test(id)) {
+      ok = await dataService.publishAssignment(id);
+    } else {
+      // Local or mock draft assignment that was not in Supabase yet
+      const local = assignments.find((a) => a.id === id);
+      if (local) {
+        const selectedSub = availableSubjects.find((s) => s.name.toLowerCase() === (local.subject || '').toLowerCase()) || availableSubjects[0];
+        const res = await dataService.createAssignment({
+          batchId: batch.id,
+          teacherId: teacher.id,
+          subjectId: selectedSub?.id,
+          title: local.title,
+          description: local.description,
+          instructions: local.instructions,
+          dueDate: local.dueDate,
+          maxMarks: local.maxMarks,
+          status: 'published',
+          submissionType: local.submissionType,
+          allowResubmission: local.allowResubmission,
+        });
+        if (res?.id) {
+          ok = true;
+          deleteAssignment(id);
+        }
+      }
+    }
+
     if (ok) {
       toast('Assignment Published', 'success', `"${title}" is now visible to students.`);
       loadLiveAssignments();

@@ -2833,6 +2833,27 @@ export const dataService = {
         status: input.status ?? 'published',
       };
 
+      if (!payload.subject_id) {
+        const { data: sub } = await authClient
+          .from('subjects')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
+        if (sub?.id) payload.subject_id = sub.id;
+      }
+
+      if (!payload.teacher_id) {
+        const { data: { user } } = await authClient.auth.getUser();
+        if (user) {
+          const { data: prof } = await authClient
+            .from('user_profiles')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .maybeSingle();
+          if (prof?.id) payload.teacher_id = prof.id;
+        }
+      }
+
       const { data, error } = await authClient
         .from('assignments')
         .insert(payload)
@@ -2890,6 +2911,11 @@ export const dataService = {
 
   async publishAssignment(assignmentId: string): Promise<boolean> {
     if (!isSupabaseConfigured()) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(assignmentId)) {
+      console.warn('[assignments] Non-UUID assignmentId in publishAssignment:', assignmentId);
+      return false;
+    }
     try {
       const { data: a, error: fetchErr } = await authClient
         .from('assignments')
