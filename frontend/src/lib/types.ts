@@ -197,6 +197,72 @@ export interface Assignment {
   isLate?: boolean;
 }
 
+export interface DiaryEntry {
+  id: string;
+  batchId: string;
+  subjectId: string;
+  subject: string;
+  teacherName: string;
+  date: string; // YYYY-MM-DD
+  classwork: string;
+  homework: string;
+}
+
+export interface RemedialPlan {
+  id: string;
+  studentId: string;
+  studentName: string;
+  batchId: string;
+  subjectName: string;
+  topic: string;
+  resourceNote: string;
+  doubtSessionDate: string | null;
+  triggerScorePct: number | null;
+  status: 'active' | 'resolved';
+  resolvedScorePct: number | null;
+  createdAt: string;
+}
+
+export type QueryCategory = 'academic' | 'attendance' | 'health' | 'general';
+
+export interface ParentQuery {
+  id: string;
+  studentId: string;
+  studentName: string;
+  teacherId: string;
+  teacherName: string;
+  category: QueryCategory;
+  message: string;
+  reply: string;
+  status: 'open' | 'answered';
+  createdAt: string;
+}
+
+export type ReportTerm = 'term1' | 'term2';
+
+export interface TermAssessment {
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  periodicTests: number[];
+  portfolio: number;
+  subjectEnrichment: number;
+  termExamMarks: number;
+}
+
+export interface CoScholasticRecord {
+  workEducation: string;
+  artEducation: string;
+  healthPhysicalEducation: string;
+  discipline: string;
+  remarks: string;
+}
+
+export interface ReportCardData {
+  assessments: TermAssessment[];
+  coScholastic: CoScholasticRecord;
+}
+
 export type ExamMode = 'online' | 'offline';
 export type ExamLifecycleStatus =
   | 'draft'

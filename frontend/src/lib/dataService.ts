@@ -22,6 +22,12 @@ import {
   AdminAcademicOverviewData,
   Assignment,
   AssignmentAttachment,
+  DiaryEntry,
+  ReportTerm,
+  RemedialPlan,
+  ParentQuery,
+  QueryCategory,
+  ReportCardData,
   ExamQuestion,
   ExamAttempt,
   ExamAttemptResponse,
@@ -36,6 +42,8 @@ import { isSupabaseConfigured } from './supabase';
 import { TutorResponse } from './tutorTypes';
 import type { FeeInvoiceRecord, NoticeMessage } from './store';
 import { allStudentsInSchool } from './batchData';
+
+const NOTICE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 
@@ -414,6 +422,51 @@ export const dataService = {
       console.warn('[branding] update exception:', e);
       return false;
     }
+  },
+
+  // --- Notice read receipts ---
+  /** Records that `userId` opened these notices; already-read ones are left untouched. */
+  async markNoticesRead(noticeIds: string[], tenantId: string, userId: string): Promise<void> {
+    const ids = noticeIds.filter((id) => NOTICE_UUID.test(id));
+    if (!isSupabaseConfigured() || ids.length === 0) return;
+    const { error } = await authClient
+      .from('notice_reads')
+      .upsert(
+        ids.map((id) => ({ notice_id: id, tenant_id: tenantId, user_id: userId })),
+        { onConflict: 'notice_id,user_id', ignoreDuplicates: true },
+      );
+    if (error) console.warn('[notices] markNoticesRead error:', error.message);
+  },
+
+  /** Delivery stats for staff: how many recipients have opened each notice. */
+  async getNoticeReadCounts(noticeIds: string[]): Promise<Record<string, number>> {
+    const ids = noticeIds.filter((id) => NOTICE_UUID.test(id));
+    if (!isSupabaseConfigured() || ids.length === 0) return {};
+    const counts = await Promise.all(
+      ids.map(async (id) => {
+        const { count } = await authClient
+          .from('notice_reads')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('notice_id', id);
+        return [id, count ?? 0] as const;
+      }),
+    );
+    return Object.fromEntries(counts);
+  },
+
+  /** Head-counts of users per role, used as the recipient total for a notice's audience. */
+  async getAudienceSizes(roles: string[]): Promise<Record<string, number>> {
+    if (!isSupabaseConfigured()) return {};
+    const sizes = await Promise.all(
+      roles.map(async (role) => {
+        const { count } = await authClient
+          .from('user_profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('role', role);
+        return [role, count ?? 0] as const;
+      }),
+    );
+    return Object.fromEntries(sizes);
   },
 
   // --- Notices & Circulars (Live Supabase Postgres) ---
@@ -1322,7 +1375,7 @@ export const dataService = {
       callerId?: string;
       callerRole?: string;
     },
-  ): Promise<{ success: boolean; total: number; notified: number; skipped_unchanged: number; failed: number; message?: string }> {
+  ): Promise<{ success: boolean; synced: boolean; total: number; notified: number; skipped_unchanged: number; failed: number; message?: string }> {
     const targetDate = options?.date || new Date().toISOString().split('T')[0];
     const periodNumber = options?.periodNumber || 1;
 
@@ -1345,7 +1398,7 @@ export const dataService = {
 
         const { data, error } = await authClient.rpc('mark_attendance', payload);
         if (!error && data) {
-          return data;
+          return { ...data, synced: true };
         }
       } catch (err: any) {
         console.warn('[attendance] Supabase mark_attendance RPC error, using fallback:', err?.message);
@@ -1354,6 +1407,7 @@ export const dataService = {
 
     return {
       success: true,
+      synced: false,
       total: records.length,
       notified: records.filter((r) => r.status === 'absent' || r.status === 'late').length,
       skipped_unchanged: 0,
@@ -5752,6 +5806,336 @@ export const dataService = {
     } catch (e) {
       console.warn('[faculty] getFacultyList exception:', e);
       return [];
+    }
+  },
+
+  // --- Remedial plans ---
+  async getRemedialPlans(filter: { batchId?: string; studentId?: string } = {}): Promise<RemedialPlan[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = authClient
+        .from('remedial_plans')
+        .select(`
+          id, student_id, batch_id, subject_name, topic, resource_note, doubt_session_date,
+          trigger_score_pct, status, resolved_score_pct, created_at,
+          students:student_id (user_profiles:user_id (first_name, last_name))
+        `)
+        .order('created_at', { ascending: false });
+      if (filter.batchId) query = query.eq('batch_id', filter.batchId);
+      if (filter.studentId) query = query.eq('student_id', filter.studentId);
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('[remedial] getRemedialPlans error:', error.message);
+        return [];
+      }
+      return (data || []).map((r: any) => {
+        const profile = r.students?.user_profiles;
+        return {
+          id: r.id,
+          studentId: r.student_id,
+          studentName: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Student',
+          batchId: r.batch_id,
+          subjectName: r.subject_name,
+          topic: r.topic,
+          resourceNote: r.resource_note || '',
+          doubtSessionDate: r.doubt_session_date,
+          triggerScorePct: r.trigger_score_pct == null ? null : Number(r.trigger_score_pct),
+          status: r.status,
+          resolvedScorePct: r.resolved_score_pct == null ? null : Number(r.resolved_score_pct),
+          createdAt: r.created_at,
+        };
+      });
+    } catch (e) {
+      console.warn('[remedial] getRemedialPlans exception:', e);
+      return [];
+    }
+  },
+
+  async createRemedialPlan(input: {
+    tenantId: string;
+    teacherId: string;
+    studentId: string;
+    batchId: string;
+    subjectName: string;
+    topic: string;
+    resourceNote?: string;
+    doubtSessionDate?: string;
+    triggerScorePct?: number;
+  }): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    const { error } = await authClient.from('remedial_plans').insert({
+      tenant_id: input.tenantId,
+      teacher_id: input.teacherId,
+      student_id: input.studentId,
+      batch_id: input.batchId,
+      subject_name: input.subjectName,
+      topic: input.topic,
+      resource_note: input.resourceNote || null,
+      doubt_session_date: input.doubtSessionDate || null,
+      trigger_score_pct: input.triggerScorePct ?? null,
+    });
+    if (error) console.warn('[remedial] createRemedialPlan error:', error.message);
+    return !error;
+  },
+
+  async resolveRemedialPlan(planId: string, resolvedScorePct: number): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    const now = new Date().toISOString();
+    const { error } = await authClient
+      .from('remedial_plans')
+      .update({ status: 'resolved', resolved_score_pct: resolvedScorePct, resolved_at: now, updated_at: now })
+      .eq('id', planId);
+    if (error) console.warn('[remedial] resolveRemedialPlan error:', error.message);
+    return !error;
+  },
+
+  // --- Parent-teacher query desk ---
+  /** Queries visible to the caller, newest first. `escalated` = still open after 48h. */
+  async getQueries(filter: { parentUserId?: string; teacherId?: string; escalated?: boolean } = {}): Promise<ParentQuery[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = authClient
+        .from('parent_teacher_queries')
+        .select(`
+          id, student_id, teacher_id, category, message, reply, status, created_at,
+          students:student_id (user_profiles:user_id (first_name, last_name)),
+          teacher:teacher_id (first_name, last_name)
+        `)
+        .order('created_at', { ascending: false });
+      if (filter.parentUserId) query = query.eq('parent_user_id', filter.parentUserId);
+      if (filter.teacherId) query = query.eq('teacher_id', filter.teacherId);
+      if (filter.escalated) {
+        const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        query = query.eq('status', 'open').lt('created_at', cutoff);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('[queries] getQueries error:', error.message);
+        return [];
+      }
+      const fullName = (p: any) => (p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : '');
+      return (data || []).map((r: any) => ({
+        id: r.id,
+        studentId: r.student_id,
+        studentName: fullName(r.students?.user_profiles) || 'Student',
+        teacherId: r.teacher_id,
+        teacherName: fullName(r.teacher) || 'Teacher',
+        category: r.category,
+        message: r.message,
+        reply: r.reply || '',
+        status: r.status,
+        createdAt: r.created_at,
+      }));
+    } catch (e) {
+      console.warn('[queries] getQueries exception:', e);
+      return [];
+    }
+  },
+
+  async createQuery(input: {
+    tenantId: string;
+    parentUserId: string;
+    studentId: string;
+    teacherId: string;
+    category: QueryCategory;
+    message: string;
+  }): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    const { error } = await authClient.from('parent_teacher_queries').insert({
+      tenant_id: input.tenantId,
+      parent_user_id: input.parentUserId,
+      student_id: input.studentId,
+      teacher_id: input.teacherId,
+      category: input.category,
+      message: input.message,
+    });
+    if (error) console.warn('[queries] createQuery error:', error.message);
+    return !error;
+  },
+
+  async replyToQuery(queryId: string, reply: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    const { error } = await authClient
+      .from('parent_teacher_queries')
+      .update({ reply, status: 'answered', replied_at: new Date().toISOString() })
+      .eq('id', queryId);
+    if (error) console.warn('[queries] replyToQuery error:', error.message);
+    return !error;
+  },
+
+  // --- CBSE report card inputs ---
+  async getReportCardData(studentId: string, academicYear: string, term: ReportTerm): Promise<ReportCardData> {
+    const empty: ReportCardData = {
+      assessments: [],
+      coScholastic: { workEducation: '', artEducation: '', healthPhysicalEducation: '', discipline: '', remarks: '' },
+    };
+    if (!isSupabaseConfigured() || !studentId) return empty;
+    try {
+      const scope = { student_id: studentId, academic_year: academicYear, term };
+      const [assessments, coScholastic] = await Promise.all([
+        authClient
+          .from('student_term_assessments')
+          .select('subject_id, periodic_tests, portfolio, subject_enrichment, term_exam_marks, subjects:subject_id (name, code)')
+          .match(scope),
+        authClient.from('student_coscholastic_grades').select('*').match(scope).maybeSingle(),
+      ]);
+      if (assessments.error) console.warn('[report-card] assessments error:', assessments.error.message);
+      const co = coScholastic.data;
+      return {
+        assessments: (assessments.data || []).map((a: any) => ({
+          subjectId: a.subject_id,
+          subjectCode: a.subjects?.code || '',
+          subjectName: a.subjects?.name || 'Subject',
+          periodicTests: (a.periodic_tests || []).map(Number),
+          portfolio: Number(a.portfolio),
+          subjectEnrichment: Number(a.subject_enrichment),
+          termExamMarks: Number(a.term_exam_marks),
+        })),
+        coScholastic: co
+          ? {
+              workEducation: co.work_education || '',
+              artEducation: co.art_education || '',
+              healthPhysicalEducation: co.health_physical_education || '',
+              discipline: co.discipline || '',
+              remarks: co.teacher_remarks || '',
+            }
+          : empty.coScholastic,
+      };
+    } catch (e) {
+      console.warn('[report-card] getReportCardData exception:', e);
+      return empty;
+    }
+  },
+
+  async saveReportCardData(input: {
+    tenantId: string;
+    userId: string;
+    studentId: string;
+    academicYear: string;
+    term: ReportTerm;
+    data: ReportCardData;
+  }): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    const base = {
+      tenant_id: input.tenantId,
+      student_id: input.studentId,
+      academic_year: input.academicYear,
+      term: input.term,
+      updated_by: input.userId,
+      updated_at: new Date().toISOString(),
+    };
+    const co = input.data.coScholastic;
+    try {
+      const [assessments, coScholastic] = await Promise.all([
+        input.data.assessments.length === 0
+          ? { error: null }
+          : authClient.from('student_term_assessments').upsert(
+              input.data.assessments.map((a) => ({
+                ...base,
+                subject_id: a.subjectId,
+                periodic_tests: a.periodicTests,
+                portfolio: a.portfolio,
+                subject_enrichment: a.subjectEnrichment,
+                term_exam_marks: a.termExamMarks,
+              })),
+              { onConflict: 'student_id,subject_id,academic_year,term' },
+            ),
+        authClient.from('student_coscholastic_grades').upsert(
+          {
+            ...base,
+            work_education: co.workEducation || null,
+            art_education: co.artEducation || null,
+            health_physical_education: co.healthPhysicalEducation || null,
+            discipline: co.discipline || null,
+            teacher_remarks: co.remarks || null,
+          },
+          { onConflict: 'student_id,academic_year,term' },
+        ),
+      ]);
+      const error = assessments.error || coScholastic.error;
+      if (error) console.warn('[report-card] save error:', error.message);
+      return !error;
+    } catch (e) {
+      console.warn('[report-card] save exception:', e);
+      return false;
+    }
+  },
+
+  // --- Daily School Diary ---
+  /** Published diary entries for a class, newest day first. Pass `date` for a single day. */
+  async getDiaryEntries(batchId: string, date?: string): Promise<DiaryEntry[]> {
+    if (!isSupabaseConfigured() || !batchId) return [];
+    try {
+      let query = authClient
+        .from('daily_class_diaries')
+        .select(`
+          id, batch_id, subject_id, diary_date, classwork_text, homework_text,
+          subjects:subject_id (name),
+          teacher:teacher_id (first_name, last_name)
+        `)
+        .eq('batch_id', batchId)
+        .eq('is_published', true)
+        .order('diary_date', { ascending: false })
+        .order('created_at', { ascending: true });
+      query = date ? query.eq('diary_date', date) : query.limit(60);
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('[diary] getDiaryEntries error:', error.message);
+        return [];
+      }
+      return (data || []).map((d: any) => ({
+        id: d.id,
+        batchId: d.batch_id,
+        subjectId: d.subject_id,
+        subject: d.subjects?.name || 'General',
+        teacherName: d.teacher ? `${d.teacher.first_name || ''} ${d.teacher.last_name || ''}`.trim() : 'Faculty',
+        date: d.diary_date,
+        classwork: d.classwork_text,
+        homework: d.homework_text || '',
+      }));
+    } catch (e) {
+      console.warn('[diary] getDiaryEntries exception:', e);
+      return [];
+    }
+  },
+
+  /** Create or update the day's entry for a (class, subject). */
+  async saveDiaryEntry(input: {
+    tenantId: string;
+    teacherId: string;
+    batchId: string;
+    subjectId: string;
+    date: string;
+    classwork: string;
+    homework?: string;
+  }): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await authClient.from('daily_class_diaries').upsert(
+        {
+          tenant_id: input.tenantId,
+          teacher_id: input.teacherId,
+          batch_id: input.batchId,
+          subject_id: input.subjectId,
+          diary_date: input.date,
+          classwork_text: input.classwork,
+          homework_text: input.homework || null,
+          is_published: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tenant_id,batch_id,subject_id,diary_date' },
+      );
+      if (error) {
+        console.warn('[diary] saveDiaryEntry error:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[diary] saveDiaryEntry exception:', e);
+      return false;
     }
   },
 

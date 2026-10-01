@@ -6,6 +6,8 @@ import { dataService } from '@/lib/dataService';
 import { teacherBatches } from '@/lib/batchData';
 import { Batch, LeaveRequest } from '@/lib/types';
 import { StatCard, SectionCard, Badge } from '@/components/ui';
+import { RemedialPlansCard } from '@/components/common/RemedialPlansCard';
+import { EscalatedQueriesCard } from '@/components/common/EscalatedQueriesCard';
 import {
   Users,
   IndianRupee,
@@ -103,6 +105,9 @@ export const PrincipalOverview: React.FC<{ onNavigate: (tab: string) => void }> 
           onClick={() => onNavigate('approvals')}
         />
       </div>
+
+      <EscalatedQueriesCard />
+      <RemedialPlansCard showStudent />
 
       {/* Main grid */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">

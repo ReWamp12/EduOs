@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore, saveAttendanceSession, AttendanceEntry } from '@/lib/store';
 import { useTeacherBatch } from '@/lib/teacherContext';
 import { dataService } from '@/lib/dataService';
+import { enqueueAttendance, flushAttendanceQueue, readAttendanceQueue } from '@/lib/attendanceQueue';
 import {
   Send,
   Users,
@@ -59,11 +60,24 @@ export const TeacherAttendance: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [pendingSync, setPendingSync] = useState(0);
   const [dbDefaulters, setDbDefaulters] = useState<any[]>([]);
+
+  const syncQueued = async () => {
+    if (readAttendanceQueue().length === 0) return;
+    const synced = await flushAttendanceQueue();
+    setPendingSync(readAttendanceQueue().length);
+    if (synced > 0) toast('Attendance synced', 'success', `${synced} saved register(s) reached the server.`);
+  };
 
   useEffect(() => {
     setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
-    const handleOnline = () => setIsOnline(true);
+    setPendingSync(readAttendanceQueue().length);
+    if (navigator.onLine) syncQueued();
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncQueued();
+    };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -200,11 +214,6 @@ export const TeacherAttendance: React.FC = () => {
 
   // Save Attendance to Store & Live Supabase Database
   const handleSubmit = async () => {
-    if (!isOnline) {
-      toast('Offline Marking Disabled', 'warning', 'You are currently offline. Attendance submission is paused until reconnected.');
-      return;
-    }
-
     setSubmitting(true);
     const activePeriodObj = PERIODS.find((p) => p.id === selectedPeriod) || PERIODS[0];
     const periodNum = parseInt(selectedPeriod.replace('p', ''), 10) || 1;
@@ -229,36 +238,38 @@ export const TeacherAttendance: React.FC = () => {
         records,
       });
 
-      // 2. Post to live Supabase / Backend Attendance Engine
-      let notifiedCount = records.filter((r) => r.status === 'absent' || r.status === 'late').length;
-      try {
-        const res = await dataService.markAttendance(
-          batch.id,
-          records.map((r) => ({
-            studentId: r.studentId,
-            status: r.status,
-            isExcusedMedical: r.status === 'medical',
-            remarks: r.remarks,
-          })),
-          {
-            date: selectedDate,
-            periodNumber: periodNum,
-            callerId: teacher?.id,
-            callerRole: 'teacher',
-          }
-        );
-        if (res && typeof res.notified === 'number') {
-          notifiedCount = res.notified;
-        }
-      } catch (err: any) {
-        console.warn('Backend markAttendance degraded to client store:', err?.message);
-      }
+      // 2. Send to the server, or keep on this device until it can be sent
+      const queued = {
+        batchId: batch.id,
+        date: selectedDate,
+        periodNumber: periodNum,
+        callerId: teacher?.id,
+        records: records.map((r) => ({
+          studentId: r.studentId,
+          status: r.status,
+          isExcusedMedical: r.status === 'medical',
+          remarks: r.remarks,
+        })),
+      };
+      const synced = isOnline
+        && (await dataService.markAttendance(queued.batchId, queued.records, {
+          date: queued.date,
+          periodNumber: queued.periodNumber,
+          callerId: queued.callerId,
+          callerRole: 'teacher',
+        })).synced;
 
-      toast(
-        'Attendance Saved & Synced',
-        'success',
-        `${presentCount} Present · ${absentCount} Absent. Real-time notifications dispatched to ${students.length} parent(s).`,
-      );
+      if (synced) {
+        toast(
+          'Attendance Saved & Synced',
+          'success',
+          `${presentCount} Present · ${absentCount} Absent. Notifications dispatched to parents.`,
+        );
+      } else {
+        enqueueAttendance(queued);
+        setPendingSync(readAttendanceQueue().length);
+        toast('Saved on this device', 'warning', 'No connection to the server. It will sync automatically when you are back online.');
+      }
     } catch (err: any) {
       console.error('Attendance submission error:', err);
       toast('Submission Error', 'error', err.message || 'Validation failed.');
@@ -393,12 +404,16 @@ export const TeacherAttendance: React.FC = () => {
         </div>
       </div>
 
-      {/* Offline Alert Banner */}
-      {!isOnline && (
-        <div className="flex items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft p-4 text-warning">
+      {/* Offline / pending-sync banner */}
+      {(!isOnline || pendingSync > 0) && (
+        <div role="status" className="flex items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft p-4 text-warning">
           <AlertTriangle size={18} className="shrink-0" />
           <div className="text-meta">
-            <span className="font-bold">Offline Mode Active:</span> Your browser has lost internet connection. Attendance marking and parental alert dispatch are paused until connectivity is restored.
+            {!isOnline && <span className="font-bold">Offline: </span>}
+            {!isOnline
+              ? 'You can keep marking attendance. Registers are saved on this device and sync automatically when you reconnect.'
+              : 'Syncing saved registers…'}
+            {pendingSync > 0 && ` ${pendingSync} register(s) waiting to sync.`}
           </div>
         </div>
       )}

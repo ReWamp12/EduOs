@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAppStore, markParentAlertsRead, clearSingleParentAlert, ParentAlert } from '@/lib/store';
-import { dataService } from '@/lib/dataService';
+import { useFamily } from '@/lib/familyContext';
 import { SectionCard, Badge, EmptyState } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { BellRing, CheckCheck, UserX, UserCheck, Clock, Award, CalendarClock, CheckCircle2, X, IndianRupee } from 'lucide-react';
@@ -40,19 +40,8 @@ const timeAgo = (ts: number) => {
 
 export const ParentAttendanceAlerts: React.FC = () => {
   const { parentAlerts } = useAppStore();
-  const [childNames, setChildNames] = useState<string[]>([]);
-
-  useEffect(() => {
-    let active = true;
-    dataService.getParentChildren().then((kids) => {
-      if (active && kids && kids.length > 0) {
-        setChildNames(kids.map((c) => c.name));
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { kids } = useFamily();
+  const childNames = React.useMemo(() => kids.map((k) => k.name), [kids]);
 
   const alerts = React.useMemo(() => {
     if (childNames.length > 0) {

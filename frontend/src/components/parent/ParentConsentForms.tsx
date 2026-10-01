@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
-import { Student } from '@/lib/types';
+import { useFamily } from '@/lib/familyContext';
 import { useAppStore, signConsentForm, declineConsentForm, DigitalConsentForm, ConsentResponse } from '@/lib/store';
 import { Card, StatCard, Badge, PageHeader, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -28,26 +28,7 @@ const CONSENT_VERSION = 'v2.4';
 export const ParentConsentForms: React.FC = () => {
   const { session } = useAuth();
   const { consentForms } = useAppStore();
-  const [children, setChildren] = useState<Student[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    dataService.getParentChildren().then((kids) => {
-      if (!active) return;
-      if (kids && kids.length > 0) {
-        setChildren(kids);
-        setSelectedChildId((prev) => prev || kids[0].id);
-      }
-      setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const currentChild = children.find((c) => c.id === selectedChildId) || children[0];
+  const { activeChild: currentChild } = useFamily();
 
   // E-Signature Modal State
   const [signingModalForm, setSigningModalForm] = useState<DigitalConsentForm | null>(null);
@@ -170,27 +151,6 @@ export const ParentConsentForms: React.FC = () => {
           title="Digital Consent Forms"
           subtitle="Legally versioned e-consent for field trips, medical care, remedial classes & media authorizations"
         />
-
-        {/* Multi-child switcher */}
-        {children.length > 1 && (
-          <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
-            <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
-            {children.map((ch) => (
-              <button
-                key={ch.id}
-                onClick={() => setSelectedChildId(ch.id)}
-                className={cn(
-                  'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
-                  selectedChildId === ch.id
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'text-text-secondary hover:bg-muted',
-                )}
-              >
-                {ch.name ? ch.name.split(' ')[0] : 'Child'} ({ch.batchName ? ch.batchName.split(' - ')[0] : ''})
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -301,7 +261,7 @@ export const ParentConsentForms: React.FC = () => {
                               : 'Consent Form Declined'} · {CONSENT_VERSION}
                           </div>
                           <div className="mt-0.5 text-micro">
-                            Recorded {form.signedOn || 'Today'} against legal parent account for <strong>{currentChild.name}</strong>. Legally binding e-consent archived in the institutional compliance registry.
+                            Recorded {form.signedOn || 'Today'} against legal parent account for <strong>{currentChild?.name}</strong>. Legally binding e-consent archived in the institutional compliance registry.
                           </div>
                         </div>
                       </div>
@@ -379,9 +339,9 @@ export const ParentConsentForms: React.FC = () => {
               <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-3 text-meta">
                 <div className="flex items-center gap-2.5">
                   <UserCheck size={16} className="text-primary" />
-                  <span>Student: <strong className="text-foreground">{currentChild.name}</strong></span>
+                  <span>Student: <strong className="text-foreground">{currentChild?.name}</strong></span>
                 </div>
-                <span className="text-micro text-text-tertiary">{(currentChild.batchName || 'Class 10').split(' - ')[0]} · {currentChild.rollNumber}</span>
+                <span className="text-micro text-text-tertiary">{(currentChild?.batchName || 'Class 10').split(' - ')[0]} · {currentChild?.rollNumber}</span>
               </div>
 
               {/* Parent Full Legal Name Input */}
@@ -447,7 +407,7 @@ export const ParentConsentForms: React.FC = () => {
                   <div className="text-meta text-foreground">
                     <span className="font-semibold block mb-0.5">Statutory Authorization Declaration</span>
                     <p className="text-micro text-text-secondary leading-relaxed">
-                      I, <strong className="text-foreground">{parentFullName || '[Your Full Name]'}</strong>, hereby authorize <strong>{currentChild.name}</strong> to participate in this activity. I confirm that I have reviewed all guidelines and instructions. I acknowledge that entering my full legal name above serves as a legally binding cryptographic digital e-signature ({CONSENT_VERSION}).
+                      I, <strong className="text-foreground">{parentFullName || '[Your Full Name]'}</strong>, hereby authorize <strong>{currentChild?.name}</strong> to participate in this activity. I confirm that I have reviewed all guidelines and instructions. I acknowledge that entering my full legal name above serves as a legally binding cryptographic digital e-signature ({CONSENT_VERSION}).
                     </p>
                   </div>
                 </label>

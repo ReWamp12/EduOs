@@ -1,9 +1,15 @@
 'use client';
 
+import type { jsPDF } from 'jspdf';
 import type { FeeInvoiceRecord } from './store';
 
+const RECEIPT_COPIES = ['School Copy', 'Bank Copy', 'Parent Copy'] as const;
+
+type SchoolInfo = { name: string; affiliation?: string; address?: string };
+
 /**
- * Generates and downloads an official fee receipt as a real PDF file.
+ * Generates and downloads an official fee receipt as a real PDF file — one
+ * page per copy (School, Bank, Parent), as Indian counters issue them.
  *
  * jsPDF is imported dynamically so it never enters the SSR bundle and only
  * loads when a receipt is actually requested.
@@ -14,7 +20,7 @@ import type { FeeInvoiceRecord } from './store';
  */
 export async function downloadFeeReceipt(
   inv: FeeInvoiceRecord,
-  school: { name: string; affiliation?: string; address?: string } = {
+  school: SchoolInfo = {
     name: 'Greenfield International Academy',
     affiliation: 'CBSE Affiliation No. 1030492 · School Code: 20491',
     address: 'Senior Wing Campus, Institutional Area, New Delhi - 110058',
@@ -23,10 +29,24 @@ export async function downloadFeeReceipt(
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
+  RECEIPT_COPIES.forEach((copy, i) => {
+    if (i > 0) doc.addPage();
+    drawReceiptPage(doc, inv, school, copy);
+  });
+
+  const safe = (inv.receiptNumber || inv.invoiceNumber || 'receipt').replace(/[^A-Za-z0-9._-]/g, '-');
+  const who = (inv.studentName || 'student').replace(/[^A-Za-z0-9]/g, '-');
+  doc.save(`Fee-Receipt-${safe}-${who}.pdf`);
+}
+
+function drawReceiptPage(doc: jsPDF, inv: FeeInvoiceRecord, school: SchoolInfo, copyLabel: string): void {
   const PAGE_W = doc.internal.pageSize.getWidth();
   const M = 48; // page margin
   const rs = (n: number) => `Rs. ${n.toLocaleString('en-IN')}`;
   let y = 56;
+
+  doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(100, 116, 139);
+  doc.text(copyLabel.toUpperCase(), PAGE_W - M, 32, { align: 'right' });
 
   // ---- School header -------------------------------------------------
   doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(15, 23, 42);
@@ -131,8 +151,4 @@ export async function downloadFeeReceipt(
   );
   y += 12;
   doc.text(`Generated on ${new Date().toLocaleString('en-IN')}`, PAGE_W / 2, y, { align: 'center' });
-
-  const safe = (inv.receiptNumber || inv.invoiceNumber || 'receipt').replace(/[^A-Za-z0-9._-]/g, '-');
-  const who = (inv.studentName || 'student').replace(/[^A-Za-z0-9]/g, '-');
-  doc.save(`Fee-Receipt-${safe}-${who}.pdf`);
 }

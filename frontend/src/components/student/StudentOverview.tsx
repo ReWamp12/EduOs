@@ -6,6 +6,7 @@ import { dataService } from '@/lib/dataService';
 import { Student, TimetableSlot } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { StatCard, SectionCard, Badge, Skeleton, SkeletonCard } from '@/components/ui';
+import { RemedialPlansCard } from '@/components/common/RemedialPlansCard';
 import {
   Clock,
   Trophy,
@@ -430,6 +431,8 @@ export const StudentOverview: React.FC<{ onNavigate: (tab: string) => void }> = 
           )}
         </div>
       </div>
+
+      <RemedialPlansCard studentId={student.id} />
     </div>
   );
 };

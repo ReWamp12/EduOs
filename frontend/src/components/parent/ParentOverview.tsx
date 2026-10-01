@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { dataService } from '@/lib/dataService';
-import { Student } from '@/lib/types';
+import { useFamily } from '@/lib/familyContext';
 import { useAppStore } from '@/lib/store';
 import { Card, Badge } from '@/components/ui';
 import { formatPct } from '@/lib/format';
 import { ParentAttendanceAlerts } from './ParentAttendanceAlerts';
+import { RemedialPlansCard } from '@/components/common/RemedialPlansCard';
 import {
   CreditCard,
   Calendar,
@@ -17,26 +17,7 @@ import {
 export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const { session } = useAuth();
   const { feeInvoices, consentForms, attendanceSessions } = useAppStore();
-  const [children, setChildren] = useState<Student[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    dataService.getParentChildren().then((kids) => {
-      if (!active) return;
-      if (kids && kids.length > 0) {
-        setChildren(kids);
-        setSelectedChildId((prev) => prev || kids[0].id);
-      }
-      setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const activeChild = children.find((c) => c.id === selectedChildId) || children[0];
+  const { activeChild } = useFamily();
 
   const childAttendancePct = React.useMemo(() => {
     if (!activeChild) return 96.5;
@@ -85,7 +66,7 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header + child switcher */}
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="eyebrow">Multi-child parent account</div>
@@ -93,28 +74,6 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
             Welcome, {parentName}
           </h2>
         </div>
-        {children.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
-            {children.map((child) => {
-              const isSelected = child.id === selectedChildId;
-              const firstName = child.name?.split(' ')[0] || child.name;
-              const gradeLabel = child.batchName?.split(' — ')[0] || 'Class 10';
-              return (
-                <button
-                  key={child.id}
-                  onClick={() => setSelectedChildId(child.id)}
-                  className={[
-                    'flex items-center gap-2 rounded-md px-3 py-1.5 text-meta transition-colors',
-                    isSelected ? 'bg-primary-soft font-semibold text-primary' : 'font-medium text-text-secondary hover:bg-muted',
-                  ].join(' ')}
-                >
-                  <img src={child.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
-                  {firstName} · {gradeLabel}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* Active child summary */}
@@ -212,6 +171,8 @@ export const ParentOverview: React.FC<{ onNavigate: (tab: string) => void }> = (
           </button>
         </Card>
       </div>
+
+      {activeChild && <RemedialPlansCard studentId={activeChild.id} />}
     </div>
   );
 };

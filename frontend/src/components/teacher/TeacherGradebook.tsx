@@ -9,11 +9,14 @@ import { ShieldCheck, Lock, Unlock, ClipboardList, Users, FileText, Award, Check
 import { PageHeader, SectionCard, StatCard, Badge, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { ReportCardGeneratorModal } from './ReportCardGeneratorModal';
+import { RemedialPlanModal } from './RemedialPlanModal';
 
 interface Row {
   marks: number;
   feedback: string;
 }
+
+const REMEDIAL_THRESHOLD_PCT = 50;
 
 export const TeacherGradebook: React.FC = () => {
   const { batch, students, teacher } = useTeacherBatch();
@@ -35,6 +38,7 @@ export const TeacherGradebook: React.FC = () => {
   const [pendingApprovalExams, setPendingApprovalExams] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState(false);
   const [selectedStudentForReport, setSelectedStudentForReport] = useState<Student | null>(null);
+  const [remedialStudent, setRemedialStudent] = useState<Student | null>(null);
 
   // Marks entry state kept per exam so switching tests preserves each one's grades.
   const [rowsByExam, setRowsByExam] = useState<Record<string, Record<string, Row>>>({});
@@ -295,6 +299,14 @@ export const TeacherGradebook: React.FC = () => {
                       </span>
                     </td>
                     <td className="text-right">
+                      {pct < REMEDIAL_THRESHOLD_PCT && (published || isPendingApproval) && (
+                        <button
+                          onClick={() => setRemedialStudent(student)}
+                          className="mr-3 text-xs font-semibold text-warning hover:underline"
+                        >
+                          Support plan
+                        </button>
+                      )}
                       <button
                         onClick={() => setSelectedStudentForReport(student)}
                         className="text-xs text-primary hover:underline font-semibold inline-flex items-center gap-1"
@@ -310,11 +322,20 @@ export const TeacherGradebook: React.FC = () => {
         </div>
       </SectionCard>
 
+      {remedialStudent && exam && (
+        <RemedialPlanModal
+          student={remedialStudent}
+          batchId={batch.id}
+          subjectName={exam.subject}
+          triggerScorePct={maxMarks ? Math.round(((rows[remedialStudent.id]?.marks ?? 0) / maxMarks) * 100) : 0}
+          onClose={() => setRemedialStudent(null)}
+        />
+      )}
+
       {/* Report Card Modal */}
       {selectedStudentForReport && (
         <ReportCardGeneratorModal
           student={selectedStudentForReport}
-          examTitle={exam.title}
           batchName={batch.name}
           isPrincipalSigned={published}
           onClose={() => setSelectedStudentForReport(null)}

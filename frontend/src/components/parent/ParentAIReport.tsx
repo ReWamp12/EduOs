@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { dataService } from '@/lib/dataService';
-import { Student } from '@/lib/types';
+import React, { useState } from 'react';
+import { useFamily } from '@/lib/familyContext';
 import { Card, SectionCard, StatCard, Badge, PageHeader, ProgressBar, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import {
@@ -27,24 +26,7 @@ type Lang = 'english' | 'hindi';
 export const ParentAIReport: React.FC = () => {
   const [lang, setLang] = useState<Lang>('english');
   const [isSynthesizingVoice, setIsSynthesizingVoice] = useState(false);
-  const [children, setChildren] = useState<Student[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
-
-  useEffect(() => {
-    let active = true;
-    dataService.getParentChildren().then((kids) => {
-      if (!active) return;
-      if (kids && kids.length > 0) {
-        setChildren(kids);
-        setSelectedChildId(kids[0].id);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const activeChild = children.find((c) => c.id === selectedChildId) || children[0];
+  const { activeChild } = useFamily();
   const childName = activeChild?.name || 'Student';
   const attendanceDisplay = `${Math.round(activeChild?.attendancePct || 94.2)}%`;
 
@@ -91,24 +73,6 @@ export const ParentAIReport: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {children.length > 1 && (
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1 shadow-2xs mr-2">
-              {children.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedChildId(c.id)}
-                  className={cn(
-                    'rounded-md px-2.5 py-1 text-meta font-medium transition-colors',
-                    selectedChildId === c.id
-                      ? 'bg-primary text-white shadow-2xs'
-                      : 'text-text-secondary hover:bg-muted',
-                  )}
-                >
-                  {c.name.split(' ')[0]}
-                </button>
-              ))}
-            </div>
-          )}
           <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface p-1 shadow-2xs">
             {(['english', 'hindi'] as Lang[]).map((l) => (
               <button

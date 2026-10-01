@@ -36,6 +36,10 @@ import { ParentBusTracking } from '@/components/parent/ParentBusTracking';
 import { ParentAIReport } from '@/components/parent/ParentAIReport';
 import { ParentFeedback } from '@/components/parent/ParentFeedback';
 import { ParentExamHistory } from '@/components/parent/ParentExamHistory';
+import { ParentDiary } from '@/components/parent/ParentDiary';
+import { ParentQueries } from '@/components/parent/ParentQueries';
+import { ParentSiblingBar } from '@/components/parent/ParentSiblingBar';
+import { FamilyProvider } from '@/lib/familyContext';
 
 // Teacher Components
 import { TeacherOverview } from '@/components/teacher/TeacherOverview';
@@ -204,6 +208,10 @@ export default function Home() {
             return <ParentBusTracking />;
           case 'ai_report':
             return <ParentAIReport />;
+          case 'diary':
+            return <ParentDiary />;
+          case 'queries':
+            return <ParentQueries />;
           case 'exam_history':
             return <ParentExamHistory />;
           case 'feedback':
@@ -314,6 +322,28 @@ export default function Home() {
     }
   };
 
+  const pageContent = (
+    <div key={`${activeRole}-${activeTab}`} className="mx-auto max-w-[1360px] animate-fade-in">
+      {activeTab === 'settings' ? (
+        <SettingsView onNavigate={setActiveTab} />
+      ) : activeRole === 'teacher' ? (
+        <TeacherWorkspace
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          batchId={teacherBatchId}
+          setBatchId={handleTeacherBatchSelect}
+        />
+      ) : activeRole === 'parent' ? (
+        <>
+          <ParentSiblingBar />
+          {renderContent()}
+        </>
+      ) : (
+        renderContent()
+      )}
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Role-aware sidebar (sticky on desktop, drawer on mobile) */}
@@ -336,21 +366,7 @@ export default function Home() {
         />
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div key={`${activeRole}-${activeTab}`} className="mx-auto max-w-[1360px] animate-fade-in">
-            {activeTab === 'settings' ? (
-              <SettingsView onNavigate={setActiveTab} />
-            ) : activeRole === 'teacher' ? (
-              <TeacherWorkspace
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                batchId={teacherBatchId}
-                setBatchId={handleTeacherBatchSelect}
-              />
-            ) : (
-              renderContent()
-            )}
-          </div>
-
+          {activeRole === 'parent' ? <FamilyProvider>{pageContent}</FamilyProvider> : pageContent}
         </main>
       </div>
 

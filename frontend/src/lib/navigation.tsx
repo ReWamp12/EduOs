@@ -36,6 +36,9 @@ import {
   Bot,
   TrendingUp,
   BarChart3,
+  NotebookPen,
+  LifeBuoy,
+  MessageSquareText,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -86,6 +89,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'overview', label: 'Child Overview', icon: <LayoutDashboard size={ICON} /> },
     ]},
     { label: 'Academics', items: [
+      { id: 'diary', label: 'Daily Diary', icon: <NotebookPen size={ICON} /> },
       { id: 'exam_history', label: 'Exam History', icon: <Trophy size={ICON} /> },
       { id: 'notices', label: 'School Notices', icon: <BellRing size={ICON} /> },
     ]},
@@ -94,6 +98,7 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'consent', label: 'Digital Consent', icon: <FileCheck2 size={ICON} /> },
     ]},
     { label: 'Engagement', items: [
+      { id: 'queries', label: 'Ask a Teacher', icon: <MessageSquareText size={ICON} /> },
       { id: 'ptm', label: 'PTM Scheduler', icon: <Calendar size={ICON} /> },
       { id: 'feedback', label: 'Profile & Feedback', icon: <HeartPulse size={ICON} /> },
     ]},
@@ -110,10 +115,13 @@ export const NAV_CONFIG: Record<UserRole, NavGroup[]> = {
       { id: 'attendance', label: 'Mark Attendance', icon: <CalendarCheck2 size={ICON} /> },
       { id: 'students', label: 'Student Directory & IDs', icon: <Users size={ICON} /> },
       { id: 'curriculum', label: 'Curriculum & Syllabus', icon: <BookOpen size={ICON} /> },
+      { id: 'diary', label: 'Daily Diary', icon: <NotebookPen size={ICON} /> },
       { id: 'assignments', label: 'Assignments & DPPs', icon: <FileText size={ICON} /> },
       { id: 'consent', label: 'Digital Consent & Trips', icon: <FileSignature size={ICON} /> },
       { id: 'gradebook', label: 'Gradebook & Publish', icon: <ClipboardList size={ICON} /> },
       { id: 'exams', label: 'Exams', icon: <Trophy size={ICON} /> },
+      { id: 'queries', label: 'Parent Queries', icon: <MessageSquareText size={ICON} /> },
+      { id: 'remedial', label: 'Remedial Support', icon: <LifeBuoy size={ICON} /> },
       { id: 'ai_question_studio', label: 'AI Question Studio', icon: <Sparkles size={ICON} /> },
     ]},
     { label: 'Schedule & Leave', items: [

@@ -8,6 +8,9 @@ import { TeacherOverview } from './TeacherOverview';
 import { TeacherAttendance } from './TeacherAttendance';
 import { TeacherStudentDirectory } from './TeacherStudentDirectory';
 import { TeacherAssignments } from './TeacherAssignments';
+import { TeacherDiary } from './TeacherDiary';
+import { TeacherRemedial } from './TeacherRemedial';
+import { TeacherQueries } from './TeacherQueries';
 import { TeacherConsentForms } from './TeacherConsentForms';
 import { TeacherGradebook } from './TeacherGradebook';
 import { TeacherExams } from './TeacherExams';
@@ -142,6 +145,12 @@ export const TeacherWorkspace: React.FC<Props> = ({ activeTab, setActiveTab, bat
         return <TeacherStudentDirectory />;
       case 'curriculum':
         return <CurriculumTracker onNavigate={setActiveTab} />;
+      case 'queries':
+        return <TeacherQueries />;
+      case 'remedial':
+        return <TeacherRemedial />;
+      case 'diary':
+        return <TeacherDiary />;
       case 'assignments':
         return <TeacherAssignments />;
       case 'consent':

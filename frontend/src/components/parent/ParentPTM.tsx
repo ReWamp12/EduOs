@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { dataService } from '@/lib/dataService';
-import { Student } from '@/lib/types';
+import { useFamily } from '@/lib/familyContext';
 import { Card, Badge, PageHeader, cn } from '@/components/ui';
 import { Calendar, Clock, Video, MapPin, Check, CalendarCheck } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
@@ -13,29 +13,21 @@ import { useAppStore, addPtmBooking } from '@/lib/store';
 export const ParentPTM: React.FC = () => {
   const { session } = useAuth();
   const { ptmBookings } = useAppStore();
-  const [children, setChildren] = useState<Student[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const { activeChild } = useFamily();
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [dbBookings, setDbBookings] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!activeChild?.id) return;
     let active = true;
-    dataService.getParentChildren().then((kids) => {
-      if (!active) return;
-      if (kids && kids.length > 0) {
-        setChildren(kids);
-        setSelectedChildId((prev) => prev || kids[0].id);
-        dataService.getPtmBookings(kids[0].id).then((b) => {
-          if (active && b) setDbBookings(b);
-        });
-      }
+    dataService.getPtmBookings(activeChild.id).then((b) => {
+      if (active) setDbBookings(b || []);
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeChild?.id]);
 
-  const activeChild = children.find((c) => c.id === selectedChildId) || children[0];
   const studentName = activeChild?.name || 'Student';
 
   const bookingFor = (teacherId: string, slot: string) =>
@@ -123,25 +115,6 @@ export const ParentPTM: React.FC = () => {
           title="Parent–teacher meetings"
           subtitle="Book 1-on-1 consultations with faculty mentors (in-person or video call)"
         />
-        {children.length > 1 && (
-          <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
-            <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
-            {children.map((ch) => (
-              <button
-                key={ch.id}
-                onClick={() => setSelectedChildId(ch.id)}
-                className={cn(
-                  'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
-                  selectedChildId === ch.id
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'text-text-secondary hover:bg-muted',
-                )}
-              >
-                {ch.name ? ch.name.split(' ')[0] : 'Child'}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

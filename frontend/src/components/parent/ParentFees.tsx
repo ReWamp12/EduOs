@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/lib/useTenant';
 import { useAppStore, payFeeInvoice, FeeInvoiceRecord } from '@/lib/store';
 import { dataService } from '@/lib/dataService';
-import { Student } from '@/lib/types';
+import { useFamily } from '@/lib/familyContext';
 import { downloadFeeReceipt } from '@/lib/receipt';
 import { Card, SectionCard, StatCard, Badge, PageHeader, EmptyState, cn } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
@@ -39,19 +39,16 @@ export const ParentFees: React.FC = () => {
   // EDUOS-129: children and the fee ledger both come from Supabase, scoped by
   // RLS to this guardian. The local store is used only when Supabase is not
   // configured at all — never merged, so invoice IDs can never mix.
-  const [children, setChildren] = useState<Student[] | null>(null);
+  const { activeChild: currentChild, loading: familyLoading } = useFamily();
   const [dbInvoices, setDbInvoices] = useState<FeeInvoiceRecord[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    Promise.all([dataService.getParentChildren(), dataService.getFeeInvoices()]).then(([kids, rows]) => {
+    dataService.getFeeInvoices().then((rows) => {
       if (!active) return;
-      setChildren(kids);
       setDbInvoices(rows);
-      if (kids?.length) setSelectedChildId((prev) => prev || kids[0].id);
-      setLoading(false);
+      setInvoicesLoading(false);
     });
     return () => {
       active = false;
@@ -59,8 +56,7 @@ export const ParentFees: React.FC = () => {
   }, []);
 
   const liveMode = dbInvoices !== null;
-  const childList = children ?? [];
-  const currentChild = childList.find((c) => c.id === selectedChildId) || childList[0] || null;
+  const loading = familyLoading || invoicesLoading;
 
   // Filter invoices for the selected child. RLS already limits the rows to
   // this guardian's children; the name match picks one child of several.
@@ -179,7 +175,7 @@ export const ParentFees: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header + Multi-Child Switcher */}
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Fees & Payment Receipts"
@@ -190,27 +186,6 @@ export const ParentFees: React.FC = () => {
             </>
           }
         />
-
-        {/* Multi-child switcher */}
-        {childList.length > 1 && (
-          <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-border/80 bg-surface p-1.5 shadow-2xs">
-            <span className="text-micro font-medium text-text-tertiary px-2">Child:</span>
-            {childList.map((ch) => (
-              <button
-                key={ch.id}
-                onClick={() => setSelectedChildId(ch.id)}
-                className={cn(
-                  'rounded-lg px-3 py-1 text-meta font-medium transition-colors',
-                  selectedChildId === ch.id
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'text-text-secondary hover:bg-muted',
-                )}
-              >
-                {ch.name.split(' ')[0]} ({ch.batchName})
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Summary Stat Cards */}

@@ -1,34 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Student } from '@/lib/types';
-import { dataService } from '@/lib/dataService';
+import React from 'react';
+import { useFamily } from '@/lib/familyContext';
 import { useAppStore } from '@/lib/store';
 import { PageHeader, Card, StatCard, Badge, ProgressBar, EmptyState, cn } from '@/components/ui';
 import { Trophy, TrendingUp, ClipboardList, CalendarClock, FileText } from 'lucide-react';
 
 export const ParentExamHistory: React.FC = () => {
   const { exams } = useAppStore();
-  const [children, setChildren] = useState<Student[]>([]);
-  const [childId, setChildId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    dataService.getParentChildren().then((kids) => {
-      if (!active) return;
-      if (kids && kids.length > 0) {
-        setChildren(kids);
-        setChildId((prev) => prev || kids[0].id);
-      }
-      setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const child = children.find((c) => c.id === childId) || children[0];
+  const { activeChild: child } = useFamily();
 
   const cName = (child?.name || '').toLowerCase().trim();
   const cFirst = cName.split(' ')[0] || '';
@@ -53,24 +33,6 @@ export const ParentExamHistory: React.FC = () => {
       <PageHeader
         title="Exam history"
         subtitle="Your child's assessments, scores and upcoming exams."
-        actions={
-          children.length > 1 ? (
-            <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-xs">
-              {children.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setChildId(c.id)}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-meta transition-colors',
-                    c.id === childId ? 'bg-primary-soft font-semibold text-primary' : 'font-medium text-text-secondary hover:bg-muted',
-                  )}
-                >
-                  {c.name ? c.name.split(' ')[0] : 'Child'}
-                </button>
-              ))}
-            </div>
-          ) : undefined
-        }
       />
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">

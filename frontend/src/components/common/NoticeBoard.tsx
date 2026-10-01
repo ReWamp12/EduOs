@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserRole } from '@/lib/types';
 import { useAppStore, sendNotice, NoticeAudience, NoticeMessage } from '@/lib/store';
 import { dataService } from '@/lib/dataService';
@@ -50,6 +50,9 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
   const [category, setCategory] = useState<NoticeMessage['category']>('general');
   const [audience, setAudience] = useState<Set<NoticeAudience>>(new Set(allowed));
   const [filter, setFilter] = useState<'all' | NoticeMessage['category']>('all');
+  const [readCounts, setReadCounts] = useState<Record<string, number>>({});
+  const [audienceSizes, setAudienceSizes] = useState<Record<string, number>>({});
+  const markedRead = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -80,6 +83,34 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
     return n.audience.includes(role as NoticeAudience) || n.senderRole === role;
   });
   const visible = filter === 'all' ? inbox : inbox.filter((n) => n.category === filter);
+
+  // Recipients: opening the board counts as reading every notice addressed to this role.
+  useEffect(() => {
+    if (!session || !['student', 'parent', 'teacher'].includes(role)) return;
+    const unread = inbox
+      .filter((n) => n.audience.includes(role as NoticeAudience) && n.senderRole !== role && !markedRead.current.has(n.id))
+      .map((n) => n.id);
+    if (unread.length === 0) return;
+    unread.forEach((id) => markedRead.current.add(id));
+    dataService.markNoticesRead(unread, session.tenantId, session.userId);
+  }, [inbox, role, session]);
+
+  // Senders: delivery tracking for the notices they can see.
+  useEffect(() => {
+    if (!canCompose) return;
+    let active = true;
+    Promise.all([
+      dataService.getNoticeReadCounts(inbox.map((n) => n.id)),
+      dataService.getAudienceSizes(['teacher', 'student', 'parent']),
+    ]).then(([counts, sizes]) => {
+      if (!active) return;
+      setReadCounts(counts);
+      setAudienceSizes(sizes);
+    });
+    return () => {
+      active = false;
+    };
+  }, [canCompose, inbox.length]);
 
   const toggleAudience = (a: NoticeAudience) => {
     setAudience((prev) => {
@@ -285,6 +316,11 @@ export const NoticeBoard: React.FC<{ role: UserRole }> = ({ role }) => {
                       {n.audience.map((a) => AUDIENCE_LABEL[a]).join(' · ')}
                     </span>
                   </span>
+                  {canCompose && readCounts[n.id] !== undefined && (
+                    <span className="inline-flex items-center gap-1.5 text-micro font-semibold text-text-secondary">
+                      Read by {readCounts[n.id]} of {n.audience.reduce((sum, a) => sum + (audienceSizes[a] ?? 0), 0)}
+                    </span>
+                  )}
                 </div>
               </Card>
             ))
