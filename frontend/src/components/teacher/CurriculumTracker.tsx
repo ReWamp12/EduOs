@@ -593,7 +593,7 @@ export const CurriculumTracker: React.FC<CurriculumTrackerProps> = ({ onNavigate
         <div className="flex items-center justify-between text-xs">
           <span className="font-semibold text-foreground flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-            <span>{selectedSubject.name} — Live Academic Pacing</span>
+            <span>{selectedSubject?.name ?? "Subject"} — Live Academic Pacing</span>
           </span>
           <span className="font-mono text-primary font-bold">{syllabusProgressPct}% Covered</span>
         </div>
@@ -611,7 +611,7 @@ export const CurriculumTracker: React.FC<CurriculumTrackerProps> = ({ onNavigate
           <AlertCircle size={36} className="mx-auto text-text-tertiary" />
           <h3 className="font-bold text-foreground">No Chapters Configured</h3>
           <p className="text-sm text-text-secondary max-w-md mx-auto">
-            No syllabus chapters have been added for {selectedSubject.name} in this class. Click "Add Chapter" to create the first unit.
+            No syllabus chapters have been added for {selectedSubject?.name ?? "this subject"} in this class. Click "Add Chapter" to create the first unit.
           </p>
           <button
             onClick={() => setShowAddChapterModal(true)}
