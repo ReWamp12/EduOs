@@ -27,3 +27,6 @@ backend/scripts/
 backend/_pdftest.mjs
 class 10 all boards resources.txt
 *.tsbuildinfo
+
+# Local docs
+docs/
