@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { dataService } from '@/lib/dataService';
+import { applyBrandColors } from '@/lib/branding';
 import { useSession } from '@/lib/auth/AuthProvider';
 import { Tenant } from '@/lib/types';
 import { PageHeader, SectionCard, Card, Badge, StatCard, cn } from '@/components/ui';
@@ -53,13 +54,8 @@ export const BrandingStudio: React.FC = () => {
   const [appName, setAppName] = useState(DEFAULTS.name);
   const [saving, setSaving] = useState(false);
 
-  const applyTokens = (p: string, s: string, a: string) => {
-    if (typeof document === 'undefined') return;
-    const root = document.documentElement;
-    if (p) root.style.setProperty('--primary', p);
-    if (s) root.style.setProperty('--secondary', s);
-    if (a) root.style.setProperty('--accent', a);
-  };
+  const applyTokens = (primary: string, secondary: string, accent: string) =>
+    applyBrandColors({ primary, secondary, accent });
 
   // Load tenants on mount
   useEffect(() => {
@@ -203,7 +199,7 @@ server {
         accentColor,
       });
       if (!ok) {
-        toast('Could not save branding', 'error', 'The database rejected the change.');
+        toast('Could not save branding', 'error', 'No changes were saved. You may not have permission to edit this school.');
         return;
       }
       applyTokens(primaryColor, secondaryColor, accentColor);

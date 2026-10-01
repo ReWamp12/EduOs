@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth/AuthProvider';
+import { TenantTheme } from '@/components/common/TenantTheme';
 
 export const metadata: Metadata = {
   title: 'EduOS — Multi-Tenant Education Operating System',
@@ -16,7 +17,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {/* EDUOS-102 — every route resolves identity through one provider. */}
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <TenantTheme />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

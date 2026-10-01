@@ -394,30 +394,30 @@ export const dataService = {
       tagline?: string;
     }
   ): Promise<boolean> {
-    if (!tenantId) return false;
+    if (!tenantId || !isSupabaseConfigured()) return false;
     try {
-      if (isSupabaseConfigured()) {
-        const updates: Record<string, any> = {
-          updated_at: new Date().toISOString(),
-        };
-        if (branding.name !== undefined) updates.name = branding.name;
-        if (branding.primaryColor !== undefined) updates.primary_color = branding.primaryColor;
-        if (branding.secondaryColor !== undefined) updates.secondary_color = branding.secondaryColor;
-        if (branding.accentColor !== undefined) updates.accent_color = branding.accentColor;
-        if (branding.customDomain !== undefined) updates.custom_domain = branding.customDomain;
-        if (branding.tagline !== undefined) updates.tagline = branding.tagline;
+      const updates: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (branding.name !== undefined) updates.name = branding.name;
+      if (branding.primaryColor !== undefined) updates.primary_color = branding.primaryColor;
+      if (branding.secondaryColor !== undefined) updates.secondary_color = branding.secondaryColor;
+      if (branding.accentColor !== undefined) updates.accent_color = branding.accentColor;
+      if (branding.customDomain !== undefined) updates.custom_domain = branding.customDomain;
+      if (branding.tagline !== undefined) updates.tagline = branding.tagline;
 
-        const { error } = await authClient
-          .from('tenants')
-          .update(updates)
-          .eq('id', tenantId);
+      // RLS can turn an update into a silent no-op, so require a returned row.
+      const { data, error } = await authClient
+        .from('tenants')
+        .update(updates)
+        .eq('id', tenantId)
+        .select('id');
 
-        if (error) {
-          console.warn('[branding] update error:', error.message);
-          return false;
-        }
+      if (error) {
+        console.warn('[branding] update error:', error.message);
+        return false;
       }
-      return true;
+      return (data?.length ?? 0) > 0;
     } catch (e) {
       console.warn('[branding] update exception:', e);
       return false;
